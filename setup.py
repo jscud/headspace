@@ -28,6 +28,6 @@ setup(
     author_email='me@jeffscudder.com',
     license='Apache 2.0',
     url='http://code.google.com/p/headspace/',
-    packages=['headspace'],
+    packages=['headspace', 'headspace.parser', 'headspace.low_level'],
     package_dir = {'headspace':'src/headspace'}
 )
