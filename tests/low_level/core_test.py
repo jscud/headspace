@@ -113,6 +113,14 @@ class ParseGroupsTest(unittest.TestCase):
     self.assertEqual(groups[1].get(1), '3')
     self.assertEqual(groups[2].get(1), '5')
 
+  def test_string_escaping(self):
+    groups = low_level.parse_string('(x y=\'a\\\'bc\')')
+    self.assertEqual(len(groups), 1)
+    self.assertEqual(groups[0].count, 2)
+    self.assertEqual(groups[0].get(1), 'x')
+    self.assertEqual(groups[0].get(2), "'a\\'bc'")
+    self.assertTrue('y' in groups[0].members)
+    
 
 def suite():
   return unittest.TestSuite((unittest.makeSuite(ParseGroupsTest,'test'),
