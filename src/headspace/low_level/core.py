@@ -35,6 +35,13 @@ class TokenReader(object):
     return None
 
 
+class MemberInfo(object):
+  
+  def __init__(self, name=None, position=None, value=None):
+    self.name = name
+    self.position = position
+    self.value = value
+
 class Group(object):
   """A collection of indexed values which may have names.
 
@@ -45,6 +52,8 @@ class Group(object):
   def __init__(self):
     self.members = {}
     self.count = 0
+    self.positions_for_names = {}
+    self.names_in_positions = {}
 
   def add(self, value, name=None):
     """Appends a value giving it the next numeric index."""
@@ -57,9 +66,11 @@ class Group(object):
       if not isinstance(name, (str, unicode)):
         raise IllegalIndexError('name must be a string')
       self.members[name] = value
+      self.positions_for_names[name] = position
     if not isinstance(position, int):
       raise IllegalIndexError('index number must be an integer')
     self.members[position] = value
+    self.names_in_positions[position] = name
 
   def getByName(self, name):
     if not isinstance(name, (str, unicode)):
@@ -79,6 +90,20 @@ class Group(object):
     if isinstance(key, (str, unicode)):
       return self.getByName(key)
     return self.getByIndex(key)
+
+  def info(self, pos=None, name=None):
+    token_info = MemberInfo()
+    if pos is not None:
+      token_info.value = self.getByIndex(pos)
+      token_info.position = pos
+      token_info.name = self.names_in_positions[pos]
+      return token_info
+    elif name is not None:
+      token_info.value = self.getByName(name)
+      token_info.position = self.positions_for_names[name]
+      token_info.name = name
+      return token_info
+    return None
 
 
 class SlottedGroup(Group):

@@ -120,6 +120,20 @@ class ParseGroupsTest(unittest.TestCase):
     self.assertEqual(groups[0].get(1), 'x')
     self.assertEqual(groups[0].get(2), "'a\\'bc'")
     self.assertTrue('y' in groups[0].members)
+
+  def test_get_info(self):
+    groups = low_level.parse_string('(a next=b 34 c=c)')
+    self.assertEqual(len(groups), 1)
+    self.assertEqual(groups[0].info(1).name, None)
+    self.assertEqual(groups[0].info(1).position, 1)
+    self.assertEqual(groups[0].info(pos=1).value, 'a')
+    self.assertEqual(groups[0].info(2).name, 'next')
+    self.assertEqual(groups[0].info(pos=2).position, 2)
+    self.assertEqual(groups[0].info(2).value, 'b')
+    self.assertEqual(groups[0].info(name='next').name, 'next')
+    self.assertEqual(groups[0].info(name='next').position, 2)
+    self.assertEqual(groups[0].info(name='next').value, 'b')
+
     
 
 def suite():
