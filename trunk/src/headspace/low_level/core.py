@@ -72,7 +72,7 @@ class Group(object):
     if not isinstance(num, int):
       raise IllegalIndexError('index number must be an integer')
     if num < 1 or num > self.count:
-      raise LookupFailed('index ' + num + ' out of range')
+      raise LookupFailed('index %s out of range' % str(num))
     return self.members[num]
 
   def get(self, key):
