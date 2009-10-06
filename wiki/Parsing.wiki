@@ -10,6 +10,7 @@ Tokens are the following:
 
 = Examples =
 
+== Simple assignment ==
 {{{
 x = 5
 }}}
@@ -19,6 +20,8 @@ Has tokens:
 {{{
 identifier 'x', symbol '=', number '5'
 }}}
+
+== Simple function call ==
 
 {{{
 printLine('Hello World')
