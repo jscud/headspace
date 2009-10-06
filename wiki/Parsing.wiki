@@ -4,9 +4,9 @@
 
 Tokens are the following:
 
-* special characters like ., /, :, =, [, ], {, }, (, and )
-* number and string literals like 99, 'Hello' and 'It\'s good to see you again.\n'
-* identifiers which start with a non-number and do not contain any special characters.
+  * special characters like ., /, :, =, [, ], {, }, (, and )
+  * number and string literals like 99, 'Hello' and 'It\'s good to see you again.\n'
+  * identifiers which start with a non-number and do not contain any special characters.
 
 = Examples =
 
