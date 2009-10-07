@@ -84,7 +84,6 @@ class ParseFunctionTest(unittest.TestCase):
     self.assertEqual(items[0].members['y'].members['f'].name_chain, ['foo'])
     self.assertEqual(items[0].members['y'].members['f'].members['0'].name_chain, ['temp'])
     
-    
 
 class ParseGroupTest(unittest.TestCase):
   

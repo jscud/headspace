@@ -1,4 +1,5 @@
 export PYTHONPATH="./src"
 python ./tests/parser/lex_test.py
 python ./tests/simple/core_test.py
+python ./tests/simple/translator_test.py
 
