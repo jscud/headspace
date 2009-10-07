@@ -5,6 +5,16 @@ import headspace.low_level.translate as simple_translate
 import headspace.low_level.core as low_level
 
 
+class ForignCodeToModuleTest(unittest.TestCase):
+
+  def test_add_statements(self):
+    module = simple_translate.string_to_module(
+        '[foreign C run \'printf("Hello World!\\n");\']', 'C')
+    self.assertEqual(len(module.imports), 0)
+    self.assertEqual(len(module.declarations), 0)
+    self.assertEqual(len(module.statements), 1)
+    self.assertEqual(module.statements[0], 'printf("Hello World!\\n");')
+
 class LangBlockTest(unittest.TestCase):
   
   def test_keep_literal_string(self):
@@ -60,12 +70,18 @@ class GroupTest(unittest.TestCase):
         simple_translate.translate_string(program, simple_translate.PHP),
         '$number = 7;')
 
+class HelloWorldTest(unittest.TestCase):
+ 
+  def test_print_hello_world(self):
+    program = '(main (print \'Hello World!\'))'
+    self.assertEqual(simple_translate.translate_string(program, 
+        simple_translate.PYTHON), 'if __name__ == \'__main__\':\n...')
+        #TODO: left off here.
+
 
 def suite():
-  return unittest.TestSuite((unittest.makeSuite(LangBlockTest,'test'),
-                             unittest.makeSuite(AssignmentTest,'test'),
-                             unittest.makeSuite(VarDeclarationTest,'test'),
-                             unittest.makeSuite(GroupTest,'test')))
+  return unittest.TestSuite(
+      (unittest.makeSuite(ForignCodeToModuleTest, 'test')))
 
 
 if __name__ == '__main__':
