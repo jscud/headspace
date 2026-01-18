@@ -65,6 +65,59 @@ class TestLexerTokenize(unittest.TestCase):
           ('NUMBER', '8.9')
         ), tokens)
 
+  def test_tokenize_strings(self):
+    sample_code = '\'hello\',\'it\\\'s inline\' "double quotes"-"it\'s great" \'to "mix"\''
+    tokens = lexer.tokenize(sample_code)
+    self.assertTokens((
+          ('STRING', '\'hello\''),
+          ('SYMBOL', ','),
+          ('STRING', '\'it\\\'s inline\''),
+          ('SPACE', ' '),
+          ('STRING', '"double quotes"'),
+          ('SYMBOL', '-'),
+          ('STRING', '"it\'s great"'),
+          ('SPACE', ' '),
+          ('STRING', '\'to "mix"\'')
+        ), tokens)
+
+  def test_tokenize_comments(self):
+    sample_code = '/**/ /* */ /******/ /* * /*/x//\n//*single line\n1'
+    tokens = lexer.tokenize(sample_code)
+    self.assertTokens((
+          ('COMMENT', '/**/'),
+          ('SPACE', ' '),
+          ('COMMENT', '/* */'),
+          ('SPACE', ' '),
+          ('COMMENT', '/******/'),
+          ('SPACE', ' '),
+          ('COMMENT', '/* * /*/'),
+          ('IDENTIFIER', 'x'),
+          ('COMMENT', '//\n'),
+          ('COMMENT', '//*single line\n'),
+          ('NUMBER', '1')
+        ), tokens)
+
+  def test_tokenize_symbols(self):
+    sample_code = 'ab,c/d+e;=$f:g.h'
+    tokens = lexer.tokenize(sample_code)
+    self.assertTokens((
+          ('IDENTIFIER', 'ab'),
+          ('SYMBOL', ','),
+          ('IDENTIFIER', 'c'),
+          ('SYMBOL', '/'),
+          ('IDENTIFIER', 'd'),
+          ('SYMBOL', '+'),
+          ('IDENTIFIER', 'e'),
+          ('SYMBOL', ';'),
+          ('SYMBOL', '='),
+          ('SYMBOL', '$'),
+          ('IDENTIFIER', 'f'),
+          ('SYMBOL', ':'),
+          ('IDENTIFIER', 'g'),
+          ('SYMBOL', '.'),
+          ('IDENTIFIER', 'h')
+        ), tokens)
+
 
 if __name__ == '__main__':
   unittest.main()
