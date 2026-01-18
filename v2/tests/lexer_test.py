@@ -29,6 +29,24 @@ class TestLexerTokenize(unittest.TestCase):
           ('IDENTIFIER', 'example')
         ), tokens)
 
+  def test_tokenizer_identifiers_and_whitespace(self):
+    sample_code = 'x y     multi_with_underscore   camelCase\nx1\ta2 \nc'
+    tokens = lexer.tokenize(sample_code)
+    self.assertTokens((
+          ('IDENTIFIER', 'x'),
+          ('SPACE', ' '),
+          ('IDENTIFIER', 'y'),
+          ('SPACE', '     '),
+          ('IDENTIFIER', 'multi_with_underscore'),
+          ('SPACE', '   '),
+          ('IDENTIFIER', 'camelCase'),
+          ('SPACE', '\n'),
+          ('IDENTIFIER', 'x1'),
+          ('SPACE', '\t'),
+          ('IDENTIFIER', 'a2'),
+          ('SPACE', ' \n'),
+          ('IDENTIFIER', 'c')
+        ), tokens)
 
 if __name__ == '__main__':
   unittest.main()
