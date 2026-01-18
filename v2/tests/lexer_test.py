@@ -48,6 +48,24 @@ class TestLexerTokenize(unittest.TestCase):
           ('IDENTIFIER', 'c')
         ), tokens)
 
+  def test_tokenize_numbers(self):
+    sample_code = '5 12 98234823 3.14 56.7.8.9'
+    tokens = lexer.tokenize(sample_code)
+    self.assertTokens((
+          ('NUMBER', '5'),
+          ('SPACE', ' '),
+          ('NUMBER', '12'),
+          ('SPACE', ' '),
+          ('NUMBER', '98234823'),
+          ('SPACE', ' '),
+          ('NUMBER', '3.14'),
+          ('SPACE', ' '),
+          ('NUMBER', '56.7'),
+          ('SYMBOL', '.'),
+          ('NUMBER', '8.9')
+        ), tokens)
+
+
 if __name__ == '__main__':
   unittest.main()
 
