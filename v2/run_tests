@@ -1,2 +1,3 @@
 export PYTHONPATH="./"
 python3 tests/lexer_test.py
+python3 tests/parser_test.py

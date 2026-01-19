@@ -15,11 +15,11 @@ class Token:
     self.content = content
     self.token_type = token_type
 
-  def print(self):
+  def print(self, indent_level=0):
     if self.token_type == 'SPACE':
-      print(self.token_type, '[', self.content, ']')
+      print(' ' * indent_level, self.token_type, '[', self.content, ']')
     else:
-      print(self.token_type, self.content)
+      print(' ' * indent_level, self.token_type, self.content)
 
 
 class Tokenizer:
