@@ -25,4 +25,5 @@ A single function program that prints "Hello World" to the terminal.
 
 To run the unit tests for the Headspace parser and translator, run the script:
 
-    sh ./v2/run_tests
+    cd v2
+    ./run_tests
