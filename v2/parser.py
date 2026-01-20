@@ -1,5 +1,8 @@
 
+import sys
+
 import lexer
+
 
 # Parse tree checklist:
 # function call
@@ -39,7 +42,16 @@ class Parser:
       return None
     return self._tokens[self.index]
 
+  def next_token(self, skip_count=1):
+    if self.index + skip_count >= self._tokens_len:
+      return None
+    # Skip spaces when looking ahead to next token.
+    elif self._tokens[self.index + skip_count].token_type == 'SPACE':
+      return self.next_token(skip_count + 1)
+    return self._tokens[self.index + skip_count]
+
   def process_whitespace(self, parent_node):
+    # TODO: consider removing this in favor of skipping whitespace.
     current_token = self.current_token()
     if current_token.token_type == 'SPACE':
       whitespace_tokens = []
@@ -51,12 +63,52 @@ class Parser:
         self.index += 1
         current_token = self.current_token()
 
+  def process_function_definition(self, parent_node):
+    current_token = self.current_token()
+    # The current token is the identifier 'function' to begin the declaration.
+    # TODO
+
+
+  def process_declaration(self, parent_node):
+    current_token = self.current_token()
+    declaration_tree = Node('DECLARATION')
+    self.process_whitespace(declaration_tree)
+    declaration_tree.members.append(Node('IDENTIFIER', [current_token.content], True))
+    self.index += 1
+    self.process_whitespace(declaration_tree)
+    current_token = self.current_token()
+    if current_token and current_token.matches('SYMBOL', ':'):
+      declaration_tree.members.append(Node('SYMBOL', [':'], True))
+    else:
+      print('Expected : after variable name in declaration')
+      sys.exit(1)
+    self.index += 1
+    self.process_whitespace(declaration_tree)
+    current_token = self.current_token()
+    if current_token and current_token.matches('IDENTIFIER', 'function'):
+      # This is a function declaration.
+      self.process_function_definition(declaration_tree)
+    else:
+      # This is a variable declaration, use this identifier as the type.
+      declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+      self.index += 1
+    parent_node.members.append(declaration_tree)
+
   def build_parse_tree(self):
     top_node = Node('MODULE')
     if not self._tokens or self._tokens_len == 0:
       return None
     # Consume any leading whitespace.
     self.process_whitespace(top_node)
+    current_token = self.current_token()
+    if current_token and current_token.token_type == 'IDENTIFIER':
+      # This could be a variable/function declaration, an execution statement, etc.
+      next_token = self.next_token()
+      if next_token and next_token.token_type == 'SYMBOL':
+        # Check the next token for a : which would make this a declaration.
+        if next_token.content == ':':
+          # This is a declaration.
+          self.process_declaration(top_node)
     return top_node
     
 

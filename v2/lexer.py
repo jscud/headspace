@@ -21,6 +21,9 @@ class Token:
     else:
       print(' ' * indent_level, self.token_type, self.content)
 
+  def matches(self, target_type, target_content):
+    return self.token_type == target_type and self.content == target_content
+
 
 class Tokenizer:
 
