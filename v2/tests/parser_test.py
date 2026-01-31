@@ -33,13 +33,19 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('VARIABLE_TYPE', tree.members[0].members[2].node_type)
     self.assertEqual('int32', tree.members[0].members[2].members[0])
     
-  def todo_test_parse_hello_world_example(self):
+  def test_parse_hello_world_example(self):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
-    print('Parsing sample program')
-    print(HELLO_WORLD_EXAMPLE)
+    #tree.print()
     self.assertEqual('MODULE', tree.node_type)
-    tree.print()
-    
+    self.assertEqual('FUNCTION_DECLARATION', tree.members[0].node_type)
+    self.assertEqual('IDENTIFIER', tree.members[0].members[0].node_type)
+    self.assertEqual('main', tree.members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_DEFINITION', tree.members[0].members[2].node_type)
+    self.assertEqual('FUNCTION_KEYWORD', tree.members[0].members[2].members[0].node_type)
+    self.assertEqual('function', tree.members[0].members[2].members[0].members[0])
+    self.assertEqual('FUNCTION_PARAMS_START', tree.members[0].members[2].members[1].node_type)
+    self.assertEqual('FUNCTION_PARAMS_END', tree.members[0].members[2].members[2].node_type)
+    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[3].node_type)
 
 
 if __name__ == '__main__':
