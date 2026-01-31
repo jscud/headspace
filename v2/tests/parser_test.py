@@ -20,8 +20,7 @@ class TestParserParse(unittest.TestCase):
   def test_parses_spaces(self):
     tree = parser.parse_source('   \n   ')
     self.assertEqual('MODULE', tree.node_type)
-    self.assertEqual(1, len(tree.members))
-    self.assertEqual('SPACES', tree.members[0].node_type)
+    self.assertEqual(0, len(tree.members))
 
   def test_parses_variable_declaration(self):
     tree = parser.parse_source('x: int32')
@@ -31,9 +30,8 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('x', tree.members[0].members[0].members[0])
     self.assertEqual('DECLARATION_MARKER', tree.members[0].members[1].node_type)
     self.assertEqual(':', tree.members[0].members[1].members[0])
-    self.assertEqual('SPACES', tree.members[0].members[2].node_type)
-    self.assertEqual('VARIABLE_TYPE', tree.members[0].members[3].node_type)
-    self.assertEqual('int32', tree.members[0].members[3].members[0])
+    self.assertEqual('VARIABLE_TYPE', tree.members[0].members[2].node_type)
+    self.assertEqual('int32', tree.members[0].members[2].members[0])
     
   def todo_test_parse_hello_world_example(self):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)

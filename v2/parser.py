@@ -57,9 +57,11 @@ class Parser:
       whitespace_tokens = []
       whitespace_node = Node('SPACES')
       whitespace_node.leaf = True
-      parent_node.members.append(whitespace_node)
+      # Leave out whitespace from the parse tree.
+      #parent_node.members.append(whitespace_node)
       while current_token and current_token.token_type == 'SPACE':
-        whitespace_node.members.append(current_token.content)
+        # Leave out whitespace from the parse tree.
+        #whitespace_node.members.append(current_token.content)
         self.index += 1
         current_token = self.current_token()
 
