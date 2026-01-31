@@ -29,7 +29,7 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('DECLARATION', tree.members[0].node_type)
     self.assertEqual('IDENTIFIER', tree.members[0].members[0].node_type)
     self.assertEqual('x', tree.members[0].members[0].members[0])
-    self.assertEqual('SYMBOL', tree.members[0].members[1].node_type)
+    self.assertEqual('DECLARATION_MARKER', tree.members[0].members[1].node_type)
     self.assertEqual(':', tree.members[0].members[1].members[0])
     self.assertEqual('SPACES', tree.members[0].members[2].node_type)
     self.assertEqual('VARIABLE_TYPE', tree.members[0].members[3].node_type)
