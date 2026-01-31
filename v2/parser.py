@@ -117,7 +117,6 @@ class Parser:
     self.index += 1
     parent_node.members.append(function_call)
     
-
   def process_code_block(self, parent_node):
     current_token = self.current_token()
     # We expect the code block to start with an opening [.
@@ -197,6 +196,7 @@ class Parser:
     current_token = self.current_token()
     if current_token and current_token.matches('IDENTIFIER', 'function'):
       # This is a function declaration.
+      declaration_tree.node_type = 'FUNCTION_DECLARATION'
       self.process_function_definition(declaration_tree)
     else:
       # This is a variable declaration, use this identifier as the type.
