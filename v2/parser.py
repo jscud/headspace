@@ -63,9 +63,69 @@ class Parser:
         self.index += 1
         current_token = self.current_token()
 
+  def process_identifier_chain(self, parent_node):
+    # Starts with an identifier, possibly followed by a . and another identifier.
+    current_token = self.current_token()
+    identifier_chain = Node('IDENTIFIER_CHAIN')
+    if not current_token or not current_token.token_type == 'IDENTIFIER':
+      print('Expected a chain of identifiers to start with an identifier')
+      sys.exit(1)
+    identifier_chain.members.append(Node('IDENTIFIER', [current_token.content], True))
+    next_token = self.next_token()
+    while next_token and next_token.matches('SYMBOL', '.'):
+      # Add the . that comes after the identifier.
+      self.index += 1
+      current_token = self.current_token()
+      identifier_chain.members.append(Node('SYMBOL', [current_token.content], True))
+      self.index += 1
+      current_token = self.current_token()
+      if not current_token or not current_token.token_type == 'IDENTIFIER':
+        print('Expected a chain of identifiers to have an identifier following a . (dot)')
+        sys.exit(1)
+      identifier_chain.members.append(Node('IDENTIFIER', [current_token.content], True))
+      #self.index += 1
+      #current_token = self.current_token()
+      print('at end of idenfier chain step')
+      print('current')
+      current_token.print()
+      next_token = self.next_token()
+      print('next')
+      next_token.print()
+    self.index += 1
+    parent_node.members.append(identifier_chain)  
+    
+  def process_argument_list(self, parent_node):
+    print('start of process arg list')
+    current_token = self.current_token()
+    argument_list = Node('ARGUMENTS')
+    print('current token')
+    current_token.print()
+    # TODO: consume tokens until reaching the closing ]
+    if current_token and current_token.token_type == 'STRING':
+      argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
+      self.index += 1
+    parent_node.members.append(argument_list)
+
   def process_function_call(self, parent_node):
     # Starts with an identifier followed by [.
-    pass
+    current_token = self.current_token()
+    function_call = Node('FUNCTION_CALL_ARGUMENTS')
+    if not current_token or not current_token.matches('SYMBOL', '['):
+      print('Expected a function call to have an opening [ after the identifier')
+      sys.exit(1)
+    function_call.members.append(Node('SYMBOL', [current_token.content], True))
+    self.index += 1
+    self.process_whitespace(function_call)
+    # After the opening block, get the list of all arguments.
+    self.process_argument_list(function_call)
+    self.process_whitespace(function_call)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', ']'):
+      print('Expected a function call to have a closing ] after the function arguments')
+      sys.exit(1)
+    function_call.members.append(Node('SYMBOL', [current_token.content], True))
+    self.index += 1
+    parent_node.members.append(function_call)
     
 
   def process_code_block(self, parent_node):
@@ -76,14 +136,26 @@ class Parser:
       print('Expected a [ to begin a code block')
       sys.exit(1)
     code_block.members.append(Node('SYMBOL', [current_token.content], True))
+    print('got here1 !')
     self.index += 1
     self.process_whitespace(code_block)
+    print('got here2 !')
     current_token = self.current_token()
     if current_token and current_token.token_type == 'IDENTIFIER':
-      next_token = self.next_token()
-      if next_token and next_token.matches('SYMBOL', '['):
+      sub_node = Node('temp')
+      self.process_whitespace(sub_node)
+      self.process_identifier_chain(sub_node)
+      self.process_whitespace(sub_node)
+      current_token = self.current_token()
+      print('got here3 !')
+      print('current token')
+      current_token.print()
+      if current_token and current_token.matches('SYMBOL', '['):
         # This is a function/method call.
-        self.process_function_call(code_block)
+        print('got here4 !')
+        self.process_function_call(sub_node)
+        sub_node.node_type = 'FUNCTION_CALL'
+        code_block.members.append(sub_node)
     parent_node.members.append(code_block)
 
   def process_function_definition(self, parent_node):
@@ -113,6 +185,10 @@ class Parser:
     self.index += 1
     self.process_whitespace(function_definition)
     self.process_code_block(function_definition) 
+    if not current_token or not current_token.matches('SYMBOL', ']'):
+      print('Expected a ] after the first [ in a function definition')
+      sys.exit(1)
+    function_definition.members.append(Node('SYMBOL', [current_token.content], True))
     parent_node.members.append(function_definition)
 
   def process_declaration(self, parent_node):
