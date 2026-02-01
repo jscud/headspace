@@ -11,6 +11,8 @@ import lexer
 # variable declaration
 # conditional statement (if)
 # loop statement (while)
+# assigment statement
+# module name
 
 
 class Node:
@@ -140,6 +142,31 @@ class Parser:
     self.index += 1
     parent_node.members.append(foreign_code_block)
 
+  def process_assignment(self, parent_node):
+    current_token = self.current_token()
+    # First version: assignment starts with an identifier.
+    assignment = Node('ASSIGNMENT')
+    if not current_token or current_token.token_type != 'IDENTIFIER':
+      print('Expected assignment to start with an identifier')
+      sys.exit(1)
+    assignment.members.append(Node('ASSIGNMENT_TARGET', [current_token.content], True))
+    self.index += 1
+    self.process_whitespace(assignment)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', '='):
+      print('Expected assignment to have a = after the identifier')
+      sys.exit(1)
+    assignment.members.append(Node('ASSIGNMENT_SYMBOL', [current_token.content], True))
+    self.index += 1
+    self.process_whitespace(assignment)
+    current_token = self.current_token()
+    if current_token and current_token.token_type == 'STRING':
+      assignment.members.append(Node('STRING_LITERAL', [current_token.content], True))
+    elif current_token and current_token.token_type == 'NUMBER':
+      assignment.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
+    self.index += 1
+    parent_node.members.append(assignment)
+
   def process_code_block(self, parent_node):
     current_token = self.current_token()
     # We expect the code block to start with an opening [.
@@ -246,6 +273,8 @@ class Parser:
         if next_token.content == ':':
           # This is a declaration.
           self.process_declaration(top_node)
+        elif next_token.content == '=':
+          self.process_assignment(top_node)
     return top_node
     
 
