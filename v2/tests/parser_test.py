@@ -8,6 +8,16 @@ HELLO_WORLD_EXAMPLE = """
     ]
 """
 
+FOREIGN_CODE_EXAMPLE = """
+main: function[][
+  BEGIN_FOREIGN_CODE_C
+  int x = 10;
+  printf("Hello World\\n");
+  printf("%i\\n", x);
+  END_FOREIGN_CODE_C
+]
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -35,7 +45,6 @@ class TestParserParse(unittest.TestCase):
     
   def test_parse_hello_world_example(self):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
-    #tree.print()
     self.assertEqual('MODULE', tree.node_type)
     self.assertEqual('FUNCTION_DECLARATION', tree.members[0].node_type)
     self.assertEqual('IDENTIFIER', tree.members[0].members[0].node_type)
@@ -46,6 +55,14 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('FUNCTION_PARAMS_START', tree.members[0].members[2].members[1].node_type)
     self.assertEqual('FUNCTION_PARAMS_END', tree.members[0].members[2].members[2].node_type)
     self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[3].node_type)
+
+  def test_parse_foreign_code_example(self):
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    #tree.print()
+    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[3].node_type)
+    self.assertEqual('CODE_BLOCK_START', tree.members[0].members[2].members[3].members[0].node_type)
+    self.assertEqual('FOREIGN_CODE_BLOCK', tree.members[0].members[2].members[3].members[1].node_type)
+    self.assertEqual('CODE_BLOCK_END', tree.members[0].members[2].members[3].members[2].node_type)
 
 
 if __name__ == '__main__':

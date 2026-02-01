@@ -5,8 +5,12 @@ import lexer
 
 
 # Parse tree checklist:
-# function call
-# function declaration
+# function call - done
+# function declaration - done
+# foreign code block
+# variable declaration
+# conditional statement (if)
+# loop statement (while)
 
 
 class Node:
@@ -118,7 +122,24 @@ class Parser:
     function_call.members.append(Node('ARG_LIST_END', [current_token.content], True))
     self.index += 1
     parent_node.members.append(function_call)
-    
+
+  def process_foreign_code_block(self, parent_node):
+    # Current node is the marker for starting the foreign code block.
+    foreign_code_block = Node('FOREIGN_CODE_BLOCK')
+    current_token = self.current_token()
+    source_code_block = Node('temp', [], True)
+    foreign_code_block.members.append(source_code_block)
+    if current_token.content == 'BEGIN_FOREIGN_CODE_C':
+      source_code_block.node_type = 'C'
+    self.index += 1
+    current_token = self.current_token()
+    while current_token and not current_token.content.startswith('END_FOREIGN_CODE_'):
+      source_code_block.members.append(current_token.content)
+      self.index += 1
+      current_token = self.current_token()
+    self.index += 1
+    parent_node.members.append(foreign_code_block)
+
   def process_code_block(self, parent_node):
     current_token = self.current_token()
     # We expect the code block to start with an opening [.
@@ -131,16 +152,20 @@ class Parser:
     self.process_whitespace(code_block)
     current_token = self.current_token()
     if current_token and current_token.token_type == 'IDENTIFIER':
-      sub_node = Node('temp')
-      self.process_whitespace(sub_node)
-      self.process_identifier_chain(sub_node)
-      self.process_whitespace(sub_node)
-      current_token = self.current_token()
-      if current_token and current_token.matches('SYMBOL', '['):
-        # This is a function/method call.
-        self.process_function_call(sub_node)
-        sub_node.node_type = 'FUNCTION_CALL'
-        code_block.members.append(sub_node)
+      if current_token.content == 'BEGIN_FOREIGN_CODE_C':
+        self.process_foreign_code_block(code_block)
+        current_token = self.current_token()
+      else:
+        sub_node = Node('temp')
+        self.process_whitespace(sub_node)
+        self.process_identifier_chain(sub_node)
+        self.process_whitespace(sub_node)
+        current_token = self.current_token()
+        if current_token and current_token.matches('SYMBOL', '['):
+          # This is a function/method call.
+          self.process_function_call(sub_node)
+          sub_node.node_type = 'FUNCTION_CALL'
+          code_block.members.append(sub_node)
     self.process_whitespace(code_block)
     current_token = self.current_token()
     if current_token and current_token.matches('SYMBOL', ']'):

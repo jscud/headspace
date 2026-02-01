@@ -145,7 +145,6 @@ class Tokenizer:
     contents = ''.join(self.buffer)
     self.buffer = []
     return Token(contents, 'COMMENT')
-
     
   def next_symbol(self):
     # Always a single character.
