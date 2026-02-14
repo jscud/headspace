@@ -11,8 +11,8 @@ import lexer
 # variable declaration
 # conditional statement (if)
 # loop statement (while)
-# assigment statement
-# module name
+# assigment statement - done
+# module name - done
 
 
 class Node:
@@ -265,7 +265,7 @@ class Parser:
     # Consume any leading whitespace.
     self.process_whitespace(top_node)
     current_token = self.current_token()
-    if current_token and current_token.token_type == 'IDENTIFIER':
+    while current_token and current_token.token_type == 'IDENTIFIER':
       # This could be a variable/function declaration, an execution statement, etc.
       next_token = self.next_token()
       if next_token and next_token.token_type == 'SYMBOL':
@@ -275,6 +275,10 @@ class Parser:
           self.process_declaration(top_node)
         elif next_token.content == '=':
           self.process_assignment(top_node)
+      current_token = self.current_token()
+      if current_token:
+        self.process_whitespace(top_node)
+      current_token = self.current_token()
     return top_node
     
 
