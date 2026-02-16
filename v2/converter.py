@@ -16,22 +16,24 @@ class SourceCodeFile:
     self.filename = filename
     self.content = content
 
+
+def find_module_name(parse_tree):
+  module_name = None
+  for top_node in parse_tree.members:
+    if (top_node.node_type == 'ASSIGNMENT' and
+        top_node.members[0].node_type == 'ASSIGNMENT_TARGET' and
+        top_node.members[0].members[0] == 'moduleName' and
+        top_node.members[2].node_type == 'STRING_LITERAL' and
+        top_node.members[2].members[0][0] == '"'):
+      module_name = top_node.members[2].members[0][1:-1]
+      return module_name
+  return module_name
+
+
 class ConverterToC:
 
   def __init__(self, parse_tree):
     self.tree = parse_tree
-
-  def find_module_name(self):
-    module_name = None
-    for top_node in self.tree.members:
-      if (top_node.node_type == 'ASSIGNMENT' and
-          top_node.members[0].node_type == 'ASSIGNMENT_TARGET' and
-          top_node.members[0].members[0] == 'moduleName' and
-          top_node.members[2].node_type == 'STRING_LITERAL' and
-          top_node.members[2].members[0][0] == '"'):
-        module_name = top_node.members[2].members[0][1:-1]
-        return module_name
-    return module_name
 
   def find_main_function(self):
     for top_node in self.tree.members:
@@ -65,7 +67,7 @@ class ConverterToC:
 
   def emit_code(self):
     c_code = []
-    module_name = self.find_module_name()
+    module_name = find_module_name(self.tree)
     module_name_c = module_name + '.c'
     module_name_h = module_name + '.h'
     main_function_declaration = self.find_main_function()
