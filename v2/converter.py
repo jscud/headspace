@@ -30,18 +30,19 @@ def find_module_name(parse_tree):
   return module_name
 
 
+def find_main_function(parse_tree):
+  for top_node in parse_tree.members:
+    if (top_node.node_type == 'FUNCTION_DECLARATION' and
+        top_node.members[0].node_type == 'IDENTIFIER' and
+        top_node.members[0].members[0] == 'main'):
+      return top_node
+  return None
+
+
 class ConverterToC:
 
   def __init__(self, parse_tree):
     self.tree = parse_tree
-
-  def find_main_function(self):
-    for top_node in self.tree.members:
-      if (top_node.node_type == 'FUNCTION_DECLARATION' and
-          top_node.members[0].node_type == 'IDENTIFIER' and
-          top_node.members[0].members[0] == 'main'):
-        return top_node
-    return None
 
   def emit_function_call(self, function_call_node, c_code):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
@@ -70,10 +71,10 @@ class ConverterToC:
     module_name = find_module_name(self.tree)
     module_name_c = module_name + '.c'
     module_name_h = module_name + '.h'
-    main_function_declaration = self.find_main_function()
+    main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
+      # TODO: gather the includes needed to express before source code.
       c_code.append('#include<stdio.h>\n')
-      #c_code.append('int main(int argc, char** argv) ')
       c_code.append('int main(void) ')
       for member in main_function_declaration.members:
         if member.node_type == 'FUNCTION_DEFINITION':
@@ -86,9 +87,34 @@ class ConverterToC:
     return [SourceCodeFile(module_name_c, ''.join(c_code)), SourceCodeFile(module_name_h, '')]
 
 
+class ConverterToPython:
+
+  def __init__(self, parse_tree):
+    self.tree = parse_tree
+
+  def emit_code(self):
+    py_code = []
+    module_name = find_module_name(self.tree)
+    module_name_py = module_name + '.py'
+    main_function_declaration = find_main_function(self.tree)
+    if main_function_declaration:
+      py_code.append('def main():\n')
+      for member in main_function_declaration.members:
+        if member.node_type == 'FUNCTION_DEFINITION':
+          for def_member in member.members:
+            if def_member.node_type == 'CODE_BLOCK':
+              pass
+              #self.emit_code_block(def_member, py_code)
+        py_code.append('\nif __name__ == \'__main__\':\n  main()\n')
+    return [SourceCodeFile(module_name_py, ''.join(py_code))]
+
+
+
 def convert(parse_tree, target_langauge):
   if target_langauge == 'c':
     converter = ConverterToC(parse_tree)
+  elif target_langauge == 'python':
+    converter = ConverterToPython(parse_tree)
   else:
     print('invalid language selected for output')
     sys.exit(1)

@@ -17,7 +17,7 @@ class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
 
   def test_converts_hello_world(self):
-    """Hello World program"""
+    """Hello World program in C"""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
@@ -26,13 +26,23 @@ class TestConvertToC(unittest.TestCase):
     with open(file_path, 'w') as c_source:
       c_source.write(files[0].content)
     # Then compile and run the c code.
-    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic', 
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
                     '-Wold-style-definition', '-o',
                     executable_path, file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
     subprocess.run(['rm', executable_path], check=True)
+
+
+class TestConvertToPython(unittest.TestCase):
+  """Convert the headspace code to Python."""
+
+  def test_converts_hello_world(self):
+    """Hello World program in Python"""
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertEqual(1, len(files))
 
 
 if __name__ == '__main__':
