@@ -73,6 +73,23 @@ class TestConvertToGo(unittest.TestCase):
     subprocess.run(['rmdir', package_path], check=True)
 
 
+class TestConvertToJavaScript(unittest.TestCase):
+  """Convert the headspace code to JavaScript."""
+
+  def test_converts_hello_world(self):
+    """Hello World program in JavaScript"""
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as py_source:
+      py_source.write(files[0].content)
+    # Then execute the JavaScript code using Node.
+    result = subprocess.run(['node', file_path], check=True, capture_output=True)
+    self.assertEqual(b'Hello World\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+
+
 if __name__ == '__main__':
   unittest.main()
 
