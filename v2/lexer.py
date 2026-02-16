@@ -59,7 +59,7 @@ class Tokenizer:
     contents = ''.join(self.buffer)
     self.buffer = []
     return Token(contents, 'IDENTIFIER')
-    
+
   def next_number(self):
     self.buffer.append(self.current_char())
     next_char = self.next_char()
@@ -74,7 +74,7 @@ class Tokenizer:
     contents = ''.join(self.buffer)
     self.buffer = []
     return Token(contents, 'NUMBER')
-    
+
   def next_space(self):
     self.buffer.append(self.current_char())
     next_char = self.next_char()
@@ -107,7 +107,7 @@ class Tokenizer:
     contents = ''.join(self.buffer)
     self.buffer = []
     return Token(contents, 'STRING')
-    
+
   def next_comment(self):
     # Adds the opening /
     self.buffer.append(self.current_char())
@@ -145,7 +145,7 @@ class Tokenizer:
     contents = ''.join(self.buffer)
     self.buffer = []
     return Token(contents, 'COMMENT')
-    
+
   def next_symbol(self):
     # Always a single character.
     contents = self.current_char()

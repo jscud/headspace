@@ -93,8 +93,8 @@ class Parser:
       identifier_chain.members.append(Node('IDENTIFIER', [current_token.content], True))
       next_token = self.next_token()
     self.index += 1
-    parent_node.members.append(identifier_chain)  
-    
+    parent_node.members.append(identifier_chain)
+
   def process_argument_list(self, parent_node):
     current_token = self.current_token()
     argument_list = Node('ARGUMENTS')
@@ -226,7 +226,7 @@ class Parser:
     function_definition.members.append(Node('FUNCTION_PARAMS_END', [current_token.content], True))
     self.index += 1
     self.process_whitespace(function_definition)
-    self.process_code_block(function_definition) 
+    self.process_code_block(function_definition)
     if not current_token or not current_token.matches('SYMBOL', ']'):
       print('Expected a ] after the first [ in a function definition')
       sys.exit(1)
@@ -280,7 +280,7 @@ class Parser:
         self.process_whitespace(top_node)
       current_token = self.current_token()
     return top_node
-    
+
 
 def parse_tokens(tokens):
   parser = Parser(tokens)
