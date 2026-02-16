@@ -53,6 +53,26 @@ class TestConvertToPython(unittest.TestCase):
     subprocess.run(['rm', file_path], check=True)
 
 
+class TestConvertToGo(unittest.TestCase):
+  """Convert the headspace code to Go."""
+
+  def test_converts_hello_world(self):
+    """Hello World program in Go"""
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    package_path = os.path.join('tests', 'test_output', 'hello')
+    subprocess.run(['mkdir', package_path], check=True)
+    with open(file_path, 'w') as py_source:
+      py_source.write(files[0].content)
+    # Execute the Go code.
+    result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
+    self.assertEqual(b'Hello World\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rmdir', package_path], check=True)
+
+
 if __name__ == '__main__':
   unittest.main()
 
