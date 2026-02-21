@@ -10,8 +10,8 @@ import os
 #   - creating main function - done
 #   - converting print statement - done
 # Converting to Java
-#   - creating main function
-#   - converting print statement
+#   - creating main function - done
+#   - converting print statement - done
 # Converting to .NET (C#)
 #   - creating main function
 #   - converting print statement
@@ -239,6 +239,60 @@ class ConverterToJavaScript:
       return [SourceCodeFile(module_filename, ''.join(js_code))]
 
 
+class ConverterToJava:
+
+  def __init__(self, parse_tree):
+    self.tree = parse_tree
+
+  def emit_function_call(self, function_call_node, java_code, indent_level):
+    if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+      # Handle a print function.
+      if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
+          function_call_node.members[0].members[0].members[0] == 'os' and
+          function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
+          function_call_node.members[0].members[2].members[0] == 'print'):
+        java_code.append('  ' * (indent_level))
+        java_code.append('System.out.print')
+    if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+      java_code.append('(')
+      if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+          function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
+        java_code.append(function_call_node.members[1].members[1].members[0].members[0])
+      java_code.append(');')
+
+  def emit_code_block(self, code_block_node, java_code, indent_level):
+    java_code.append('\n')
+    if indent_level > 0:
+      java_code.append(' ' * indent_level)
+    java_code.append('{\n')
+    for member in code_block_node.members:
+      if member.node_type == 'FUNCTION_CALL':
+        self.emit_function_call(member, java_code, indent_level + 2)
+    java_code.append('\n')
+    if indent_level > 0:
+      java_code.append(' ' * indent_level)
+    java_code.append('}\n')
+
+  def emit_code(self):
+    java_code = []
+    module_name = find_module_name(self.tree)
+    main_function_declaration = find_main_function(self.tree)
+    if main_function_declaration:
+      java_class_name = module_name.capitalize()
+      java_code.append('public class ' + java_class_name + '\n')
+      java_code.append('{\n')
+      java_code.append('  public static void main(String[] args)')
+      for member in main_function_declaration.members:
+        if member.node_type == 'FUNCTION_DEFINITION':
+          for def_member in member.members:
+            if def_member.node_type == 'CODE_BLOCK':
+              self.emit_code_block(def_member, java_code, 2)
+      java_code.append('}\n')
+      # Create file name with a main.go module.
+      java_class_filename = java_class_name + '.java'
+      return [SourceCodeFile(java_class_filename, ''.join(java_code))]
+
+
 def convert(parse_tree, target_langauge):
   if target_langauge == 'c':
     converter = ConverterToC(parse_tree)
@@ -248,6 +302,8 @@ def convert(parse_tree, target_langauge):
     converter = ConverterToGo(parse_tree)
   elif target_langauge == 'javascript':
     converter = ConverterToJavaScript(parse_tree)
+  elif target_langauge == 'java':
+    converter = ConverterToJava(parse_tree)
   else:
     print('invalid language selected for output')
     sys.exit(1)

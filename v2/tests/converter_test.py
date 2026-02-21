@@ -64,8 +64,8 @@ class TestConvertToGo(unittest.TestCase):
     file_path = os.path.join('tests', 'test_output', files[0].filename)
     package_path = os.path.join('tests', 'test_output', 'hello')
     subprocess.run(['mkdir', package_path], check=True)
-    with open(file_path, 'w') as py_source:
-      py_source.write(files[0].content)
+    with open(file_path, 'w') as go_source:
+      go_source.write(files[0].content)
     # Execute the Go code.
     result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
@@ -82,12 +82,37 @@ class TestConvertToJavaScript(unittest.TestCase):
     files = converter.convert(tree, 'javascript')
     self.assertEqual(1, len(files))
     file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as py_source:
-      py_source.write(files[0].content)
+    with open(file_path, 'w') as js_source:
+      js_source.write(files[0].content)
     # Then execute the JavaScript code using Node.
     result = subprocess.run(['node', file_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
+
+
+class TestConvertToJava(unittest.TestCase):
+  """Convert the headspace code to Java."""
+
+  def test_converts_hello_world(self):
+    """Hello World program in Java"""
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as java_source:
+      java_source.write(files[0].content)
+    # Then execute the Java code using javac then java.
+    result = subprocess.run(['javac', file_path], check=True, capture_output=True)
+    os.chdir(os.path.join('tests', 'test_output'))
+    # Run the program as java Hello (minus the .java)
+    class_file_name = file_path.split('/')[-1][:-5]
+    result = subprocess.run(['java', class_file_name], check=True, capture_output=True)
+    self.assertEqual(b'Hello World\n', result.stdout)
+    # Move back to the test running directory.
+    os.chdir(os.path.join('..', '..'))
+    # Delete both the .java and .class file for the hello world program.
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
 
 
 if __name__ == '__main__':
