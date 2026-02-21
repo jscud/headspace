@@ -105,7 +105,7 @@ class TestConvertToJava(unittest.TestCase):
     result = subprocess.run(['javac', file_path], check=True, capture_output=True)
     os.chdir(os.path.join('tests', 'test_output'))
     # Run the program as java Hello (minus the .java)
-    class_file_name = file_path.split('/')[-1][:-5]
+    class_file_name = os.path.split(file_path)[-1][:-5]
     result = subprocess.run(['java', class_file_name], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
     # Move back to the test running directory.
