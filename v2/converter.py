@@ -13,8 +13,8 @@ import os
 #   - creating main function - done
 #   - converting print statement - done
 # Converting to .NET (C#)
-#   - creating main function
-#   - converting print statement
+#   - creating main function - done
+#   - converting print statement - done
 # Converting to Go
 #   - creating main function - done
 #   - converting print statement - done
@@ -251,7 +251,7 @@ class ConverterToJava:
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[2].members[0] == 'print'):
-        java_code.append('  ' * (indent_level))
+        java_code.append(' ' * (indent_level))
         java_code.append('System.out.print')
     if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
       java_code.append('(')
@@ -288,9 +288,63 @@ class ConverterToJava:
             if def_member.node_type == 'CODE_BLOCK':
               self.emit_code_block(def_member, java_code, 2)
       java_code.append('}\n')
-      # Create file name with a main.go module.
+      # Create file name with a .java class file.
       java_class_filename = java_class_name + '.java'
       return [SourceCodeFile(java_class_filename, ''.join(java_code))]
+
+
+class ConverterToDotNet:
+
+  def __init__(self, parse_tree):
+    self.tree = parse_tree
+
+  def emit_function_call(self, function_call_node, dotnet_code, indent_level):
+    if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+      # Handle a print function.
+      if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
+          function_call_node.members[0].members[0].members[0] == 'os' and
+          function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
+          function_call_node.members[0].members[2].members[0] == 'print'):
+        dotnet_code.append(' ' * (indent_level))
+        dotnet_code.append('Console.Write')
+    if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+      dotnet_code.append('(')
+      if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+          function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
+        dotnet_code.append(function_call_node.members[1].members[1].members[0].members[0])
+      dotnet_code.append(');')
+
+  def emit_code_block(self, code_block_node, dotnet_code, indent_level):
+    dotnet_code.append('{\n')
+    for member in code_block_node.members:
+      if member.node_type == 'FUNCTION_CALL':
+        self.emit_function_call(member, dotnet_code, indent_level + 2)
+    dotnet_code.append('\n')
+    if indent_level > 0:
+      dotnet_code.append(' ' * indent_level)
+    dotnet_code.append('}\n')
+
+  def emit_code(self):
+    dotnet_code = []
+    module_name = find_module_name(self.tree)
+    main_function_declaration = find_main_function(self.tree)
+    if main_function_declaration:
+      dotnet_class_name = module_name.capitalize()
+      dotnet_code.append('using System;\n')
+      dotnet_code.append('\n')
+      dotnet_code.append('namespace ' + dotnet_class_name + ' {\n')
+      dotnet_code.append('  class MainProgram {\n')
+      dotnet_code.append('    static void Main(string[] args) ')
+      for member in main_function_declaration.members:
+        if member.node_type == 'FUNCTION_DEFINITION':
+          for def_member in member.members:
+            if def_member.node_type == 'CODE_BLOCK':
+              self.emit_code_block(def_member, dotnet_code, 4)
+      dotnet_code.append('  }\n')
+      dotnet_code.append('}\n')
+      # Create file name with a .cs (C#) module.
+      dotnet_class_filename = dotnet_class_name + '.cs'
+      return [SourceCodeFile(dotnet_class_filename, ''.join(dotnet_code))]
 
 
 def convert(parse_tree, target_langauge):
@@ -304,6 +358,8 @@ def convert(parse_tree, target_langauge):
     converter = ConverterToJavaScript(parse_tree)
   elif target_langauge == 'java':
     converter = ConverterToJava(parse_tree)
+  elif target_langauge == 'dotnet':
+    converter = ConverterToDotNet(parse_tree)
   else:
     print('invalid language selected for output')
     sys.exit(1)

@@ -115,6 +115,27 @@ class TestConvertToJava(unittest.TestCase):
     subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
 
 
+class TestConvertToDotNet(unittest.TestCase):
+  """Convert the headspace code to .NET (C#)."""
+
+  def test_converts_hello_world(self):
+    """Hello World program in .NET (C#)"""
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as dotnet_source:
+      dotnet_source.write(files[0].content)
+    # Then execute the .NET code using dotnet run.
+    result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
+    self.assertEqual(b'Hello World\n', result.stdout)
+    # Delete the .cs file for the hello world program.
+    subprocess.run(['rm', file_path], check=True)
+
+
+if __name__ == '__main__':
+  unittest.main()
+
 if __name__ == '__main__':
   unittest.main()
 
