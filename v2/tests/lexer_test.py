@@ -97,6 +97,14 @@ class TestLexerTokenize(unittest.TestCase):
           ('NUMBER', '1')
         ), tokens)
 
+  def test_tokenize_foreign_code(self):
+    sample_code = '// BEGIN_FOREIGN_CODE_C\nsome C code\nmore lines\n// END_FOREIGN_CODE_C\n// BEGIN_ANOTHER_COMMENT\n'
+    tokens = lexer.tokenize(sample_code)
+    self.assertTokens((
+          ('FOREIGN_CODE', '// BEGIN_FOREIGN_CODE_C\nsome C code\nmore lines\n// END_FOREIGN_CODE_C\n'),
+          ('COMMENT', '// BEGIN_ANOTHER_COMMENT\n')
+        ), tokens)
+
   def test_tokenize_symbols(self):
     sample_code = 'ab,c/d+e;=$f:g.h'
     tokens = lexer.tokenize(sample_code)

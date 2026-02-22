@@ -9,6 +9,7 @@
 #    single-line done
 # symbol - done
 # space - done
+# foreign code lines - done
 
 class Token:
   def __init__(self, content, token_type):
@@ -146,6 +147,36 @@ class Tokenizer:
     self.buffer = []
     return Token(contents, 'COMMENT')
 
+  def next_line(self):
+    line_content = []
+    current_char = self.current_char()
+    while current_char and current_char != '\n':
+      line_content.append(current_char)
+      self.index += 1
+      current_char = self.current_char()
+    if current_char == '\n':
+      line_content.append(current_char)
+      self.index += 1
+    return ''.join(line_content)
+
+  def next_comment_or_foreign_code(self):
+    # First check if this is a foreign code block. Start by getting the
+    # first line of the comments.
+    first_line_comment = self.next_comment()
+    if first_line_comment.content.startswith('// BEGIN_FOREIGN_CODE_'):
+      # Read all lines until we see the ending comment.
+      foreign_code = first_line_comment
+      foreign_code.token_type = 'FOREIGN_CODE'
+      current_line = self.next_line()
+      while current_line and not current_line.startswith('// END_FOREIGN_CODE_'):
+        foreign_code.content += current_line
+        current_line = self.next_line()
+      if current_line.startswith('// END_FOREIGN_CODE_'):
+        foreign_code.content += current_line
+      return foreign_code
+    else:
+      return first_line_comment
+
   def next_symbol(self):
     # Always a single character.
     contents = self.current_char()
@@ -163,7 +194,9 @@ class Tokenizer:
       return self.next_space()
     elif self.current_char() == '\'' or self.current_char() == '"':
       return self.next_string()
-    elif self.current_char() == '/' and (self.next_char() == '*' or self.next_char() == '/'):
+    elif self.current_char() == '/' and self.next_char() == '/':
+      return self.next_comment_or_foreign_code()
+    elif self.current_char() == '/' and (self.next_char() == '*'):
       return self.next_comment()
     else:
       return self.next_symbol()
