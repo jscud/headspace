@@ -13,6 +13,19 @@ main: function[][
 ]
 """
 
+
+FOREIGN_CODE_EXAMPLE = """
+moduleName = "foreign"
+
+main: function[][
+  BEGIN_FOREIGN_CODE_C
+  char* hello_str = "hello\\n";
+  END_FOREIGN_CODE_C
+  os.print[hello_str]
+]
+"""
+
+
 class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
 
@@ -32,6 +45,24 @@ class TestConvertToC(unittest.TestCase):
                     executable_path, file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', executable_path], check=True)
+
+  def test_converts_foreign_code(self):
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    self.assertEqual(2, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    executable_path = os.path.join('tests', 'test_output', 'foreign')
+    with open(file_path, 'w') as c_source:
+      c_source.write(files[0].content)
+    # Then compile and run the C code.
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
+                    '-Wmissing-prototypes', '-Wstrict-prototypes',
+                    '-Wold-style-definition', '-o',
+                    executable_path, file_path], check=True)
+    result = subprocess.run([executable_path], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rm', executable_path], check=True)
 

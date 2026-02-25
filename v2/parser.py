@@ -99,9 +99,14 @@ class Parser:
     current_token = self.current_token()
     argument_list = Node('ARGUMENTS')
     # TODO: consume tokens until reaching the closing ]
-    if current_token and current_token.token_type == 'STRING':
-      argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
-      self.index += 1
+    if current_token:
+      if current_token.token_type == 'STRING':
+        argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
+        self.index += 1
+      elif current_token.token_type == 'IDENTIFIER':
+        self.process_identifier_chain(argument_list)
+        #argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
+      # TODO: handle a function call.
     parent_node.members.append(argument_list)
 
   def process_function_call(self, parent_node):
@@ -131,7 +136,7 @@ class Parser:
     current_token = self.current_token()
     source_code_block = Node('temp', [], True)
     foreign_code_block.members.append(source_code_block)
-    if current_token.content == 'BEGIN_FOREIGN_CODE_C':
+    if current_token and current_token.content == 'BEGIN_FOREIGN_CODE_C':
       source_code_block.node_type = 'C'
     self.index += 1
     current_token = self.current_token()
@@ -139,7 +144,9 @@ class Parser:
       source_code_block.members.append(current_token.content)
       self.index += 1
       current_token = self.current_token()
-    self.index += 1
+    if current_token and current_token.content.startswith('END_FOREIGN_CODE_'):
+      # We have reached the end of the code block, consume this token and move forward.
+      self.index += 1
     parent_node.members.append(foreign_code_block)
 
   def process_assignment(self, parent_node):
@@ -178,9 +185,10 @@ class Parser:
     self.index += 1
     self.process_whitespace(code_block)
     current_token = self.current_token()
-    if current_token and current_token.token_type == 'IDENTIFIER':
+    while current_token and current_token.token_type == 'IDENTIFIER':
       if current_token.content == 'BEGIN_FOREIGN_CODE_C':
         self.process_foreign_code_block(code_block)
+        self.process_whitespace(code_block)
         current_token = self.current_token()
       else:
         sub_node = Node('temp')
@@ -193,11 +201,13 @@ class Parser:
           self.process_function_call(sub_node)
           sub_node.node_type = 'FUNCTION_CALL'
           code_block.members.append(sub_node)
+        self.process_whitespace(sub_node)
+        current_token = self.current_token()
     self.process_whitespace(code_block)
     current_token = self.current_token()
     if current_token and current_token.matches('SYMBOL', ']'):
       code_block.members.append(Node('CODE_BLOCK_END', [current_token.content], True))
-      self.index += 1
+      #self.index += 1
     parent_node.members.append(code_block)
 
   def process_function_definition(self, parent_node):
@@ -227,10 +237,12 @@ class Parser:
     self.index += 1
     self.process_whitespace(function_definition)
     self.process_code_block(function_definition)
+    current_token = self.current_token()
     if not current_token or not current_token.matches('SYMBOL', ']'):
       print('Expected a ] after the first [ in a function definition')
       sys.exit(1)
     parent_node.members.append(function_definition)
+    self.index += 1
 
   def process_declaration(self, parent_node):
     current_token = self.current_token()
