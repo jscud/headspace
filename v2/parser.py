@@ -138,6 +138,8 @@ class Parser:
     foreign_code_block.members.append(source_code_block)
     if current_token and current_token.content == 'BEGIN_FOREIGN_CODE_C':
       source_code_block.node_type = 'C'
+    elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_PYTHON':
+      source_code_block.node_type = 'PYTHON'
     self.index += 1
     current_token = self.current_token()
     while current_token and not current_token.content.startswith('END_FOREIGN_CODE_'):
@@ -186,7 +188,7 @@ class Parser:
     self.process_whitespace(code_block)
     current_token = self.current_token()
     while current_token and current_token.token_type == 'IDENTIFIER':
-      if current_token.content == 'BEGIN_FOREIGN_CODE_C':
+      if current_token.content.startswith('BEGIN_FOREIGN_CODE_'):
         self.process_foreign_code_block(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()

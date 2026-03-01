@@ -18,9 +18,12 @@ FOREIGN_CODE_EXAMPLE = """
 moduleName = "foreign"
 
 main: function[][
-  BEGIN_FOREIGN_CODE_C
+BEGIN_FOREIGN_CODE_C
   char* hello_str = "hello\\n";
-  END_FOREIGN_CODE_C
+END_FOREIGN_CODE_C
+BEGIN_FOREIGN_CODE_PYTHON
+  hello_str = 'hello\\n'
+END_FOREIGN_CODE_PYTHON
   os.print[hello_str]
 ]
 """
@@ -71,7 +74,7 @@ class TestConvertToPython(unittest.TestCase):
   """Convert the headspace code to Python."""
 
   def test_converts_hello_world(self):
-    """Hello World program in Python"""
+    """Hello World program in Python."""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'python')
     self.assertEqual(1, len(files))
@@ -81,6 +84,19 @@ class TestConvertToPython(unittest.TestCase):
     # Then execute the Python code.
     result = subprocess.run(['python3', file_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+
+  def test_converts_foreign_code(self):
+    """Example of including foreign code for Python."""
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as py_source:
+      py_source.write(files[0].content)
+    # Then execute the Python code.
+    result = subprocess.run(['python3', file_path], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
 
 

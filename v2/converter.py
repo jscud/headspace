@@ -136,13 +136,24 @@ class ConverterToPython:
       if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
           function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
         py_code.append(function_call_node.members[1].members[1].members[0].members[0])
+      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+        for chain_entry in function_call_node.members[1].members[1].members[0].members:
+          py_code.append(chain_entry.members[0])
       # TODO: only append this special end argument in a print function call.
       py_code.append(', end="")')
+
+  def emit_foreign_code_block(self, foreign_code_block_node, py_code, indent_level):
+    if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == 'PYTHON':
+      for py_token in foreign_code_block_node.members[0].members:
+        py_code.append(py_token)
 
   def emit_code_block(self, code_block_node, py_code, indent_level):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, py_code, indent_level + 2)
+      elif member.node_type == 'FOREIGN_CODE_BLOCK':
+        self.emit_foreign_code_block(member, py_code, indent_level + 2)
     py_code.append('\n')
 
   def emit_code(self):
