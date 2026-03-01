@@ -142,6 +142,12 @@ class Parser:
       source_code_block.node_type = 'PYTHON'
     elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_GO':
       source_code_block.node_type = 'GO'
+    elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_JAVA':
+      source_code_block.node_type = 'JAVA'
+    elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_JS':
+      source_code_block.node_type = 'JS'
+    elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_DOTNET':
+      source_code_block.node_type = 'DOTNET'
     self.index += 1
     current_token = self.current_token()
     while current_token and not current_token.content.startswith('END_FOREIGN_CODE_'):

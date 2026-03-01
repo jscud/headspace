@@ -14,11 +14,11 @@ import os
 # Converting to Java
 #   - creating main function - done
 #   - converting print statement - done
-#   - passing through foreign code
+#   - passing through foreign code - done
 # Converting to .NET (C#)
 #   - creating main function - done
 #   - converting print statement - done
-#   - passing through foreign code
+#   - passing through foreign code - done
 # Converting to Go
 #   - creating main function - done
 #   - converting print statement - done
@@ -26,7 +26,7 @@ import os
 # Converting to JavaScript (NodeJS)
 #   - creating main function - done
 #   - converting print statement - done
-#   - passing through foreign code
+#   - passing through foreign code - done
 
 class SourceCodeFile:
 
@@ -208,7 +208,7 @@ class ConverterToGo:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, go_code, indent_level + 1)
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
-        self.emit_foreign_code_block(member, go_code, indent_level + 2)
+        self.emit_foreign_code_block(member, go_code, indent_level + 1)
     go_code.append('\n')
     if indent_level > 0:
       go_code.append('\t' * indent_level)
@@ -251,13 +251,24 @@ class ConverterToJavaScript:
       if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
           function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
         js_code.append(function_call_node.members[1].members[1].members[0].members[0])
+      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+        for chain_entry in function_call_node.members[1].members[1].members[0].members:
+          js_code.append(chain_entry.members[0])
       js_code.append(');')
+
+  def emit_foreign_code_block(self, foreign_code_block_node, js_code, indent_level):
+    if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == 'JS':
+      for js_token in foreign_code_block_node.members[0].members:
+        js_code.append(js_token)
 
   def emit_code_block(self, code_block_node, js_code, indent_level):
     js_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, js_code, indent_level + 2)
+      elif member.node_type == 'FOREIGN_CODE_BLOCK':
+        self.emit_foreign_code_block(member, js_code, indent_level + 2)
     js_code.append('\n')
     if indent_level > 0:
       js_code.append(' ' * indent_level)
@@ -298,7 +309,16 @@ class ConverterToJava:
       if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
           function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
         java_code.append(function_call_node.members[1].members[1].members[0].members[0])
+      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+        for chain_entry in function_call_node.members[1].members[1].members[0].members:
+          java_code.append(chain_entry.members[0])
       java_code.append(');')
+
+  def emit_foreign_code_block(self, foreign_code_block_node, java_code, indent_level):
+    if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == 'JAVA':
+      for java_token in foreign_code_block_node.members[0].members:
+        java_code.append(java_token)
 
   def emit_code_block(self, code_block_node, java_code, indent_level):
     java_code.append('\n')
@@ -308,6 +328,8 @@ class ConverterToJava:
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, java_code, indent_level + 2)
+      elif member.node_type == 'FOREIGN_CODE_BLOCK':
+        self.emit_foreign_code_block(member, java_code, indent_level + 2)
     java_code.append('\n')
     if indent_level > 0:
       java_code.append(' ' * indent_level)
@@ -352,13 +374,24 @@ class ConverterToDotNet:
       if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
           function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
         dotnet_code.append(function_call_node.members[1].members[1].members[0].members[0])
+      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+        for chain_entry in function_call_node.members[1].members[1].members[0].members:
+          dotnet_code.append(chain_entry.members[0])
       dotnet_code.append(');')
+
+  def emit_foreign_code_block(self, foreign_code_block_node, dotnet_code, indent_level):
+    if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == 'DOTNET':
+      for dotnet_token in foreign_code_block_node.members[0].members:
+        dotnet_code.append(dotnet_token)
 
   def emit_code_block(self, code_block_node, dotnet_code, indent_level):
     dotnet_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, dotnet_code, indent_level + 2)
+      elif member.node_type == 'FOREIGN_CODE_BLOCK':
+        self.emit_foreign_code_block(member, dotnet_code, indent_level + 2)
     dotnet_code.append('\n')
     if indent_level > 0:
       dotnet_code.append(' ' * indent_level)

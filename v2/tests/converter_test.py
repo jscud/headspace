@@ -27,6 +27,15 @@ END_FOREIGN_CODE_PYTHON
 BEGIN_FOREIGN_CODE_GO
   var hello_str = "hello\\n"
 END_FOREIGN_CODE_GO
+BEGIN_FOREIGN_CODE_JAVA
+  String hello_str = "hello\\n";
+END_FOREIGN_CODE_JAVA
+BEGIN_FOREIGN_CODE_JS
+  const hello_str = "hello\\n";
+END_FOREIGN_CODE_JS
+BEGIN_FOREIGN_CODE_DOTNET
+  string hello_str = "hello\\n";
+END_FOREIGN_CODE_DOTNET
   os.print[hello_str]
 ]
 """
@@ -156,6 +165,18 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertEqual(b'Hello World\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
 
+  def test_converts_foreign_code(self):
+    """Example of including foreign code for JavaScript."""
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as js_source:
+      js_source.write(files[0].content)
+    # Then execute the JavaScript code using Node.
+    result = subprocess.run(['node', file_path], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
 
 class TestConvertToJava(unittest.TestCase):
   """Convert the headspace code to Java."""
@@ -181,12 +202,33 @@ class TestConvertToJava(unittest.TestCase):
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
 
+  def test_converts_foreign_code(self):
+    """Example of including foreign code for Java."""
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as java_source:
+      java_source.write(files[0].content)
+    # Then execute the Java code using javac then java.
+    result = subprocess.run(['javac', file_path], check=True, capture_output=True)
+    os.chdir(os.path.join('tests', 'test_output'))
+    # Run the program as java Hello (minus the .java)
+    class_file_name = os.path.split(file_path)[-1][:-5]
+    result = subprocess.run(['java', class_file_name], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
+    # Move back to the test running directory.
+    os.chdir(os.path.join('..', '..'))
+    # Delete both the .java and .class file for the hello world program.
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
+
 
 class TestConvertToDotNet(unittest.TestCase):
   """Convert the headspace code to .NET (C#)."""
 
   def test_converts_hello_world(self):
-    """Hello World program in .NET (C#)"""
+    """Hello World program in .NET (C#)."""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
     self.assertEqual(1, len(files))
@@ -196,6 +238,20 @@ class TestConvertToDotNet(unittest.TestCase):
     # Then execute the .NET code using dotnet run.
     result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
+    # Delete the .cs file for the hello world program.
+    subprocess.run(['rm', file_path], check=True)
+
+  def test_converts_foreign_code(self):
+    """Example of including foreign code for .NET (C#)."""
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as dotnet_source:
+      dotnet_source.write(files[0].content)
+    # Then execute the .NET code using dotnet run.
+    result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
     # Delete the .cs file for the hello world program.
     subprocess.run(['rm', file_path], check=True)
 
