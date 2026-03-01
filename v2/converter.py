@@ -10,7 +10,7 @@ import os
 # Converting to Python
 #   - creating main function - done
 #   - converting print statement - done
-#   - passing through foreign code
+#   - passing through foreign code - done
 # Converting to Java
 #   - creating main function - done
 #   - converting print statement - done
@@ -22,7 +22,7 @@ import os
 # Converting to Go
 #   - creating main function - done
 #   - converting print statement - done
-#   - passing through foreign code
+#   - passing through foreign code - done
 # Converting to JavaScript (NodeJS)
 #   - creating main function - done
 #   - converting print statement - done
@@ -191,13 +191,24 @@ class ConverterToGo:
       if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
           function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
         go_code.append(function_call_node.members[1].members[1].members[0].members[0])
+      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+        for chain_entry in function_call_node.members[1].members[1].members[0].members:
+          go_code.append(chain_entry.members[0])
       go_code.append(')')
+
+  def emit_foreign_code_block(self, foreign_code_block_node, go_code, indent_level):
+    if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == 'GO':
+      for go_token in foreign_code_block_node.members[0].members:
+        go_code.append(go_token)
 
   def emit_code_block(self, code_block_node, go_code, indent_level):
     go_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, go_code, indent_level + 1)
+      elif member.node_type == 'FOREIGN_CODE_BLOCK':
+        self.emit_foreign_code_block(member, go_code, indent_level + 2)
     go_code.append('\n')
     if indent_level > 0:
       go_code.append('\t' * indent_level)

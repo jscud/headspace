@@ -140,6 +140,8 @@ class Parser:
       source_code_block.node_type = 'C'
     elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_PYTHON':
       source_code_block.node_type = 'PYTHON'
+    elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_GO':
+      source_code_block.node_type = 'GO'
     self.index += 1
     current_token = self.current_token()
     while current_token and not current_token.content.startswith('END_FOREIGN_CODE_'):

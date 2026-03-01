@@ -24,6 +24,9 @@ END_FOREIGN_CODE_C
 BEGIN_FOREIGN_CODE_PYTHON
   hello_str = 'hello\\n'
 END_FOREIGN_CODE_PYTHON
+BEGIN_FOREIGN_CODE_GO
+  var hello_str = "hello\\n"
+END_FOREIGN_CODE_GO
   os.print[hello_str]
 ]
 """
@@ -33,7 +36,7 @@ class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
 
   def test_converts_hello_world(self):
-    """Hello World program in C"""
+    """Hello World program in C."""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
@@ -52,6 +55,7 @@ class TestConvertToC(unittest.TestCase):
     subprocess.run(['rm', executable_path], check=True)
 
   def test_converts_foreign_code(self):
+    """Example of including foreign code for C."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
@@ -116,6 +120,22 @@ class TestConvertToGo(unittest.TestCase):
     # Execute the Go code.
     result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rmdir', package_path], check=True)
+
+  def test_converts_foreign_code(self):
+    """Example of including foreign code for Go."""
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    package_path = os.path.join('tests', 'test_output', 'foreign')
+    subprocess.run(['mkdir', package_path], check=True)
+    with open(file_path, 'w') as go_source:
+      go_source.write(files[0].content)
+    # Execute the Go code.
+    result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rmdir', package_path], check=True)
 
