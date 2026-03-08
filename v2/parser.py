@@ -7,12 +7,13 @@ import lexer
 # Parse tree checklist:
 # function call - done
 # function declaration - done
-# foreign code block
+# foreign code block - done
 # variable declaration
 # conditional statement (if)
 # loop statement (while)
 # assigment statement - done
 # module name - done
+# return statement
 
 
 class Node:
@@ -184,6 +185,22 @@ class Parser:
     self.index += 1
     parent_node.members.append(assignment)
 
+  def process_return_statement(self, parent_node):
+    current_token = self.current_token()
+    return_statement = Node('RETURN_STATEMENT')
+    if not current_token or not current_token.matches('IDENTIFIER', 'return'):
+      print('Expected a return statement to start with return')
+      sys.exit(1)
+    self.index += 1
+    self.process_whitespace(return_statement)
+    current_token = self.current_token()
+    if current_token and current_token.token_type == 'STRING':
+      return_statement.members.append(Node('STRING_LITERAL', [current_token.content], True))
+    elif current_token and current_token.token_type == 'NUMBER':
+      return_statement.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
+    self.index += 1
+    parent_node.members.append(return_statement)
+
   def process_code_block(self, parent_node):
     current_token = self.current_token()
     # We expect the code block to start with an opening [.
@@ -198,6 +215,10 @@ class Parser:
     while current_token and current_token.token_type == 'IDENTIFIER':
       if current_token.content.startswith('BEGIN_FOREIGN_CODE_'):
         self.process_foreign_code_block(code_block)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif current_token.content == 'return':
+        self.process_return_statement(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       else:
