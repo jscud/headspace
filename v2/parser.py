@@ -13,7 +13,8 @@ import lexer
 # loop statement (while)
 # assigment statement - done
 # module name - done
-# return statement
+# return statement - done
+# infix operators
 
 
 class Node:
@@ -160,6 +161,14 @@ class Parser:
       self.index += 1
     parent_node.members.append(foreign_code_block)
 
+  def process_rvalue(self, parent_node):
+    current_token = self.current_token()
+    if current_token and current_token.token_type == 'STRING':
+      parent_node.members.append(Node('STRING_LITERAL', [current_token.content], True))
+    elif current_token and current_token.token_type == 'NUMBER':
+      parent_node.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
+    self.index += 1
+
   def process_assignment(self, parent_node):
     current_token = self.current_token()
     # First version: assignment starts with an identifier.
@@ -177,12 +186,7 @@ class Parser:
     assignment.members.append(Node('ASSIGNMENT_SYMBOL', [current_token.content], True))
     self.index += 1
     self.process_whitespace(assignment)
-    current_token = self.current_token()
-    if current_token and current_token.token_type == 'STRING':
-      assignment.members.append(Node('STRING_LITERAL', [current_token.content], True))
-    elif current_token and current_token.token_type == 'NUMBER':
-      assignment.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
-    self.index += 1
+    self.process_rvalue(assignment)
     parent_node.members.append(assignment)
 
   def process_return_statement(self, parent_node):
@@ -193,12 +197,7 @@ class Parser:
       sys.exit(1)
     self.index += 1
     self.process_whitespace(return_statement)
-    current_token = self.current_token()
-    if current_token and current_token.token_type == 'STRING':
-      return_statement.members.append(Node('STRING_LITERAL', [current_token.content], True))
-    elif current_token and current_token.token_type == 'NUMBER':
-      return_statement.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
-    self.index += 1
+    self.process_rvalue(return_statement)
     parent_node.members.append(return_statement)
 
   def process_code_block(self, parent_node):
@@ -238,7 +237,6 @@ class Parser:
     current_token = self.current_token()
     if current_token and current_token.matches('SYMBOL', ']'):
       code_block.members.append(Node('CODE_BLOCK_END', [current_token.content], True))
-      #self.index += 1
     parent_node.members.append(code_block)
 
   def process_function_definition(self, parent_node):
@@ -301,6 +299,9 @@ class Parser:
       self.index += 1
     parent_node.members.append(declaration_tree)
 
+  def process_infix_operation(self, parent_node):
+    pass
+
   def build_parse_tree(self):
     top_node = Node('MODULE')
     if not self._tokens or self._tokens_len == 0:
@@ -318,6 +319,8 @@ class Parser:
           self.process_declaration(top_node)
         elif next_token.content == '=':
           self.process_assignment(top_node)
+        elif next_token.content == '+':
+          self.process_infix_operation(top_node)
       current_token = self.current_token()
       if current_token:
         self.process_whitespace(top_node)

@@ -4,6 +4,9 @@ import converter
 import os
 import subprocess
 
+"""Similar to Converter Tests, but doesn't execute the compilation and
+running of external programs."""
+
 
 HELLO_WORLD_EXAMPLE = """
 moduleName = "hello"
@@ -25,18 +28,31 @@ BEGIN_FOREIGN_CODE_PYTHON
   hello_str = 'hello\\n'
 END_FOREIGN_CODE_PYTHON
 BEGIN_FOREIGN_CODE_GO
-  var hello_str = "hello\\n"
+\tvar hello_str = "hello\\n"
 END_FOREIGN_CODE_GO
 BEGIN_FOREIGN_CODE_JAVA
-  String hello_str = "hello\\n";
+    String hello_str = "hello\\n";
 END_FOREIGN_CODE_JAVA
 BEGIN_FOREIGN_CODE_JS
   const hello_str = "hello\\n";
 END_FOREIGN_CODE_JS
 BEGIN_FOREIGN_CODE_DOTNET
-  string hello_str = "hello\\n";
+      string hello_str = "hello\\n";
 END_FOREIGN_CODE_DOTNET
   os.print[hello_str]
+]
+"""
+
+FUNCTION_CALLING_EXAMPLE = """
+moduleName = "functions"
+
+addNumbers: function[a:int32, b:int32][
+  return a + b
+]
+
+main: function[][
+  os.print[text.intToStr[addNumbers[5, 5], 10]]
+  os.print["\\n"]
 ]
 """
 
@@ -49,38 +65,18 @@ class TestConvertToC(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    executable_path = os.path.join('tests', 'test_output', 'hello_test')
-    with open(file_path, 'w') as c_source:
-      c_source.write(files[0].content)
-    # Then compile and run the C code.
-    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
-                    '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-o',
-                    executable_path, file_path], check=True)
-    result = subprocess.run([executable_path], check=True, capture_output=True)
-    self.assertEqual(b'Hello World\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rm', executable_path], check=True)
+    self.assertTrue('.c' in files[0].filename)
+    self.assertTrue('int main(' in files[0].content)
+    self.assertTrue('printf("%s", "Hello World\\n")' in files[0].content)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for C."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    executable_path = os.path.join('tests', 'test_output', 'foreign')
-    with open(file_path, 'w') as c_source:
-      c_source.write(files[0].content)
-    # Then compile and run the C code.
-    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
-                    '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-o',
-                    executable_path, file_path], check=True)
-    result = subprocess.run([executable_path], check=True, capture_output=True)
-    self.assertEqual(b'hello\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rm', executable_path], check=True)
+    self.assertTrue('char* hello_str = "hello\\n";' in files[0].content)
+    self.assertTrue('printf("%s", hello_str);' in files[0].content)
+    self.assertFalse('var hello_str = "hello\\n"' in files[0].content)
 
 
 class TestConvertToPython(unittest.TestCase):
@@ -91,26 +87,18 @@ class TestConvertToPython(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'python')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as py_source:
-      py_source.write(files[0].content)
-    # Then execute the Python code.
-    result = subprocess.run(['python3', file_path], check=True, capture_output=True)
-    self.assertEqual(b'Hello World\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
+    self.assertTrue('.py' in files[0].filename)
+    self.assertTrue('def main():' in files[0].content)
+    self.assertTrue('print("Hello World\\n", end="")' in files[0].content)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for Python."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'python')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as py_source:
-      py_source.write(files[0].content)
-    # Then execute the Python code.
-    result = subprocess.run(['python3', file_path], check=True, capture_output=True)
-    self.assertEqual(b'hello\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
+    self.assertTrue('hello_str = \'hello\\n\'' in files[0].content)
+    self.assertTrue('print(hello_str, end="")' in files[0].content)
+    self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
 
 class TestConvertToGo(unittest.TestCase):
@@ -121,32 +109,18 @@ class TestConvertToGo(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'go')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    package_path = os.path.join('tests', 'test_output', 'hello')
-    subprocess.run(['mkdir', package_path], check=True)
-    with open(file_path, 'w') as go_source:
-      go_source.write(files[0].content)
-    # Execute the Go code.
-    result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
-    self.assertEqual(b'Hello World\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rmdir', package_path], check=True)
+    self.assertTrue('.go' in files[0].filename)
+    self.assertTrue('func main() {' in files[0].content)
+    self.assertTrue('fmt.Print("Hello World\\n")' in files[0].content)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for Go."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'go')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    package_path = os.path.join('tests', 'test_output', 'foreign')
-    subprocess.run(['mkdir', package_path], check=True)
-    with open(file_path, 'w') as go_source:
-      go_source.write(files[0].content)
-    # Execute the Go code.
-    result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
-    self.assertEqual(b'hello\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rmdir', package_path], check=True)
+    self.assertTrue('var hello_str = "hello\\n"' in files[0].content)
+    self.assertTrue('fmt.Print(hello_str)' in files[0].content)
+    self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
 
 class TestConvertToJavaScript(unittest.TestCase):
@@ -157,26 +131,18 @@ class TestConvertToJavaScript(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'javascript')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as js_source:
-      js_source.write(files[0].content)
-    # Then execute the JavaScript code using Node.
-    result = subprocess.run(['node', file_path], check=True, capture_output=True)
-    self.assertEqual(b'Hello World\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
+    self.assertTrue('.js' in files[0].filename)
+    self.assertTrue('function main() {' in files[0].content)
+    self.assertTrue('process.stdout.write("Hello World\\n");' in files[0].content)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for JavaScript."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'javascript')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as js_source:
-      js_source.write(files[0].content)
-    # Then execute the JavaScript code using Node.
-    result = subprocess.run(['node', file_path], check=True, capture_output=True)
-    self.assertEqual(b'hello\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
+    self.assertTrue('const hello_str = "hello\\n";' in files[0].content)
+    self.assertTrue('process.stdout.write(hello_str);' in files[0].content)
+    self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
 class TestConvertToJava(unittest.TestCase):
   """Convert the headspace code to Java."""
@@ -186,42 +152,18 @@ class TestConvertToJava(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'java')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as java_source:
-      java_source.write(files[0].content)
-    # Then execute the Java code using javac then java.
-    result = subprocess.run(['javac', file_path], check=True, capture_output=True)
-    os.chdir(os.path.join('tests', 'test_output'))
-    # Run the program as java Hello (minus the .java)
-    class_file_name = os.path.split(file_path)[-1][:-5]
-    result = subprocess.run(['java', class_file_name], check=True, capture_output=True)
-    self.assertEqual(b'Hello World\n', result.stdout)
-    # Move back to the test running directory.
-    os.chdir(os.path.join('..', '..'))
-    # Delete both the .java and .class file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
+    self.assertTrue('.java' in files[0].filename)
+    self.assertTrue('public static void main(String[] args)' in files[0].content)
+    self.assertTrue('System.out.print("Hello World\\n");' in files[0].content)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for Java."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'java')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as java_source:
-      java_source.write(files[0].content)
-    # Then execute the Java code using javac then java.
-    result = subprocess.run(['javac', file_path], check=True, capture_output=True)
-    os.chdir(os.path.join('tests', 'test_output'))
-    # Run the program as java Hello (minus the .java)
-    class_file_name = os.path.split(file_path)[-1][:-5]
-    result = subprocess.run(['java', class_file_name], check=True, capture_output=True)
-    self.assertEqual(b'hello\n', result.stdout)
-    # Move back to the test running directory.
-    os.chdir(os.path.join('..', '..'))
-    # Delete both the .java and .class file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
+    self.assertTrue('String hello_str = "hello\\n";' in files[0].content)
+    self.assertTrue('System.out.print(hello_str);' in files[0].content)
+    self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
 
 class TestConvertToDotNet(unittest.TestCase):
@@ -232,28 +174,18 @@ class TestConvertToDotNet(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as dotnet_source:
-      dotnet_source.write(files[0].content)
-    # Then execute the .NET code using dotnet run.
-    result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
-    self.assertEqual(b'Hello World\n', result.stdout)
-    # Delete the .cs file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
+    self.assertTrue('.cs' in files[0].filename)
+    self.assertTrue('static void Main(string[] args) {' in files[0].content)
+    self.assertTrue('Console.Write("Hello World\\n");' in files[0].content)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for .NET (C#)."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as dotnet_source:
-      dotnet_source.write(files[0].content)
-    # Then execute the .NET code using dotnet run.
-    result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
-    self.assertEqual(b'hello\n', result.stdout)
-    # Delete the .cs file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
+    self.assertTrue('string hello_str = "hello\\n";' in files[0].content)
+    self.assertTrue('Console.Write(hello_str);' in files[0].content)
+    self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
 
 if __name__ == '__main__':
