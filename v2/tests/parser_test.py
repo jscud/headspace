@@ -85,6 +85,27 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('RETURN_STATEMENT', tree.members[0].members[2].members[3].members[1].node_type)
     self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[3].members[1].members[0].node_type)
 
+  def test_function_call_with_identifier_arg(self):
+    tree = parser.parse_source('main:function[][func[x]]')
+    self.assertEqual('MODULE', tree.node_type)
+    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[3].members[1].members[0].node_type)
+    self.assertEqual('func', tree.members[0].members[2].members[3].members[1].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].node_type)
+    self.assertEqual('IDENTIFIER', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].node_type)
+    self.assertEqual('x', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0])
+
+  def test_nested_function(self):
+    tree = parser.parse_source('main:function[][outerFunction[innerFunction[67]]]')
+    self.assertEqual('MODULE', tree.node_type)
+    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[3].members[1].members[0].node_type)
+    self.assertEqual('outerFunction', tree.members[0].members[2].members[3].members[1].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].node_type)
+    self.assertEqual('IDENTIFIER', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0].node_type)
+    self.assertEqual('innerFunction', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].node_type)
+    self.assertEqual('ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].members[1].node_type)
+    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].members[1].members[0].node_type)
+
 
 if __name__ == '__main__':
   unittest.main()

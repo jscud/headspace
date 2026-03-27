@@ -118,6 +118,9 @@ class Parser:
       if current_token.token_type == 'STRING':
         argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
         self.consume_current_token('processed string literal argument')
+      elif current_token.token_type == 'NUMBER':
+        argument_list.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
+        self.consume_current_token('processed number literal argument')
       elif current_token.token_type == 'IDENTIFIER':
         # This may be an identifier chain or a function call. We can process it as an rvalue.
         self.process_rvalue(argument_list)
@@ -228,7 +231,17 @@ class Parser:
       parent_node.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
       self.consume_current_token('processed number rvalue')
     elif current_token and current_token.token_type == 'IDENTIFIER':
-      self.process_identifier_chain(parent_node)
+      sub_node = Node('temp')
+      self.process_identifier_chain(sub_node)
+      current_token = self.current_token()
+      if current_token and current_token.matches('SYMBOL', '['):
+        # This is a function/method call.
+        self.process_function_call(sub_node)
+        sub_node.node_type = 'FUNCTION_CALL'
+        parent_node.members.append(sub_node)
+      else:
+        # This is just an identifier chain so add the chain directly.
+        parent_node.members.append(sub_node.members[0])
     self.process_whitespace(parent_node)
 
   def process_assignment(self, parent_node):
