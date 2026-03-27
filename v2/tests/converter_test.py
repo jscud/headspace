@@ -43,7 +43,7 @@ END_FOREIGN_CODE_DOTNET
 ]
 """
 
-FUNCTION_CALLING_EXAMPLE = """
+FUNCTION_CALLING_EXAMPLE_2 = """
 moduleName = "functions"
 
 addNumbers: function[a:int32, b:int32][
@@ -52,6 +52,19 @@ addNumbers: function[a:int32, b:int32][
 
 main: function[][
   os.print[text.intToStr[addNumbers[5, 5], 10]]
+  os.print["\\n"]
+]
+"""
+
+FUNCTION_CALLING_EXAMPLE = """
+moduleName = "functions"
+
+addNumbers: function[a:int32, b:int32][
+  return a + b
+]
+
+main: function[][
+  os.print[5 + 5]
   os.print["\\n"]
 ]
 """
@@ -77,6 +90,15 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('char* hello_str = "hello\\n";' in files[0].content)
     self.assertTrue('printf("%s", hello_str);' in files[0].content)
     self.assertFalse('var hello_str = "hello\\n"' in files[0].content)
+
+  def x_test_function_calling(self):
+    """Example of including function calls for C."""
+    tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE, debug_print=True)
+    print('parsed tree')
+    tree.print()
+    files = converter.convert(tree, 'c')
+    print(files[0].content)
+    self.assertEqual(2, len(files))
 
 
 class TestConvertToPython(unittest.TestCase):

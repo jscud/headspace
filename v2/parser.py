@@ -6,6 +6,7 @@ import lexer
 
 # Parse tree checklist:
 # function call - done
+# nested function call
 # function declaration - done
 # foreign code block - done
 # variable declaration
@@ -15,6 +16,9 @@ import lexer
 # module name - done
 # return statement - done
 # infix operators
+
+
+INFIX_OPERATORS = ['+']
 
 
 class Node:
@@ -44,6 +48,7 @@ class Parser:
     self._tokens = tokens
     self._tokens_len = len(tokens)
     self.index = 0
+    self.debug_print = False
 
   def current_token(self):
     if self.index >= self._tokens_len:
@@ -58,10 +63,18 @@ class Parser:
       return self.next_token(skip_count + 1)
     return self._tokens[self.index + skip_count]
 
+  def consume_current_token(self, debug_note):
+    if self.debug_print:
+      current_token = self.current_token()
+      if current_token and current_token.token_type != 'SPACE':
+        print('    consumed:', debug_note)
+        self.current_token().print()
+    self.index += 1
+
   def process_whitespace(self, parent_node):
     # TODO: consider removing this in favor of skipping whitespace.
     current_token = self.current_token()
-    if current_token.token_type == 'SPACE':
+    if current_token and current_token.token_type == 'SPACE':
       whitespace_tokens = []
       whitespace_node = Node('SPACES')
       whitespace_node.leaf = True
@@ -70,7 +83,7 @@ class Parser:
       while current_token and current_token.token_type == 'SPACE':
         # Leave out whitespace from the parse tree.
         #whitespace_node.members.append(current_token.content)
-        self.index += 1
+        self.consume_current_token('processed whitespace')
         current_token = self.current_token()
 
   def process_identifier_chain(self, parent_node):
@@ -84,17 +97,17 @@ class Parser:
     next_token = self.next_token()
     while next_token and next_token.matches('SYMBOL', '.'):
       # Add the . that comes after the identifier.
-      self.index += 1
+      self.consume_current_token('processed identifier in chain')
       current_token = self.current_token()
       identifier_chain.members.append(Node('MEMBER_DOT_ACCESS', [current_token.content], True))
-      self.index += 1
+      self.consume_current_token('processed dot in identifier chain')
       current_token = self.current_token()
       if not current_token or not current_token.token_type == 'IDENTIFIER':
         print('Expected a chain of identifiers to have an identifier following a . (dot)')
         sys.exit(1)
       identifier_chain.members.append(Node('IDENTIFIER', [current_token.content], True))
       next_token = self.next_token()
-    self.index += 1
+    self.consume_current_token('processed final identifier in chain')
     parent_node.members.append(identifier_chain)
 
   def process_argument_list(self, parent_node):
@@ -104,11 +117,11 @@ class Parser:
     if current_token:
       if current_token.token_type == 'STRING':
         argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
-        self.index += 1
+        self.consume_current_token('processed string literal argument')
       elif current_token.token_type == 'IDENTIFIER':
-        self.process_identifier_chain(argument_list)
-        #argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
-      # TODO: handle a function call.
+        # This may be an identifier chain or a function call. We can process it as an rvalue.
+        self.process_rvalue(argument_list)
+        # TODO: handle a function call.
     parent_node.members.append(argument_list)
 
   def process_function_call(self, parent_node):
@@ -119,7 +132,7 @@ class Parser:
       print('Expected a function call to have an opening [ after the identifier')
       sys.exit(1)
     function_call.members.append(Node('ARG_LIST_START', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed opening [ of arg list')
     self.process_whitespace(function_call)
     # After the opening block, get the list of all arguments.
     self.process_argument_list(function_call)
@@ -129,7 +142,7 @@ class Parser:
       print('Expected a function call to have a closing ] after the function arguments')
       sys.exit(1)
     function_call.members.append(Node('ARG_LIST_END', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed closing ] of arg list')
     parent_node.members.append(function_call)
 
   def process_foreign_code_block(self, parent_node):
@@ -150,24 +163,73 @@ class Parser:
       source_code_block.node_type = 'JS'
     elif current_token and current_token.content == 'BEGIN_FOREIGN_CODE_DOTNET':
       source_code_block.node_type = 'DOTNET'
-    self.index += 1
+    self.consume_current_token('processed foreign code start')
     current_token = self.current_token()
     while current_token and not current_token.content.startswith('END_FOREIGN_CODE_'):
       source_code_block.members.append(current_token.content)
-      self.index += 1
+      self.consume_current_token('processed foreign code token')
       current_token = self.current_token()
     if current_token and current_token.content.startswith('END_FOREIGN_CODE_'):
       # We have reached the end of the code block, consume this token and move forward.
-      self.index += 1
+      self.consume_current_token('processed foreign code end')
     parent_node.members.append(foreign_code_block)
+
+  def process_infix_operation(self, parent_node):
+    infix_operation = Node('INFIX_OPERATION')
+    current_token = self.current_token()
+    if current_token and current_token.token_type == 'STRING':
+      # Move past the first operand.
+      infix_operation.members.append(Node('STRING_LITERAL', [current_token.content], True))
+      self.consume_current_token('processed first string operand in infix')
+    elif current_token and current_token.token_type == 'NUMBER':
+      # Move past the first operand.
+      infix_operation.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
+      self.consume_current_token('processed first number operand in infix')
+    elif current_token and current_token.token_type == 'IDENTIFIER':
+      self.process_identifier_chain(infix_operation)
+    self.process_whitespace(infix_operation)
+    current_token = self.current_token()
+    if current_token and current_token.token_type != 'SYMBOL':
+      print('In an infix operation, the symbol should follow the first operand.')
+      sys.exit(1)
+    if current_token and current_token.token_type == 'SYMBOL' and current_token.content in INFIX_OPERATORS:
+      infix_operation.members.append(Node('OPERATOR', [current_token.content], True))
+    # Move past the operator.
+    self.consume_current_token('processed infix operator')
+    self.process_whitespace(infix_operation)
+    # TODO: For the second operand in the operation, process an rvalue. This allows chaining.
+    current_token = self.current_token()
+    if not current_token:
+      print('In an infix operation, there should be a second operand after the operator.')
+      sys.exit(1)
+    if current_token and current_token.token_type == 'STRING':
+      # Move past the first operand.
+      infix_operation.members.append(Node('STRING_LITERAL', [current_token.content], True))
+      self.consume_current_token('processed first string operand in infix')
+    elif current_token and current_token.token_type == 'NUMBER':
+      # Move past the first operand.
+      infix_operation.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
+      self.consume_current_token('processed first number operand in infix')
+    elif current_token and current_token.token_type == 'IDENTIFIER':
+      self.process_identifier_chain(infix_operation)
+    parent_node.members.append(infix_operation)
 
   def process_rvalue(self, parent_node):
     current_token = self.current_token()
-    if current_token and current_token.token_type == 'STRING':
+    # Lookahead to see if there is a symbol for an infix operation.
+    next_token = self.next_token()
+    if next_token and next_token.token_type == 'SYMBOL' and next_token.content in INFIX_OPERATORS:
+      self.process_infix_operation(parent_node)
+      self.process_whitespace(parent_node)
+    elif current_token and current_token.token_type == 'STRING':
       parent_node.members.append(Node('STRING_LITERAL', [current_token.content], True))
+      self.consume_current_token('processed string rvalue')
     elif current_token and current_token.token_type == 'NUMBER':
       parent_node.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
-    self.index += 1
+      self.consume_current_token('processed number rvalue')
+    elif current_token and current_token.token_type == 'IDENTIFIER':
+      self.process_identifier_chain(parent_node)
+    self.process_whitespace(parent_node)
 
   def process_assignment(self, parent_node):
     current_token = self.current_token()
@@ -177,14 +239,14 @@ class Parser:
       print('Expected assignment to start with an identifier')
       sys.exit(1)
     assignment.members.append(Node('ASSIGNMENT_TARGET', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed assignment identifier')
     self.process_whitespace(assignment)
     current_token = self.current_token()
     if not current_token or not current_token.matches('SYMBOL', '='):
       print('Expected assignment to have a = after the identifier')
       sys.exit(1)
     assignment.members.append(Node('ASSIGNMENT_SYMBOL', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed assignment symbol')
     self.process_whitespace(assignment)
     self.process_rvalue(assignment)
     parent_node.members.append(assignment)
@@ -195,7 +257,7 @@ class Parser:
     if not current_token or not current_token.matches('IDENTIFIER', 'return'):
       print('Expected a return statement to start with return')
       sys.exit(1)
-    self.index += 1
+    self.consume_current_token('processed return identifier')
     self.process_whitespace(return_statement)
     self.process_rvalue(return_statement)
     parent_node.members.append(return_statement)
@@ -208,7 +270,7 @@ class Parser:
       print('Expected a [ to begin a code block')
       sys.exit(1)
     code_block.members.append(Node('CODE_BLOCK_START', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed code block opening [')
     self.process_whitespace(code_block)
     current_token = self.current_token()
     while current_token and current_token.token_type == 'IDENTIFIER':
@@ -239,6 +301,45 @@ class Parser:
       code_block.members.append(Node('CODE_BLOCK_END', [current_token.content], True))
     parent_node.members.append(code_block)
 
+  def process_parameters_list(self, parent_node):
+    parameters_list = Node('PARAMETERS_LIST')
+    processing_parameters = True
+    while processing_parameters:
+      current_token = self.current_token()
+      declaration_tree = Node('DECLARATION')
+      self.process_whitespace(declaration_tree)
+      declaration_tree.members.append(Node('IDENTIFIER', [current_token.content], True))
+      self.consume_current_token('processed declared identifier parameter')
+      self.process_whitespace(declaration_tree)
+      current_token = self.current_token()
+      if current_token and current_token.matches('SYMBOL', ':'):
+        declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
+      else:
+        print('Expected : after variable name in declaration')
+        sys.exit(1)
+      self.consume_current_token('processed type marker in parameter declaration')
+      self.process_whitespace(declaration_tree)
+      current_token = self.current_token()
+      if current_token and current_token.matches('IDENTIFIER', 'function'):
+        # Can't decalre a function in a parameters list.
+        print('A function cannot be declared in a list of paramters.')
+        sys.exit(1)
+      else:
+        # This is a variable declaration, use this identifier as the type.
+        declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+        self.consume_current_token('processed type identifier in parameter declaration')
+      parameters_list.members.append(declaration_tree)
+      self.process_whitespace(declaration_tree)
+      current_token = self.current_token()
+      if current_token and current_token.matches('SYMBOL', ','):
+        processing_parameters = True
+        # Consume the comma seperator and move to the next.
+        self.consume_current_token('processed parameter separator in parameters list')
+      else:
+        processing_parameters = False
+    parent_node.members.append(declaration_tree)
+
+
   def process_function_definition(self, parent_node):
     current_token = self.current_token()
     # The current token is the identifier 'function' to begin the declaration.
@@ -247,7 +348,7 @@ class Parser:
       print('function definition did not begin with keyword function')
       sys.exit(1)
     function_definition.members.append(Node('FUNCTION_KEYWORD', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed function keyword in function declaration')
     self.process_whitespace(function_definition)
     current_token = self.current_token()
     # Should be an opening [ for the parameter list.
@@ -255,15 +356,18 @@ class Parser:
       print('Expected a [ after the function keyword in function definition')
       sys.exit(1)
     function_definition.members.append(Node('FUNCTION_PARAMS_START', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed opening [ in function parameters list')
     self.process_whitespace(function_definition)
+    current_token = self.current_token()
     # TODO: process the list of parameter declarations.
+    if current_token and current_token.token_type == 'IDENTIFIER':
+      self.process_parameters_list(function_definition)
     current_token = self.current_token()
     if not current_token or not current_token.matches('SYMBOL', ']'):
       print('Expected a ] after the first [ in a function definition')
       sys.exit(1)
     function_definition.members.append(Node('FUNCTION_PARAMS_END', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed closing ] in function parameter list')
     self.process_whitespace(function_definition)
     self.process_code_block(function_definition)
     current_token = self.current_token()
@@ -271,14 +375,14 @@ class Parser:
       print('Expected a ] after the first [ in a function definition')
       sys.exit(1)
     parent_node.members.append(function_definition)
-    self.index += 1
+    self.consume_current_token('processing closing ] in function declaration')
 
   def process_declaration(self, parent_node):
     current_token = self.current_token()
     declaration_tree = Node('DECLARATION')
     self.process_whitespace(declaration_tree)
     declaration_tree.members.append(Node('IDENTIFIER', [current_token.content], True))
-    self.index += 1
+    self.consume_current_token('processed starting identifier in declaration')
     self.process_whitespace(declaration_tree)
     current_token = self.current_token()
     if current_token and current_token.matches('SYMBOL', ':'):
@@ -286,7 +390,7 @@ class Parser:
     else:
       print('Expected : after variable name in declaration')
       sys.exit(1)
-    self.index += 1
+    self.consume_current_token('processed type separator in declaration')
     self.process_whitespace(declaration_tree)
     current_token = self.current_token()
     if current_token and current_token.matches('IDENTIFIER', 'function'):
@@ -296,11 +400,9 @@ class Parser:
     else:
       # This is a variable declaration, use this identifier as the type.
       declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
-      self.index += 1
+      self.consume_current_token('processed variable type identifier in declaration')
     parent_node.members.append(declaration_tree)
 
-  def process_infix_operation(self, parent_node):
-    pass
 
   def build_parse_tree(self):
     top_node = Node('MODULE')
@@ -328,11 +430,12 @@ class Parser:
     return top_node
 
 
-def parse_tokens(tokens):
+def parse_tokens(tokens, debug_print=False):
   parser = Parser(tokens)
+  parser.debug_print = debug_print
   return parser.build_parse_tree()
 
 
-def parse_source(source_code):
-  return parse_tokens(lexer.tokenize(source_code))
+def parse_source(source_code, debug_print=False):
+  return parse_tokens(lexer.tokenize(source_code), debug_print)
 
