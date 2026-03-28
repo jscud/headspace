@@ -115,7 +115,10 @@ class Parser:
     argument_list = Node('ARGUMENTS')
     # TODO: consume tokens until reaching the closing ]
     if current_token:
-      if current_token.token_type == 'STRING':
+      next_token = self.next_token()
+      if next_token and next_token.token_type == 'SYMBOL' and next_token.content in INFIX_OPERATORS:
+        self.process_infix_operation(argument_list)
+      elif current_token.token_type == 'STRING':
         argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
         self.consume_current_token('processed string literal argument')
       elif current_token.token_type == 'NUMBER':
@@ -208,11 +211,11 @@ class Parser:
     if current_token and current_token.token_type == 'STRING':
       # Move past the first operand.
       infix_operation.members.append(Node('STRING_LITERAL', [current_token.content], True))
-      self.consume_current_token('processed first string operand in infix')
+      self.consume_current_token('processed second string operand in infix')
     elif current_token and current_token.token_type == 'NUMBER':
       # Move past the first operand.
       infix_operation.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
-      self.consume_current_token('processed first number operand in infix')
+      self.consume_current_token('processed second number operand in infix')
     elif current_token and current_token.token_type == 'IDENTIFIER':
       self.process_identifier_chain(infix_operation)
     parent_node.members.append(infix_operation)

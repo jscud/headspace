@@ -106,6 +106,17 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].members[1].node_type)
     self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].members[1].members[0].node_type)
 
+  def test_function_call_with_infix_operation_arg(self):
+    tree = parser.parse_source('main:function[][func[9 + 10]]')
+    self.assertEqual('MODULE', tree.node_type)
+    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[3].members[1].members[0].node_type)
+    self.assertEqual('func', tree.members[0].members[2].members[3].members[1].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].node_type)
+    self.assertEqual('INFIX_OPERATION', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].node_type)
+    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].node_type)
+    self.assertEqual('9', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0])
+    self.assertEqual('10', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[2].members[0])
+
 
 if __name__ == '__main__':
   unittest.main()
