@@ -28,6 +28,9 @@ RETURN_VALUE_EXAMPLE = """
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
 
+  def assertTreeContains(self, needle, tree):
+    self.assertTrue(needle in tree.dump())
+
   def test_parses_empty_program(self):
     """Empty input, zero length program"""
     tree = parser.parse_source('')
@@ -48,6 +51,14 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual(':', tree.members[0].members[1].members[0])
     self.assertEqual('VARIABLE_TYPE', tree.members[0].members[2].node_type)
     self.assertEqual('int32', tree.members[0].members[2].members[0])
+    self.assertTreeContains("""
+  DECLARATION:
+    IDENTIFIER:
+      x
+    DECLARATION_MARKER:
+      :
+    VARIABLE_TYPE:
+      int32""", tree)
     
   def test_parse_hello_world_example(self):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)

@@ -29,17 +29,22 @@ class Node:
     self.members = members or []
 
   def print(self, indent_level=0):
+    print(self.dump(indent_level))
+
+  def dump(self, indent_level=0):
+    output = []
     if self.leaf:
-      print(' ' * indent_level, self.node_type, ':')
+      output.append(' ' * indent_level + self.node_type + ':')
       for member in self.members:
         if self.node_type == 'SPACES':
-          print(' ' * (indent_level + 2), '[', member, ']')
+          output.append(' ' * (indent_level + 2) + '[' + member + ']')
         else:
-          print(' ' * (indent_level + 2), member)
+          output.append(' ' * (indent_level + 2) + member)
     else:
-      print(' ' * indent_level, self.node_type, ':')
+      output.append(' ' * indent_level + self.node_type + ':')
       for member in self.members:
-        member.print(indent_level + 2)
+        output.append(member.dump(indent_level + 2))
+    return '\n'.join(output)
 
 
 class Parser:
