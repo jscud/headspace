@@ -7,26 +7,38 @@ import os
 #   - creating main function - done
 #   - converting print statement - done
 #   - passing through foreign code - done
+#   - support function declarations
+#   - function calling
 # Converting to Python
 #   - creating main function - done
 #   - converting print statement - done
 #   - passing through foreign code - done
+#   - support function declarations
+#   - function calling
 # Converting to Java
 #   - creating main function - done
 #   - converting print statement - done
 #   - passing through foreign code - done
+#   - support function declarations
+#   - function calling
 # Converting to .NET (C#)
 #   - creating main function - done
 #   - converting print statement - done
+#   - support function declarations
+#   - function calling
 #   - passing through foreign code - done
 # Converting to Go
 #   - creating main function - done
 #   - converting print statement - done
 #   - passing through foreign code - done
+#   - support function declarations
+#   - function calling
 # Converting to JavaScript (NodeJS)
 #   - creating main function - done
 #   - converting print statement - done
 #   - passing through foreign code - done
+#   - support function declarations
+#   - function calling
 
 class SourceCodeFile:
 
@@ -96,14 +108,31 @@ class ConverterToC:
         self.emit_foreign_code_block(member, c_code, indent_level + 2)
     c_code.append('}\n')
 
+  def emit_function_signature(self, function_declaration_node, h_code, indent_level):
+    if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
+      return
+    pass
+
+  def emit_function_definition(self, function_declaration_node, c_code, indent_level):
+    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
+      return
+    pass
+
   def emit_code(self):
     c_code = []
+    h_code = []
     module_name = find_module_name(self.tree)
     module_name_c = module_name + '.c'
     module_name_h = module_name + '.h'
+    # TODO: gather the includes needed to express before source code.
+    for module_level_member in self.tree.members:
+      if module_level_member.node_type == 'FUNCTION_DECLARATION':
+        self.emit_function_signature(module_level_member, h_code, 0)
+        self.emit_function_definition(module_level_member, c_code, 0)
+      # TODO: handle top level variable declarations, class defintions, etc.
     main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
-      # TODO: gather the includes needed to express before source code.
       c_code.append('#include<stdio.h>\n')
       c_code.append('int main(void) ')
       for member in main_function_declaration.members:

@@ -6,7 +6,7 @@ import lexer
 
 # Parse tree checklist:
 # function call - done
-# nested function call
+# nested function call - done
 # function declaration - done
 # foreign code block - done
 # variable declaration
@@ -15,7 +15,7 @@ import lexer
 # assigment statement - done
 # module name - done
 # return statement - done
-# infix operators
+# infix operators - done
 
 
 INFIX_OPERATORS = ['+']
