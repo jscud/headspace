@@ -128,6 +128,50 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('9', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0])
     self.assertEqual('10', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[2].members[0])
 
+  def test_nested_method_and_function_calls(self):
+    tree = parser.parse_source('main:function[][os.print[text.intToStr[addNumbers[5, 5], 10]]]')
+    self.assertTreeContains("""
+        FUNCTION_CALL:
+          IDENTIFIER_CHAIN:
+            IDENTIFIER:
+              os
+            MEMBER_DOT_ACCESS:
+              .
+            IDENTIFIER:
+              print
+          FUNCTION_CALL_ARGUMENTS:
+            ARG_LIST_START:
+              [
+            ARGUMENTS:
+              FUNCTION_CALL:
+                IDENTIFIER_CHAIN:
+                  IDENTIFIER:
+                    text
+                  MEMBER_DOT_ACCESS:
+                    .
+                  IDENTIFIER:
+                    intToStr
+                FUNCTION_CALL_ARGUMENTS:
+                  ARG_LIST_START:
+                    [
+                  ARGUMENTS:
+                    FUNCTION_CALL:
+                      IDENTIFIER_CHAIN:
+                        IDENTIFIER:
+                          addNumbers
+                      FUNCTION_CALL_ARGUMENTS:
+                        ARG_LIST_START:
+                          [
+                        ARGUMENTS:
+                          NUMBER_LITERAL:
+                            5
+                          NUMBER_LITERAL:
+                            5
+                        ARG_LIST_END:
+                          ]
+                    NUMBER_LITERAL:
+                      10""", tree)
+
 
 if __name__ == '__main__':
   unittest.main()

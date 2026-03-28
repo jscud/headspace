@@ -118,11 +118,12 @@ class Parser:
   def process_argument_list(self, parent_node):
     current_token = self.current_token()
     argument_list = Node('ARGUMENTS')
-    # TODO: consume tokens until reaching the closing ]
-    if current_token:
+    while current_token and not current_token.matches('SYMBOL', ']'):
       next_token = self.next_token()
       if next_token and next_token.token_type == 'SYMBOL' and next_token.content in INFIX_OPERATORS:
         self.process_infix_operation(argument_list)
+      elif current_token.matches('SYMBOL', ','):
+        self.consume_current_token('processed argument seperator in arguments list')
       elif current_token.token_type == 'STRING':
         argument_list.members.append(Node('STRING_LITERAL', [current_token.content], True))
         self.consume_current_token('processed string literal argument')
@@ -132,7 +133,8 @@ class Parser:
       elif current_token.token_type == 'IDENTIFIER':
         # This may be an identifier chain or a function call. We can process it as an rvalue.
         self.process_rvalue(argument_list)
-        # TODO: handle a function call.
+      self.process_whitespace(argument_list)
+      current_token = self.current_token()
     parent_node.members.append(argument_list)
 
   def process_function_call(self, parent_node):
