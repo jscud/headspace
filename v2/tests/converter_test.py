@@ -51,7 +51,7 @@ addNumbers: function: int32[a:int32, b:int32][
 ]
 
 main: function: void[][
-  os.print[text.intToStr[addNumbers[5, 5], 10]]
+  os.printInt[addNumbers[5, 5]]
   os.print["\\n"]
 ]
 """
@@ -84,9 +84,9 @@ class TestConvertToC(unittest.TestCase):
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
     # Check function signature in .h file.
-    self.assertTrue('int32 addNumbers(int32 a, int32 b);' in files[1].content)
+    self.assertTrue('int32_t addNumbers(int32_t a, int32_t b);' in files[1].content)
     # Check funciton definition in .c file.
-    self.assertTrue('int32 addNumbers(int32 a, int32 b)' in files[0].content)
+    self.assertTrue('int32_t addNumbers(int32_t a, int32_t b)' in files[0].content)
     self.assertTrue('  return a + b;' in files[0].content)
 
 

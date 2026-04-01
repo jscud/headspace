@@ -7,8 +7,8 @@ import os
 #   - creating main function - done
 #   - converting print statement - done
 #   - passing through foreign code - done
-#   - support function declarations
-#   - function calling
+#   - support function declarations - done
+#   - function calling - done
 # Converting to Python
 #   - creating main function - done
 #   - converting print statement - done
@@ -106,19 +106,42 @@ class ConverterToC:
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
-          function_call_node.members[0].members[2].members[0] == 'print'):
+          (function_call_node.members[0].members[2].members[0] == 'print' or function_call_node.members[0].members[2].members[0] == 'printInt') and
+          function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         c_code.append(' ' * (indent_level))
-        c_code.append('printf')
-    if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
-      c_code.append('("%s", ')
-      if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-          function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
-        c_code.append(function_call_node.members[1].members[1].members[0].members[0])
-      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-        for chain_entry in function_call_node.members[1].members[1].members[0].members:
-          c_code.append(chain_entry.members[0])
-      c_code.append(');\n')
+        if function_call_node.members[0].members[2].members[0] == 'print':
+          c_code.append('printf("%s", ')
+        elif function_call_node.members[0].members[2].members[0] == 'printInt':
+          c_code.append('printf("%d", ')
+        if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
+          c_code.append(function_call_node.members[1].members[1].members[0].members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+          for chain_entry in function_call_node.members[1].members[1].members[0].members:
+            c_code.append(chain_entry.members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], c_code, indent_level)
+        c_code.append(');\n')
+      elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        # Emit the chain of identifiers.
+        for chain_node in function_call_node.members[0].members:
+          c_code.append(chain_node.members[0])
+        # Emit the arguments for the function call.
+        if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+          c_code.append('(')
+          first_arg = True
+          for argument_node in function_call_node.members[1].members[1].members:
+            if not first_arg:
+              c_code.append(' ,')
+            if argument_node.node_type == 'NUMBER_LITERAL':
+              c_code.append(argument_node.members[0])
+              first_arg = False
+          c_code.append(')')
+        else:
+          print('Function call was missing a list of arguments.')
+          sys.exit(1)
 
   def emit_foreign_code_block(self, foreign_code_block_node, c_code, indent_level):
     if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == 'C':
@@ -159,6 +182,12 @@ class ConverterToC:
         self.emit_return_statement(member, c_code, indent_level + 2)
     c_code.append('}\n')
 
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'int32_t'
+    else:
+      return provided_type
+
   def emit_function_signature(self, function_declaration_node, h_code, indent_level):
     # Skip the main function since it is not included in a .h file.
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
@@ -166,12 +195,12 @@ class ConverterToC:
     return_type = find_function_return_type(function_declaration_node)
     function_name = find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
-    h_code.append(return_type + ' ' + function_name + '(')
+    h_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
     param_index = 0
     while param_index < len(function_params) - 1:
-      h_code.append(function_params[param_index][1] + ' ' + function_params[param_index][0] + ', ')
+      h_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
       param_index += 1
-    h_code.append(function_params[len(function_params) - 1][1] + ' ' + function_params[len(function_params) - 1][0] + ');\n')
+    h_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ');\n')
 
   def emit_function_body(self, function_body_node, c_code, indent_level):
     self.emit_code_block(function_body_node, c_code, indent_level)
@@ -183,12 +212,12 @@ class ConverterToC:
     return_type = find_function_return_type(function_declaration_node)
     function_name = find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
-    c_code.append(return_type + ' ' + function_name + '(')
+    c_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
     param_index = 0
     while param_index < len(function_params) - 1:
-      c_code.append(function_params[param_index][1] + ' ' + function_params[param_index][0] + ', ')
+      c_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
       param_index += 1
-    c_code.append(function_params[len(function_params) - 1][1] + ' ' + function_params[len(function_params) - 1][0] + ')')
+    c_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ')')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), c_code, indent_level)
     c_code.append('\n')
@@ -201,10 +230,13 @@ class ConverterToC:
     module_name_h = module_name + '.h'
 
     # Start the .h file with a ifdef guard.
-    h_code.append('#ifndef HEADSPACE_' + module_name.upper() + '_H\n#define HEADSPACE_' + module_name.upper() + '_H\n\n')
+    h_code.append('#ifndef HEADSPACE_' + module_name.upper() + '_H\n#define HEADSPACE_' + module_name.upper() + '_H\n')
+    h_code.append('#include<stdint.h>\n')
+    h_code.append('\n')
 
     # Start the .c file with include directives.
     c_code.append('#include<stdio.h>\n')
+    c_code.append('#include<stdint.h>\n')
     c_code.append('#include"' + module_name + '.h"\n')
     # TODO: gather the includes needed to express before source code.
     c_code.append('\n')
@@ -230,8 +262,6 @@ class ConverterToC:
               # function's code block.
               c_code.insert(-1, '  return 0;\n')
 
-    #print('emitting C code:')
-    #print(''.join(c_code))
     return [SourceCodeFile(module_name_c, ''.join(c_code)), SourceCodeFile(module_name_h, ''.join(h_code))]
 
 

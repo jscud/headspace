@@ -40,6 +40,7 @@ END_FOREIGN_CODE_DOTNET
 ]
 """
 
+
 FUNCTION_CALLING_EXAMPLE = """
 moduleName = "functions"
 
@@ -48,7 +49,7 @@ addNumbers: function: int32[a:int32, b:int32][
 ]
 
 main: function: void[][
-  os.print[text.intToStr[addNumbers[5, 5], 10]]
+  os.printInt[addNumbers[5, 5]]
   os.print["\\n"]
 ]
 """
@@ -99,6 +100,29 @@ class TestConvertToCAndExecute(unittest.TestCase):
                     executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
+    subprocess.run(['rm', c_file_path], check=True)
+    subprocess.run(['rm', h_file_path], check=True)
+    subprocess.run(['rm', executable_path], check=True)
+
+  def test_converts_function_calls(self):
+    """Example of defining and calling a function for C."""
+    tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    self.assertEqual(2, len(files))
+    c_file_path = os.path.join('tests', 'test_output', files[0].filename)
+    h_file_path = os.path.join('tests', 'test_output', files[1].filename)
+    executable_path = os.path.join('tests', 'test_output', 'functions')
+    with open(c_file_path, 'w') as c_source:
+      c_source.write(files[0].content)
+    with open(h_file_path, 'w') as h_source:
+      h_source.write(files[1].content)
+    # Then compile and run the C code.
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
+                    '-Wmissing-prototypes', '-Wstrict-prototypes',
+                    '-Wold-style-definition', '-o',
+                    executable_path, c_file_path], check=True)
+    result = subprocess.run([executable_path], check=True, capture_output=True)
+    self.assertEqual(b'10\n', result.stdout)
     subprocess.run(['rm', c_file_path], check=True)
     subprocess.run(['rm', h_file_path], check=True)
     subprocess.run(['rm', executable_path], check=True)
