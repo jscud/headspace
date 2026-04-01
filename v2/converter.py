@@ -7,9 +7,10 @@ import os
 # - creating main function               c  py  js  go  c#  java
 # - converting print statement           c  py  js  go  c#  java
 # - passing through foreign code         c  py  js  go  c#  java
-# - function declarations                c  py
-# - function calling                     c  py
+# - function declarations                c  py      go
+# - function calling                     c  py      go
 # - importing modules
+# - declaring classes
 
 class SourceCodeFile:
 
@@ -76,6 +77,15 @@ class HeadspaceConverter:
       for source_token in foreign_code_block_node.members[0].members:
         source_code.append(source_token)
 
+  def emit_code_statement(self, statement_node, source_code, indent_level):
+    if statement_node.node_type == 'INFIX_OPERATION':
+      for sub_node in statement_node.members:
+        self.emit_code_statement(sub_node, source_code, indent_level)
+    elif statement_node.node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(statement_node, source_code, indent_level)
+    elif statement_node.node_type == 'OPERATOR':
+      source_code.append(' ' + statement_node.members[0] + ' ')
+
 
 class ConverterToC(HeadspaceConverter):
 
@@ -130,15 +140,6 @@ class ConverterToC(HeadspaceConverter):
     for member in identifier_chain_node.members:
       if member.node_type == 'IDENTIFIER':
         c_code.append(member.members[0])
-
-  def emit_code_statement(self, statement_node, c_code, indent_level):
-    if statement_node.node_type == 'INFIX_OPERATION':
-      for sub_node in statement_node.members:
-        self.emit_code_statement(sub_node, c_code, indent_level)
-    elif statement_node.node_type == 'IDENTIFIER_CHAIN':
-      self.emit_identifier_chain(statement_node, c_code, indent_level)
-    elif statement_node.node_type == 'OPERATOR':
-      c_code.append(' ' + statement_node.members[0] + ' ')
 
   def emit_return_statement(self, return_statement_node, c_code, indent_level):
     if return_statement_node.members[0]:
@@ -293,15 +294,6 @@ class ConverterToPython(HeadspaceConverter):
       if member.node_type == 'IDENTIFIER':
         py_code.append(member.members[0])
 
-  def emit_code_statement(self, statement_node, py_code, indent_level):
-    if statement_node.node_type == 'INFIX_OPERATION':
-      for sub_node in statement_node.members:
-        self.emit_code_statement(sub_node, py_code, indent_level)
-    elif statement_node.node_type == 'IDENTIFIER_CHAIN':
-      self.emit_identifier_chain(statement_node, py_code, indent_level)
-    elif statement_node.node_type == 'OPERATOR':
-      py_code.append(' ' + statement_node.members[0] + ' ')
-
   def emit_return_statement(self, return_statement_node, py_code, indent_level):
     if return_statement_node.members[0]:
       py_code.append(' ' * indent_level)
@@ -379,19 +371,55 @@ class ConverterToGo(HeadspaceConverter):
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
-          function_call_node.members[0].members[2].members[0] == 'print'):
+          (function_call_node.members[0].members[2].members[0] == 'print' or
+           function_call_node.members[0].members[2].members[0] == 'printInt') and
+          function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         go_code.append('\t' * (indent_level))
-        go_code.append('fmt.Print')
-    if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
-      go_code.append('(')
-      if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-          function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
-        go_code.append(function_call_node.members[1].members[1].members[0].members[0])
-      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-        for chain_entry in function_call_node.members[1].members[1].members[0].members:
-          go_code.append(chain_entry.members[0])
-      go_code.append(')')
+        if function_call_node.members[0].members[2].members[0] == 'print':
+          go_code.append('fmt.Print(')
+        elif function_call_node.members[0].members[2].members[0] == 'printInt':
+          go_code.append('fmt.Printf("%d", ')
+        if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
+          go_code.append(function_call_node.members[1].members[1].members[0].members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+          for chain_entry in function_call_node.members[1].members[1].members[0].members:
+            go_code.append(chain_entry.members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], go_code, indent_level)
+        go_code.append(')\n')
+      elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        # Emit the chain of identifiers.
+        for chain_node in function_call_node.members[0].members:
+          go_code.append(chain_node.members[0])
+        # Emit the arguments for the function call.
+        if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+          go_code.append('(')
+          first_arg = True
+          for argument_node in function_call_node.members[1].members[1].members:
+            if not first_arg:
+              go_code.append(' ,')
+            if argument_node.node_type == 'NUMBER_LITERAL':
+              go_code.append(argument_node.members[0])
+              first_arg = False
+          go_code.append(')')
+        else:
+          print('Function call was missing a list of arguments.')
+          sys.exit(1)
+
+  def emit_identifier_chain(self, identifier_chain_node, go_code, indent_level):
+    for member in identifier_chain_node.members:
+      if member.node_type == 'IDENTIFIER':
+        go_code.append(member.members[0])
+
+  def emit_return_statement(self, return_statement_node, go_code, indent_level):
+    if return_statement_node.members[0]:
+      go_code.append('\t' * indent_level)
+      go_code.append('return ')
+      self.emit_code_statement(return_statement_node.members[0], go_code, indent_level)
+      go_code.append('\n')
 
   def emit_code_block(self, code_block_node, go_code, indent_level):
     go_code.append('{\n')
@@ -400,18 +428,51 @@ class ConverterToGo(HeadspaceConverter):
         self.emit_function_call(member, go_code, indent_level + 1)
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, go_code, 'GO')
-    go_code.append('\n')
+      elif member.node_type == 'RETURN_STATEMENT':
+        self.emit_return_statement(member, go_code, indent_level + 1)
     if indent_level > 0:
       go_code.append('\t' * indent_level)
     go_code.append('}\n')
 
+  def emit_function_body(self, function_body_node, go_code, indent_level):
+    self.emit_code_block(function_body_node, go_code, indent_level)
+
+  def convert_data_type(self, provided_type):
+    # Note the int32 type is the same in Go.
+    return provided_type
+
+  def emit_function_definition(self, function_declaration_node, go_code, indent_level):
+    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
+      return
+    return_type = find_function_return_type(function_declaration_node)
+    function_name = find_function_identifier(function_declaration_node)
+    function_params = find_function_parameters(function_declaration_node)
+    go_code.append('func ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]) + ', ')
+      param_index += 1
+    go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]) + ')')
+    # Include the return type of the function.
+    go_code.append(' ' + self.convert_data_type(return_type) + ' ')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(function_declaration_node), go_code, indent_level)
+    go_code.append('\n')
+
   def emit_code(self):
     go_code = []
     module_name = find_module_name(self.tree)
+
+    go_code.append('package main\n\n')
+    go_code.append('import "fmt"\n\n')
+
+    for module_level_member in self.tree.members:
+      if module_level_member.node_type == 'FUNCTION_DECLARATION':
+        self.emit_function_definition(module_level_member, go_code, 0)
+
     main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
-      go_code.append('package main\n\n')
-      go_code.append('import "fmt"\n\n')
       go_code.append('func main() ')
       for member in main_function_declaration.members:
         if member.node_type == 'FUNCTION_DEFINITION':

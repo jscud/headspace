@@ -143,6 +143,15 @@ class TestConvertToGo(unittest.TestCase):
     self.assertTrue('fmt.Print(hello_str)' in files[0].content)
     self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
+  def test_function_calling(self):
+    """Example of including function calls for Go."""
+    tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertEqual(1, len(files))
+    self.assertTrue('func addNumbers(a int32, b int32) int32 {' in files[0].content)
+    self.assertTrue('\treturn a + b' in files[0].content)
+    self.assertTrue('\tfmt.Printf("%d", addNumbers(5 ,5))' in files[0].content)
+
 
 class TestConvertToJavaScript(unittest.TestCase):
   """Convert the headspace code to JavaScript."""
