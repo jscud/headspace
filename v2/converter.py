@@ -3,42 +3,13 @@ import sys
 import os
 
 # Checklist for converting headspace parse trees to target languages:
-# Converting to C
-#   - creating main function - done
-#   - converting print statement - done
-#   - passing through foreign code - done
-#   - support function declarations - done
-#   - function calling - done
-# Converting to Python
-#   - creating main function - done
-#   - converting print statement - done
-#   - passing through foreign code - done
-#   - support function declarations
-#   - function calling
-# Converting to Java
-#   - creating main function - done
-#   - converting print statement - done
-#   - passing through foreign code - done
-#   - support function declarations
-#   - function calling
-# Converting to .NET (C#)
-#   - creating main function - done
-#   - converting print statement - done
-#   - support function declarations
-#   - function calling
-#   - passing through foreign code - done
-# Converting to Go
-#   - creating main function - done
-#   - converting print statement - done
-#   - passing through foreign code - done
-#   - support function declarations
-#   - function calling
-# Converting to JavaScript (NodeJS)
-#   - creating main function - done
-#   - converting print statement - done
-#   - passing through foreign code - done
-#   - support function declarations
-#   - function calling
+#   FEATURE NAME                         SUPPORTED LANGUAGES
+# - creating main function               c  py  js  go  c#  java
+# - converting print statement           c  py  js  go  c#  java
+# - passing through foreign code         c  py  js  go  c#  java
+# - function declarations                c
+# - function calling                     c
+# - importing modules
 
 class SourceCodeFile:
 
