@@ -81,10 +81,14 @@ class TestConvertToC(unittest.TestCase):
   def test_function_calling(self):
     """Example of including function calls for C."""
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
-    #tree.print()
     files = converter.convert(tree, 'c')
-    #print(files[0].content)
     self.assertEqual(2, len(files))
+    # Check function signature in .h file.
+    self.assertTrue('int32 addNumbers(int32 a, int32 b);' in files[1].content)
+    # Check funciton definition in .c file.
+    self.assertTrue('int32 addNumbers(int32 a, int32 b)' in files[0].content)
+    self.assertTrue('  return a + b;' in files[0].content)
+
 
 
 class TestConvertToPython(unittest.TestCase):

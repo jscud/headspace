@@ -87,6 +87,14 @@ def find_function_parameters(function_declaration_node):
   return params
 
 
+def find_function_body_code_block(function_declaration_node):
+  for node in function_declaration_node.members[2].members:
+    if node.node_type == 'CODE_BLOCK':
+      return node
+  print('Expected function definition to contain a code block for the body.')
+  sys.exit(1)
+
+
 class ConverterToC:
 
   def __init__(self, parse_tree):
@@ -117,6 +125,29 @@ class ConverterToC:
       for c_token in foreign_code_block_node.members[0].members:
         c_code.append(c_token)
 
+  def emit_identifier_chain(self, identifier_chain_node, c_code, indent_level):
+    for member in identifier_chain_node.members:
+      if member.node_type == 'IDENTIFIER':
+        c_code.append(member.members[0])
+
+
+  def emit_code_statement(self, statement_node, c_code, indent_level):
+    if statement_node.node_type == 'INFIX_OPERATION':
+      for sub_node in statement_node.members:
+        self.emit_code_statement(sub_node, c_code, indent_level)
+    elif statement_node.node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(statement_node, c_code, indent_level)
+    elif statement_node.node_type == 'OPERATOR':
+      c_code.append(' ' + statement_node.members[0] + ' ')
+
+
+  def emit_return_statement(self, return_statement_node, c_code, indent_level):
+    if return_statement_node.members[0]:
+      c_code.append(' ' * indent_level)
+      c_code.append('return ')
+      self.emit_code_statement(return_statement_node.members[0], c_code, indent_level)
+      c_code.append(';\n')
+
   def emit_code_block(self, code_block_node, c_code, indent_level):
     c_code.append('\n{\n')
     for member in code_block_node.members:
@@ -124,6 +155,8 @@ class ConverterToC:
         self.emit_function_call(member, c_code, indent_level + 2)
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, c_code, indent_level + 2)
+      elif member.node_type == 'RETURN_STATEMENT':
+        self.emit_return_statement(member, c_code, indent_level + 2)
     c_code.append('}\n')
 
   def emit_function_signature(self, function_declaration_node, h_code, indent_level):
@@ -140,12 +173,25 @@ class ConverterToC:
       param_index += 1
     h_code.append(function_params[len(function_params) - 1][1] + ' ' + function_params[len(function_params) - 1][0] + ');\n')
 
+  def emit_function_body(self, function_body_node, c_code, indent_level):
+    self.emit_code_block(function_body_node, c_code, indent_level)
 
   def emit_function_definition(self, function_declaration_node, c_code, indent_level):
     # Skip the main function because we have special case logic to place it at the end of the c_code.
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
-    pass
+    return_type = find_function_return_type(function_declaration_node)
+    function_name = find_function_identifier(function_declaration_node)
+    function_params = find_function_parameters(function_declaration_node)
+    c_code.append(return_type + ' ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      c_code.append(function_params[param_index][1] + ' ' + function_params[param_index][0] + ', ')
+      param_index += 1
+    c_code.append(function_params[len(function_params) - 1][1] + ' ' + function_params[len(function_params) - 1][0] + ')')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(function_declaration_node), c_code, indent_level)
+    c_code.append('\n')
 
   def emit_code(self):
     c_code = []
@@ -153,9 +199,16 @@ class ConverterToC:
     module_name = find_module_name(self.tree)
     module_name_c = module_name + '.c'
     module_name_h = module_name + '.h'
+
     # Start the .h file with a ifdef guard.
     h_code.append('#ifndef HEADSPACE_' + module_name.upper() + '_H\n#define HEADSPACE_' + module_name.upper() + '_H\n\n')
+
+    # Start the .c file with include directives.
+    c_code.append('#include<stdio.h>\n')
+    c_code.append('#include"' + module_name + '.h"\n')
     # TODO: gather the includes needed to express before source code.
+    c_code.append('\n')
+
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_signature(module_level_member, h_code, 0)
@@ -163,10 +216,10 @@ class ConverterToC:
       # TODO: handle top level variable declarations, class defintions, etc.
     # End the .h file with an ifdef guard.
     h_code.append('\n#endif\n')
+
+    # Add the main function at the end of the .c file.
     main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
-      c_code.append('#include<stdio.h>\n')
-      c_code.append('#include"' + module_name + '.h"\n')
       c_code.append('int main(void) ')
       for member in main_function_declaration.members:
         if member.node_type == 'FUNCTION_DEFINITION':
@@ -176,6 +229,9 @@ class ConverterToC:
               # Append a return statement before the closing } in the main
               # function's code block.
               c_code.insert(-1, '  return 0;\n')
+
+    #print('emitting C code:')
+    #print(''.join(c_code))
     return [SourceCodeFile(module_name_c, ''.join(c_code)), SourceCodeFile(module_name_h, ''.join(h_code))]
 
 
