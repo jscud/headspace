@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  js  go  c#  java
 # - converting print statement           c  py  js  go  c#  java
 # - passing through foreign code         c  py  js  go  c#  java
-# - function declarations                c
-# - function calling                     c
+# - function declarations                c  py
+# - function calling                     c  py
 # - importing modules
 
 class SourceCodeFile:
@@ -125,7 +125,6 @@ class ConverterToC:
       if member.node_type == 'IDENTIFIER':
         c_code.append(member.members[0])
 
-
   def emit_code_statement(self, statement_node, c_code, indent_level):
     if statement_node.node_type == 'INFIX_OPERATION':
       for sub_node in statement_node.members:
@@ -134,7 +133,6 @@ class ConverterToC:
       self.emit_identifier_chain(statement_node, c_code, indent_level)
     elif statement_node.node_type == 'OPERATOR':
       c_code.append(' ' + statement_node.members[0] + ' ')
-
 
   def emit_return_statement(self, return_statement_node, c_code, indent_level):
     if return_statement_node.members[0]:
@@ -264,7 +262,7 @@ class ConverterToPython:
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], py_code, indent_level)
-        py_code.append(', end="")')
+        py_code.append(', end="")\n')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
@@ -289,18 +287,74 @@ class ConverterToPython:
       for py_token in foreign_code_block_node.members[0].members:
         py_code.append(py_token)
 
+  def emit_identifier_chain(self, identifier_chain_node, py_code, indent_level):
+    for member in identifier_chain_node.members:
+      if member.node_type == 'IDENTIFIER':
+        py_code.append(member.members[0])
+
+  def emit_code_statement(self, statement_node, py_code, indent_level):
+    if statement_node.node_type == 'INFIX_OPERATION':
+      for sub_node in statement_node.members:
+        self.emit_code_statement(sub_node, py_code, indent_level)
+    elif statement_node.node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(statement_node, py_code, indent_level)
+    elif statement_node.node_type == 'OPERATOR':
+      py_code.append(' ' + statement_node.members[0] + ' ')
+
+  def emit_return_statement(self, return_statement_node, py_code, indent_level):
+    if return_statement_node.members[0]:
+      py_code.append(' ' * indent_level)
+      py_code.append('return ')
+      self.emit_code_statement(return_statement_node.members[0], py_code, indent_level)
+      py_code.append('\n')
+
   def emit_code_block(self, code_block_node, py_code, indent_level):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, py_code, indent_level + 2)
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, py_code, indent_level + 2)
+      elif member.node_type == 'RETURN_STATEMENT':
+        self.emit_return_statement(member, py_code, indent_level + 2)
+    py_code.append('\n')
+
+  def emit_function_body(self, function_body_node, py_code, indent_level):
+    self.emit_code_block(function_body_node, py_code, indent_level)
+
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'int'
+    else:
+      return provided_type
+
+  def emit_function_definition(self, function_declaration_node, py_code, indent_level):
+    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
+      return
+    return_type = find_function_return_type(function_declaration_node)
+    function_name = find_function_identifier(function_declaration_node)
+    function_params = find_function_parameters(function_declaration_node)
+    py_code.append('def ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      py_code.append(function_params[param_index][0] + ': ' + self.convert_data_type(function_params[param_index][1]) + ', ')
+      param_index += 1
+    py_code.append(function_params[param_index][0] + ': ' + self.convert_data_type(function_params[param_index][1]) + ')')
+    # Include the return type of the function.
+    py_code.append(' -> ' + self.convert_data_type(return_type) + ':\n')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(function_declaration_node), py_code, indent_level)
     py_code.append('\n')
 
   def emit_code(self):
     py_code = []
     module_name = find_module_name(self.tree)
     module_name_py = module_name + '.py'
+
+    for module_level_member in self.tree.members:
+      if module_level_member.node_type == 'FUNCTION_DECLARATION':
+        self.emit_function_definition(module_level_member, py_code, 0)
+
     main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
       py_code.append('def main():\n')

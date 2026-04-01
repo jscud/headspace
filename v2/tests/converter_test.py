@@ -88,7 +88,7 @@ class TestConvertToC(unittest.TestCase):
     # Check funciton definition in .c file.
     self.assertTrue('int32_t addNumbers(int32_t a, int32_t b)' in files[0].content)
     self.assertTrue('  return a + b;' in files[0].content)
-
+    self.assertTrue('  printf("%d", addNumbers(5 ,5));' in files[0].content)
 
 
 class TestConvertToPython(unittest.TestCase):
@@ -111,6 +111,15 @@ class TestConvertToPython(unittest.TestCase):
     self.assertTrue('hello_str = \'hello\\n\'' in files[0].content)
     self.assertTrue('print(hello_str, end="")' in files[0].content)
     self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
+
+  def test_function_calling(self):
+    """Example of including function calls for Python."""
+    tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertEqual(1, len(files))
+    self.assertTrue('def addNumbers(a: int, b: int) -> int:' in files[0].content)
+    self.assertTrue('  return a + b' in files[0].content)
+    self.assertTrue('  print(addNumbers(5 ,5), end="")' in files[0].content)
 
 
 class TestConvertToGo(unittest.TestCase):
