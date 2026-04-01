@@ -17,7 +17,7 @@ Group/code block: `[ ]`
 
 A single function program that prints "Hello World" to the terminal.
 
-    main: function[][
+    main:function:void[][
       os.print["Hello World\n"]
     ]
 

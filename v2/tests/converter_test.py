@@ -11,7 +11,7 @@ running of external programs."""
 HELLO_WORLD_EXAMPLE = """
 moduleName = "hello"
 
-main: function[][
+main: function: void[][
   os.print["Hello World\\n"]
 ]
 """
@@ -20,7 +20,7 @@ main: function[][
 FOREIGN_CODE_EXAMPLE = """
 moduleName = "foreign"
 
-main: function[][
+main: function: void[][
 BEGIN_FOREIGN_CODE_C
   char* hello_str = "hello\\n";
 END_FOREIGN_CODE_C
@@ -46,11 +46,11 @@ END_FOREIGN_CODE_DOTNET
 FUNCTION_CALLING_EXAMPLE = """
 moduleName = "functions"
 
-addNumbers: function[a:int32, b:int32][
+addNumbers: function: int32[a:int32, b:int32][
   return a + b
 ]
 
-main: function[][
+main: function: void[][
   os.print[text.intToStr[addNumbers[5, 5], 10]]
   os.print["\\n"]
 ]

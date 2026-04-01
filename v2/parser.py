@@ -374,9 +374,23 @@ class Parser:
     self.consume_current_token('processed function keyword in function declaration')
     self.process_whitespace(function_definition)
     current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', ':'):
+      print('Expected a : to express the return type in function definition')
+      sys.exit(1)
+    self.consume_current_token('processed return type separator in function declaration')
+    self.process_whitespace(function_definition)
+    current_token = self.current_token()
+    # After the function keyword, we expect the return type.
+    if not current_token or not current_token.token_type == 'IDENTIFIER':
+      print('Expected a return type for the function after the function keyword in function definition')
+      sys.exit(1)
+    function_definition.members.append(Node('FUNCTION_RETURN_TYPE', [current_token.content], True))
+    self.consume_current_token('processed function return type in function declaration')
+    self.process_whitespace(function_definition)
+    current_token = self.current_token()
     # Should be an opening [ for the parameter list.
     if not current_token or not current_token.matches('SYMBOL', '['):
-      print('Expected a [ after the function keyword in function definition')
+      print('Expected a [ after the function\'s return type in function definition')
       sys.exit(1)
     function_definition.members.append(Node('FUNCTION_PARAMS_START', [current_token.content], True))
     self.consume_current_token('processed opening [ in function parameters list')

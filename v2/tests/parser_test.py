@@ -3,13 +3,13 @@ import parser
 
 
 HELLO_WORLD_EXAMPLE = """
-    main: function[][
+    main: function: void[][
       os.print["Hello World\\n"]
     ]
 """
 
 FOREIGN_CODE_EXAMPLE = """
-main: function[][
+main: function: void[][
   BEGIN_FOREIGN_CODE_C
   int x = 10;
   printf("Hello World\\n");
@@ -19,7 +19,7 @@ main: function[][
 """
 
 RETURN_VALUE_EXAMPLE = """
-    main: function[][
+    sixseven: function: int32[][
       return 67
     ]
 """
@@ -69,16 +69,18 @@ class TestParserParse(unittest.TestCase):
     self.assertEqual('FUNCTION_DEFINITION', tree.members[0].members[2].node_type)
     self.assertEqual('FUNCTION_KEYWORD', tree.members[0].members[2].members[0].node_type)
     self.assertEqual('function', tree.members[0].members[2].members[0].members[0])
-    self.assertEqual('FUNCTION_PARAMS_START', tree.members[0].members[2].members[1].node_type)
-    self.assertEqual('FUNCTION_PARAMS_END', tree.members[0].members[2].members[2].node_type)
-    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[3].node_type)
+    self.assertEqual('FUNCTION_RETURN_TYPE', tree.members[0].members[2].members[1].node_type)
+    self.assertEqual('void', tree.members[0].members[2].members[1].members[0])
+    self.assertEqual('FUNCTION_PARAMS_START', tree.members[0].members[2].members[2].node_type)
+    self.assertEqual('FUNCTION_PARAMS_END', tree.members[0].members[2].members[3].node_type)
+    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[4].node_type)
 
   def test_parse_foreign_code_example(self):
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
-    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[3].node_type)
-    self.assertEqual('CODE_BLOCK_START', tree.members[0].members[2].members[3].members[0].node_type)
-    self.assertEqual('FOREIGN_CODE_BLOCK', tree.members[0].members[2].members[3].members[1].node_type)
-    self.assertEqual('CODE_BLOCK_END', tree.members[0].members[2].members[3].members[2].node_type)
+    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[4].node_type)
+    self.assertEqual('CODE_BLOCK_START', tree.members[0].members[2].members[4].members[0].node_type)
+    self.assertEqual('FOREIGN_CODE_BLOCK', tree.members[0].members[2].members[4].members[1].node_type)
+    self.assertEqual('CODE_BLOCK_END', tree.members[0].members[2].members[4].members[2].node_type)
 
   def test_assignment_statement(self):
     tree = parser.parse_source('example = "string literal"')
@@ -91,45 +93,45 @@ class TestParserParse(unittest.TestCase):
   def test_return_statement(self):
     tree = parser.parse_source(RETURN_VALUE_EXAMPLE)
     self.assertEqual('MODULE', tree.node_type)
-    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[3].node_type)
-    self.assertEqual('CODE_BLOCK_START', tree.members[0].members[2].members[3].members[0].node_type)
-    self.assertEqual('RETURN_STATEMENT', tree.members[0].members[2].members[3].members[1].node_type)
-    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[3].members[1].members[0].node_type)
+    self.assertEqual('CODE_BLOCK', tree.members[0].members[2].members[4].node_type)
+    self.assertEqual('CODE_BLOCK_START', tree.members[0].members[2].members[4].members[0].node_type)
+    self.assertEqual('RETURN_STATEMENT', tree.members[0].members[2].members[4].members[1].node_type)
+    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[4].members[1].members[0].node_type)
 
   def test_function_call_with_identifier_arg(self):
-    tree = parser.parse_source('main:function[][func[x]]')
+    tree = parser.parse_source('main:function:void[][func[x]]')
     self.assertEqual('MODULE', tree.node_type)
-    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[3].members[1].members[0].node_type)
-    self.assertEqual('func', tree.members[0].members[2].members[3].members[1].members[0].members[0].members[0])
-    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].node_type)
-    self.assertEqual('IDENTIFIER', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].node_type)
-    self.assertEqual('x', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0])
+    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[4].members[1].members[0].node_type)
+    self.assertEqual('func', tree.members[0].members[2].members[4].members[1].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[4].members[1].members[1].node_type)
+    self.assertEqual('IDENTIFIER', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[0].node_type)
+    self.assertEqual('x', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[0].members[0])
 
   def test_nested_function(self):
-    tree = parser.parse_source('main:function[][outerFunction[innerFunction[67]]]')
+    tree = parser.parse_source('main:function:void[][outerFunction[innerFunction[67]]]')
     self.assertEqual('MODULE', tree.node_type)
-    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[3].members[1].members[0].node_type)
-    self.assertEqual('outerFunction', tree.members[0].members[2].members[3].members[1].members[0].members[0].members[0])
-    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].node_type)
-    self.assertEqual('IDENTIFIER', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0].node_type)
-    self.assertEqual('innerFunction', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0].members[0])
-    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].node_type)
-    self.assertEqual('ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].members[1].node_type)
-    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[1].members[1].members[0].node_type)
+    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[4].members[1].members[0].node_type)
+    self.assertEqual('outerFunction', tree.members[0].members[2].members[4].members[1].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[4].members[1].members[1].node_type)
+    self.assertEqual('IDENTIFIER', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[0].members[0].node_type)
+    self.assertEqual('innerFunction', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[1].node_type)
+    self.assertEqual('ARGUMENTS', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[1].members[1].node_type)
+    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[1].members[1].members[0].node_type)
 
   def test_function_call_with_infix_operation_arg(self):
-    tree = parser.parse_source('main:function[][func[9 + 10]]')
+    tree = parser.parse_source('main:function:void[][func[9 + 10]]')
     self.assertEqual('MODULE', tree.node_type)
-    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[3].members[1].members[0].node_type)
-    self.assertEqual('func', tree.members[0].members[2].members[3].members[1].members[0].members[0].members[0])
-    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[3].members[1].members[1].node_type)
-    self.assertEqual('INFIX_OPERATION', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].node_type)
-    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].node_type)
-    self.assertEqual('9', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[0].members[0])
-    self.assertEqual('10', tree.members[0].members[2].members[3].members[1].members[1].members[1].members[0].members[2].members[0])
+    self.assertEqual('IDENTIFIER_CHAIN', tree.members[0].members[2].members[4].members[1].members[0].node_type)
+    self.assertEqual('func', tree.members[0].members[2].members[4].members[1].members[0].members[0].members[0])
+    self.assertEqual('FUNCTION_CALL_ARGUMENTS', tree.members[0].members[2].members[4].members[1].members[1].node_type)
+    self.assertEqual('INFIX_OPERATION', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].node_type)
+    self.assertEqual('NUMBER_LITERAL', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[0].node_type)
+    self.assertEqual('9', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[0].members[0])
+    self.assertEqual('10', tree.members[0].members[2].members[4].members[1].members[1].members[1].members[0].members[2].members[0])
 
   def test_nested_method_and_function_calls(self):
-    tree = parser.parse_source('main:function[][os.print[text.intToStr[addNumbers[5, 5], 10]]]')
+    tree = parser.parse_source('main:function:void[][os.print[text.intToStr[addNumbers[5, 5], 10]]]')
     self.assertTreeContains("""
         FUNCTION_CALL:
           IDENTIFIER_CHAIN:
@@ -171,6 +173,20 @@ class TestParserParse(unittest.TestCase):
                           ]
                     NUMBER_LITERAL:
                       10""", tree)
+
+  def test_function_declaration_includes_type(self):
+    tree = parser.parse_source('main:function:void[][os.print[text.intToStr[addNumbers[5, 5], 10]]]')
+    self.assertTreeContains("""
+    IDENTIFIER:
+      main
+    DECLARATION_MARKER:
+      :
+    FUNCTION_DEFINITION:
+      FUNCTION_KEYWORD:
+        function
+      FUNCTION_RETURN_TYPE:
+        void
+""", tree) 
 
 
 if __name__ == '__main__':
