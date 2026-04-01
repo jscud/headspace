@@ -77,7 +77,8 @@ class ConverterToC:
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
-          (function_call_node.members[0].members[2].members[0] == 'print' or function_call_node.members[0].members[2].members[0] == 'printInt') and
+          (function_call_node.members[0].members[2].members[0] == 'print' or
+           function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         c_code.append(' ' * (indent_level))
         if function_call_node.members[0].members[2].members[0] == 'print':
@@ -247,20 +248,41 @@ class ConverterToPython:
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
-          function_call_node.members[0].members[2].members[0] == 'print'):
+          (function_call_node.members[0].members[2].members[0] == 'print' or
+           function_call_node.members[0].members[2].members[0] == 'printInt') and
+          function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         py_code.append(' ' * (indent_level))
-        py_code.append('print')
-    if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
-      py_code.append('(')
-      if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-          function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
-        py_code.append(function_call_node.members[1].members[1].members[0].members[0])
-      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-        for chain_entry in function_call_node.members[1].members[1].members[0].members:
-          py_code.append(chain_entry.members[0])
-      # TODO: only append this special end argument in a print function call.
-      py_code.append(', end="")')
+        if function_call_node.members[0].members[2].members[0] == 'print' or function_call_node.members[0].members[2].members[0] == 'printInt':
+          py_code.append('print(')
+        if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
+          py_code.append(function_call_node.members[1].members[1].members[0].members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+          for chain_entry in function_call_node.members[1].members[1].members[0].members:
+            py_code.append(chain_entry.members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], py_code, indent_level)
+        py_code.append(', end="")')
+      elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        # Emit the chain of identifiers.
+        for chain_node in function_call_node.members[0].members:
+          py_code.append(chain_node.members[0])
+        # Emit the arguments for the function call.
+        if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+          py_code.append('(')
+          first_arg = True
+          for argument_node in function_call_node.members[1].members[1].members:
+            if not first_arg:
+              py_code.append(' ,')
+            if argument_node.node_type == 'NUMBER_LITERAL':
+              py_code.append(argument_node.members[0])
+              first_arg = False
+          py_code.append(')')
+        else:
+          print('Function call was missing a list of arguments.')
+          sys.exit(1)
 
   def emit_foreign_code_block(self, foreign_code_block_node, py_code, indent_level):
     if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == 'PYTHON':
