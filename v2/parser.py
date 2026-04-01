@@ -360,7 +360,9 @@ class Parser:
         self.consume_current_token('processed parameter separator in parameters list')
       else:
         processing_parameters = False
-    parent_node.members.append(declaration_tree)
+      self.process_whitespace(declaration_tree)
+      parent_node.members.append(declaration_tree)
+      current_token = self.current_token()
 
 
   def process_function_definition(self, parent_node):

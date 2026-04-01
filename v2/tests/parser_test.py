@@ -188,6 +188,35 @@ class TestParserParse(unittest.TestCase):
         void
 """, tree) 
 
+  def test_function_declaration_with_multiple_parameters(self):
+    tree = parser.parse_source('addThreeNumbers:function:int32[first:int32, second:int32, third:int32][return first+second]')
+    self.assertTreeContains("""
+      FUNCTION_PARAMS_START:
+        [
+      DECLARATION:
+        IDENTIFIER:
+          first
+        DECLARATION_MARKER:
+          :
+        VARIABLE_TYPE:
+          int32
+      DECLARATION:
+        IDENTIFIER:
+          second
+        DECLARATION_MARKER:
+          :
+        VARIABLE_TYPE:
+          int32
+      DECLARATION:
+        IDENTIFIER:
+          third
+        DECLARATION_MARKER:
+          :
+        VARIABLE_TYPE:
+          int32
+      FUNCTION_PARAMS_END:
+        ]""", tree)
+
 
 if __name__ == '__main__':
   unittest.main()

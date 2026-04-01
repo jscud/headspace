@@ -62,18 +62,22 @@ class TestConvertToCAndExecute(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    c_file_path = os.path.join('tests', 'test_output', files[0].filename)
+    h_file_path = os.path.join('tests', 'test_output', files[1].filename)
     executable_path = os.path.join('tests', 'test_output', 'hello_test')
-    with open(file_path, 'w') as c_source:
+    with open(c_file_path, 'w') as c_source:
       c_source.write(files[0].content)
+    with open(h_file_path, 'w') as h_source:
+      h_source.write(files[1].content)
     # Then compile and run the C code.
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
                     '-Wold-style-definition', '-o',
-                    executable_path, file_path], check=True)
+                    executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', c_file_path], check=True)
+    subprocess.run(['rm', h_file_path], check=True)
     subprocess.run(['rm', executable_path], check=True)
 
   def test_converts_foreign_code(self):
@@ -81,18 +85,22 @@ class TestConvertToCAndExecute(unittest.TestCase):
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    c_file_path = os.path.join('tests', 'test_output', files[0].filename)
+    h_file_path = os.path.join('tests', 'test_output', files[1].filename)
     executable_path = os.path.join('tests', 'test_output', 'foreign')
-    with open(file_path, 'w') as c_source:
+    with open(c_file_path, 'w') as c_source:
       c_source.write(files[0].content)
+    with open(h_file_path, 'w') as h_source:
+      h_source.write(files[1].content)
     # Then compile and run the C code.
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
                     '-Wold-style-definition', '-o',
-                    executable_path, file_path], check=True)
+                    executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
-    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', c_file_path], check=True)
+    subprocess.run(['rm', h_file_path], check=True)
     subprocess.run(['rm', executable_path], check=True)
 
 
