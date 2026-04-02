@@ -174,6 +174,18 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertTrue('process.stdout.write(hello_str);' in files[0].content)
     self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
+  def test_function_calling(self):
+    """Example of including function calls for JavaScript."""
+    tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertEqual(1, len(files))
+    self.assertTrue(' * @param {number} a' in files[0].content)
+    self.assertTrue(' * @param {number} b' in files[0].content)
+    self.assertTrue(' * @returns {number}' in files[0].content)
+    self.assertTrue('function addNumbers(a, b) {' in files[0].content)
+    self.assertTrue('process.stdout.write("" + addNumbers(5 ,5));' in files[0].content)
+
+
 class TestConvertToJava(unittest.TestCase):
   """Convert the headspace code to Java."""
 

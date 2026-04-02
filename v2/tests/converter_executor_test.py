@@ -239,6 +239,18 @@ class TestConvertToJavaScriptAndExecute(unittest.TestCase):
     self.assertEqual(b'hello\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
 
+  def test_converts_function_calls(self):
+    """Example of defining and calling a function for JavaScript."""
+    tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as js_source:
+      js_source.write(files[0].content)
+    # Then execute the JavaScript code using Node.
+    result = subprocess.run(['node', file_path], check=True, capture_output=True)
+    self.assertEqual(b'10\n', result.stdout)
+
 class TestConvertToJavaAndExecute(unittest.TestCase):
   """Convert the headspace code to Java."""
 
