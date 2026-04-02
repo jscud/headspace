@@ -21,6 +21,21 @@ A single function program that prints "Hello World" to the terminal.
       os.print["Hello World\n"]
     ]
 
+### Declaring and calling Functions
+
+A simple standalone function to demonstrate using types and returning values.
+
+    moduleName = "functions"
+    
+    addNumbers: function: int32[a:int32, b:int32][
+      return a + b
+    ]
+    
+    main: function: void[][
+      os.printInt[addNumbers[5, 5]]
+      os.print["\n"]
+    ]
+
 ## Getting started
 
 To run the unit tests for the Headspace parser and translator, run the script:
