@@ -7,8 +7,10 @@ import os
 # - creating main function               c  py  js  go  c#  java
 # - converting print statement           c  py  js  go  c#  java
 # - passing through foreign code         c  py  js  go  c#  java
-# - function declarations                c  py  js  go
-# - function calling                     c  py  js  go
+# - function declarations                c  py  js  go      java
+# - function calling                     c  py  js  go      java
+# - conditional execution (ifs)
+# - loops (while/for)
 # - importing modules
 # - declaring classes
 
@@ -101,7 +103,7 @@ class ConverterToC(HeadspaceConverter):
           (function_call_node.members[0].members[2].members[0] == 'print' or
            function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
-        c_code.append(' ' * (indent_level))
+        c_code.append(' ' * indent_level)
         if function_call_node.members[0].members[2].members[0] == 'print':
           c_code.append('printf("%s", ')
         elif function_call_node.members[0].members[2].members[0] == 'printInt':
@@ -189,6 +191,7 @@ class ConverterToC(HeadspaceConverter):
     return_type = find_function_return_type(function_declaration_node)
     function_name = find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
+    c_code.append(' ' * indent_level)
     c_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
     param_index = 0
     while param_index < len(function_params) - 1:
@@ -256,7 +259,7 @@ class ConverterToPython(HeadspaceConverter):
           (function_call_node.members[0].members[2].members[0] == 'print' or
            function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
-        py_code.append(' ' * (indent_level))
+        py_code.append(' ' * indent_level)
         if function_call_node.members[0].members[2].members[0] == 'print' or function_call_node.members[0].members[2].members[0] == 'printInt':
           py_code.append('print(')
         if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
@@ -327,6 +330,7 @@ class ConverterToPython(HeadspaceConverter):
     return_type = find_function_return_type(function_declaration_node)
     function_name = find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
+    py_code.append(' ' * indent_level)
     py_code.append('def ' + function_name + '(')
     param_index = 0
     while param_index < len(function_params) - 1:
@@ -374,7 +378,7 @@ class ConverterToGo(HeadspaceConverter):
           (function_call_node.members[0].members[2].members[0] == 'print' or
            function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
-        go_code.append('\t' * (indent_level))
+        go_code.append('\t' * indent_level)
         if function_call_node.members[0].members[2].members[0] == 'print':
           go_code.append('fmt.Print(')
         elif function_call_node.members[0].members[2].members[0] == 'printInt':
@@ -448,6 +452,7 @@ class ConverterToGo(HeadspaceConverter):
     return_type = find_function_return_type(function_declaration_node)
     function_name = find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
+    go_code.append('\t' * indent_level)
     go_code.append('func ' + function_name + '(')
     param_index = 0
     while param_index < len(function_params) - 1:
@@ -498,7 +503,7 @@ class ConverterToJavaScript(HeadspaceConverter):
           (function_call_node.members[0].members[2].members[0] == 'print' or
            function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
-        js_code.append(' ' * (indent_level))
+        js_code.append(' ' * indent_level)
         if function_call_node.members[0].members[2].members[0] == 'print':
           js_code.append('process.stdout.write(')
         elif function_call_node.members[0].members[2].members[0] == 'printInt':
@@ -573,14 +578,19 @@ class ConverterToJavaScript(HeadspaceConverter):
     return_type = find_function_return_type(function_declaration_node)
     function_name = find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
-    # function add(a: number, b: number): number {
+    js_code.append(' ' * indent_level)
     param_index = 0
+    js_code.append(' ' * indent_level)
     js_code.append('/**\n')
     while param_index < len(function_params):
+      js_code.append(' ' * indent_level)
       js_code.append(' * @param {' + self.convert_data_type(function_params[param_index][1]) + '} ' + function_params[param_index][0] + '\n')
       param_index += 1
+    js_code.append(' ' * indent_level)
     js_code.append(' * @returns {' + self.convert_data_type(return_type) + '}\n')
+    js_code.append(' ' * indent_level)
     js_code.append(' */\n')
+    js_code.append(' ' * indent_level)
     js_code.append('function ' + function_name + '(')
     param_index = 0
     while param_index < len(function_params) - 1:
@@ -623,19 +633,54 @@ class ConverterToJava(HeadspaceConverter):
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
-          function_call_node.members[0].members[2].members[0] == 'print'):
-        java_code.append(' ' * (indent_level))
-        java_code.append('System.out.print')
-    if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
-      java_code.append('(')
-      if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-          function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
-        java_code.append(function_call_node.members[1].members[1].members[0].members[0])
-      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-        for chain_entry in function_call_node.members[1].members[1].members[0].members:
-          java_code.append(chain_entry.members[0])
-      java_code.append(');')
+          (function_call_node.members[0].members[2].members[0] == 'print' or
+           function_call_node.members[0].members[2].members[0] == 'printInt') and
+          function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
+        java_code.append(' ' * indent_level)
+        if (function_call_node.members[0].members[2].members[0] == 'print' or
+            function_call_node.members[0].members[2].members[0] == 'printInt'):
+          java_code.append('System.out.print(')
+        if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
+          java_code.append(function_call_node.members[1].members[1].members[0].members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+          for chain_entry in function_call_node.members[1].members[1].members[0].members:
+            java_code.append(chain_entry.members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], java_code, indent_level)
+        java_code.append(');\n')
+      elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        # Emit the chain of identifiers.
+        for chain_node in function_call_node.members[0].members:
+          java_code.append(chain_node.members[0])
+        # Emit the arguments for the function call.
+        if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+          java_code.append('(')
+          first_arg = True
+          for argument_node in function_call_node.members[1].members[1].members:
+            if not first_arg:
+              java_code.append(' ,')
+            if argument_node.node_type == 'NUMBER_LITERAL':
+              java_code.append(argument_node.members[0])
+              first_arg = False
+          java_code.append(')')
+        else:
+          print('Function call was missing a list of arguments.')
+          sys.exit(1)
+
+  def emit_identifier_chain(self, identifier_chain_node, java_code, indent_level):
+    for member in identifier_chain_node.members:
+      if member.node_type == 'IDENTIFIER':
+        java_code.append(member.members[0])
+
+  def emit_return_statement(self, return_statement_node, java_code, indent_level):
+    if return_statement_node.members[0]:
+      java_code.append(' ' * indent_level)
+      java_code.append('return ')
+      self.emit_code_statement(return_statement_node.members[0], java_code, indent_level)
+      java_code.append(';\n')
 
   def emit_code_block(self, code_block_node, java_code, indent_level):
     java_code.append('\n')
@@ -647,19 +692,53 @@ class ConverterToJava(HeadspaceConverter):
         self.emit_function_call(member, java_code, indent_level + 2)
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, java_code, 'JAVA')
-    java_code.append('\n')
+      elif member.node_type == 'RETURN_STATEMENT':
+        self.emit_return_statement(member, java_code, indent_level + 2)
     if indent_level > 0:
       java_code.append(' ' * indent_level)
     java_code.append('}\n')
 
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'int'
+    else:
+      return provided_type
+
+  def emit_function_body(self, function_body_node, java_code, indent_level):
+    self.emit_code_block(function_body_node, java_code, indent_level)
+
+  def emit_function_definition(self, function_declaration_node, java_code, indent_level):
+    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
+      return
+    return_type = find_function_return_type(function_declaration_node)
+    function_name = find_function_identifier(function_declaration_node)
+    function_params = find_function_parameters(function_declaration_node)
+    java_code.append(' ' * indent_level)
+    java_code.append('public static ' + self.convert_data_type(return_type) + ' ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      java_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
+      param_index += 1
+    java_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ')')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(function_declaration_node), java_code, indent_level)
+    java_code.append('\n')
+
   def emit_code(self):
     java_code = []
     module_name = find_module_name(self.tree)
+
+    java_class_name = module_name.capitalize()
+    java_code.append('public class ' + java_class_name + '\n')
+    java_code.append('{\n')
+
+    for module_level_member in self.tree.members:
+      if module_level_member.node_type == 'FUNCTION_DECLARATION':
+        self.emit_function_definition(module_level_member, java_code, 2)
+
     main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
-      java_class_name = module_name.capitalize()
-      java_code.append('public class ' + java_class_name + '\n')
-      java_code.append('{\n')
       java_code.append('  public static void main(String[] args)')
       for member in main_function_declaration.members:
         if member.node_type == 'FUNCTION_DEFINITION':
@@ -684,7 +763,7 @@ class ConverterToDotNet(HeadspaceConverter):
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[2].members[0] == 'print'):
-        dotnet_code.append(' ' * (indent_level))
+        dotnet_code.append(' ' * indent_level)
         dotnet_code.append('Console.Write')
     if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
       dotnet_code.append('(')
