@@ -118,6 +118,20 @@ class TestLexerTokenize(unittest.TestCase):
           ('IDENTIFIER', 'h')
         ), tokens)
 
+  def test_multichar_symbols(self):
+    """Some symbols can have multiple repeated characters."""
+    tokens = lexer.tokenize('++==^&--]]===')
+    self.assertTokens((
+          ('SYMBOL', '++'),
+          ('SYMBOL', '=='),
+          ('SYMBOL', '^'),
+          ('SYMBOL', '&'),
+          ('SYMBOL', '--'),
+          ('SYMBOL', ']'),
+          ('SYMBOL', ']'),
+          ('SYMBOL', '==='),
+        ), tokens)
+    
 
 if __name__ == '__main__':
   unittest.main()

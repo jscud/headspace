@@ -9,6 +9,10 @@
 #    single-line done
 # symbol - done
 # space - done
+# multi character symbols - done
+
+MULTI_CHARACTER_SYMBOLS = ['=', '+', '-']
+
 
 class Token:
   def __init__(self, content, token_type):
@@ -159,9 +163,13 @@ class Tokenizer:
     return ''.join(line_content)
 
   def next_symbol(self):
-    # Always a single character.
+    # A few symbols can be composed of repeated characters - most are single.
     contents = self.current_char()
     self.index += 1
+    if contents in MULTI_CHARACTER_SYMBOLS:
+      while self.current_char() == contents:
+        contents += self.current_char()
+        self.index += 1
     return Token(contents, 'SYMBOL')
 
   def next_token(self):
