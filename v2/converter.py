@@ -324,7 +324,7 @@ class ConverterToPython(HeadspaceConverter):
       return provided_type
 
   def emit_function_definition(self, function_declaration_node, py_code, indent_level):
-    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    # Skip the main function because we have special case logic to place it at the end of the module.
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
@@ -446,7 +446,7 @@ class ConverterToGo(HeadspaceConverter):
     return provided_type
 
   def emit_function_definition(self, function_declaration_node, go_code, indent_level):
-    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    # Skip the main function because we have special case logic to place it at the end of the Go module.
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
@@ -572,7 +572,7 @@ class ConverterToJavaScript(HeadspaceConverter):
     return provided_type
 
   def emit_function_definition(self, function_declaration_node, js_code, indent_level):
-    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    # Skip the main function because we have special case logic to place it at the end of the JavaScript.
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
@@ -708,7 +708,7 @@ class ConverterToJava(HeadspaceConverter):
     self.emit_code_block(function_body_node, java_code, indent_level)
 
   def emit_function_definition(self, function_declaration_node, java_code, indent_level):
-    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    # Skip the main function because we have special case logic to place it at the end of the Java class.
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
