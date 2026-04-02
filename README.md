@@ -27,11 +27,11 @@ A simple standalone function to demonstrate using types and returning values.
 
     moduleName = "functions"
     
-    addNumbers: function: int32[a:int32, b:int32][
+    addNumbers:function:int32[a:int32, b:int32][
       return a + b
     ]
     
-    main: function: void[][
+    main:function:void[][
       os.printInt[addNumbers[5, 5]]
       os.print["\n"]
     ]
