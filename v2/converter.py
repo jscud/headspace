@@ -5,10 +5,10 @@ import os
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
 # - creating main function               c  py  js  go  c#  java
-# - converting print statement           c  py  js  go  c#  java
+# - print statement                      c  py  js  go  c#  java
 # - passing through foreign code         c  py  js  go  c#  java
-# - function declarations                c  py  js  go      java
-# - function calling                     c  py  js  go      java
+# - function declarations                c  py  js  go  c#  java
+# - function calling                     c  py  js  go  c#  java
 # - conditional execution (ifs)
 # - loops (while/for)
 # - importing modules
@@ -762,19 +762,56 @@ class ConverterToDotNet(HeadspaceConverter):
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
-          function_call_node.members[0].members[2].members[0] == 'print'):
+          (function_call_node.members[0].members[2].members[0] == 'print' or
+           function_call_node.members[0].members[2].members[0] == 'printInt') and
+          function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         dotnet_code.append(' ' * indent_level)
-        dotnet_code.append('Console.Write')
-    if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
-      dotnet_code.append('(')
-      if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-          function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
-        dotnet_code.append(function_call_node.members[1].members[1].members[0].members[0])
-      elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
-            function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-        for chain_entry in function_call_node.members[1].members[1].members[0].members:
-          dotnet_code.append(chain_entry.members[0])
-      dotnet_code.append(');')
+        if (function_call_node.members[0].members[2].members[0] == 'print' or
+            function_call_node.members[0].members[2].members[0] == 'printInt'):
+          dotnet_code.append('Console.Write(')
+        if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+            function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
+          dotnet_code.append(function_call_node.members[1].members[1].members[0].members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
+          for chain_entry in function_call_node.members[1].members[1].members[0].members:
+            dotnet_code.append(chain_entry.members[0])
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], dotnet_code, indent_level)
+        dotnet_code.append(');\n')
+      elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        # Emit the chain of identifiers.
+        # In .NET, the top level static functions are in a Functions class.
+        dotnet_code.append('Functions.')
+        for chain_node in function_call_node.members[0].members:
+          dotnet_code.append(chain_node.members[0])
+        # Emit the arguments for the function call.
+        if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+          dotnet_code.append('(')
+          first_arg = True
+          for argument_node in function_call_node.members[1].members[1].members:
+            if not first_arg:
+              dotnet_code.append(' ,')
+            if argument_node.node_type == 'NUMBER_LITERAL':
+              dotnet_code.append(argument_node.members[0])
+              first_arg = False
+          dotnet_code.append(')')
+        else:
+          print('Function call was missing a list of arguments.')
+          sys.exit(1)
+
+  def emit_identifier_chain(self, identifier_chain_node, dotnet_code, indent_level):
+    for member in identifier_chain_node.members:
+      if member.node_type == 'IDENTIFIER':
+        dotnet_code.append(member.members[0])
+
+  def emit_return_statement(self, return_statement_node, dotnet_code, indent_level):
+    if return_statement_node.members[0]:
+      dotnet_code.append(' ' * indent_level)
+      dotnet_code.append('return ')
+      self.emit_code_statement(return_statement_node.members[0], dotnet_code, indent_level)
+      dotnet_code.append(';\n')
 
   def emit_code_block(self, code_block_node, dotnet_code, indent_level):
     dotnet_code.append('{\n')
@@ -783,28 +820,64 @@ class ConverterToDotNet(HeadspaceConverter):
         self.emit_function_call(member, dotnet_code, indent_level + 2)
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, dotnet_code, 'DOTNET')
-    dotnet_code.append('\n')
+      elif member.node_type == 'RETURN_STATEMENT':
+        self.emit_return_statement(member, dotnet_code, indent_level + 2)
     if indent_level > 0:
       dotnet_code.append(' ' * indent_level)
-    dotnet_code.append('}\n')
+    dotnet_code.append('}')
+
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'int'
+    else:
+      return provided_type
+
+  def emit_function_body(self, function_body_node, dotnet_code, indent_level):
+    self.emit_code_block(function_body_node, dotnet_code, indent_level)
+
+  def emit_function_definition(self, function_declaration_node, dotnet_code, indent_level):
+    # Skip the main function because we have special case logic to place it at the end of the MainProgram class.
+    if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
+      return
+    return_type = find_function_return_type(function_declaration_node)
+    function_name = find_function_identifier(function_declaration_node)
+    function_params = find_function_parameters(function_declaration_node)
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append('public static ' + self.convert_data_type(return_type) + ' ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      dotnet_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
+      param_index += 1
+    dotnet_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ') ')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(function_declaration_node), dotnet_code, indent_level)
+    dotnet_code.append('\n')
 
   def emit_code(self):
     dotnet_code = []
     module_name = find_module_name(self.tree)
     main_function_declaration = find_main_function(self.tree)
+
+    dotnet_class_name = module_name.capitalize()
+    dotnet_code.append('using System;\n')
+    dotnet_code.append('\n')
+    dotnet_code.append('namespace ' + dotnet_class_name + ' {\n')
+
+    dotnet_code.append('  class Functions {\n')
+    for module_level_member in self.tree.members:
+      if module_level_member.node_type == 'FUNCTION_DECLARATION':
+        self.emit_function_definition(module_level_member, dotnet_code, 4)
+    dotnet_code.append('  }\n')
+
     if main_function_declaration:
-      dotnet_class_name = module_name.capitalize()
-      dotnet_code.append('using System;\n')
-      dotnet_code.append('\n')
-      dotnet_code.append('namespace ' + dotnet_class_name + ' {\n')
-      dotnet_code.append('  class MainProgram {\n')
+      dotnet_code.append('\n  class MainProgram {\n')
       dotnet_code.append('    static void Main(string[] args) ')
       for member in main_function_declaration.members:
         if member.node_type == 'FUNCTION_DEFINITION':
           for def_member in member.members:
             if def_member.node_type == 'CODE_BLOCK':
               self.emit_code_block(def_member, dotnet_code, 4)
-      dotnet_code.append('  }\n')
+      dotnet_code.append('\n  }\n')
       dotnet_code.append('}\n')
       # Create file name with a .cs (C#) module.
       dotnet_class_filename = dotnet_class_name + '.cs'

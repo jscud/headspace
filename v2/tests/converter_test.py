@@ -238,6 +238,15 @@ class TestConvertToDotNet(unittest.TestCase):
     self.assertTrue('Console.Write(hello_str);' in files[0].content)
     self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
 
+  def test_function_calling(self):
+    """Example of including function calls for .NET (C#)."""
+    tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertEqual(1, len(files))
+    self.assertTrue('    public static int addNumbers(int a, int b) {' in files[0].content)
+    self.assertTrue('      return a + b;' in files[0].content)
+    self.assertTrue('      Console.Write(Functions.addNumbers(5 ,5));' in files[0].content)
+
 
 if __name__ == '__main__':
   unittest.main()
