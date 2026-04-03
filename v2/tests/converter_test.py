@@ -315,6 +315,17 @@ class TestConvertToDotNet(unittest.TestCase):
     self.assertTrue('      return a + b;' in files[0].content)
     self.assertTrue('      Console.Write(Functions.addNumbers(5 ,5));' in files[0].content)
 
+  def test_if_else(self):
+    """Example of including if-else statements for .NET (C#)."""
+    tree = parser.parse_source(IF_ELSE_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertTrue('      int a;' in files[0].content)
+    self.assertTrue('      a = 5;' in files[0].content)
+    self.assertTrue('      if (a == 5) {' in files[0].content)
+    self.assertTrue('        Console.Write("Yes, a is 5.\\n");' in files[0].content)
+    self.assertTrue('      } else {' in files[0].content)
+    self.assertTrue('        Console.Write("No, a is not 5.\\n");' in files[0].content)
+
 
 if __name__ == '__main__':
   unittest.main()

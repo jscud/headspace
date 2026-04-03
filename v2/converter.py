@@ -9,9 +9,9 @@ import os
 # - passing through foreign code         c  py  go  js  java  c#
 # - function declarations                c  py  go  js  java  c#
 # - function calling                     c  py  go  js  java  c#
-# - conditional execution (ifs)          c  py  go  js  java
-# - declaring variables                  c  py  go  js  java
-# - loops (while/for)
+# - conditional execution (ifs)          c  py  go  js  java  c#
+# - declaring variables                  c  py  go  js  java  c#
+# - loops (while)
 # - importing modules
 # - declaring classes
 
@@ -853,9 +853,6 @@ class ConverterToJava(HeadspaceConverter):
     java_code.append('\n')
 
   def emit_code_block(self, code_block_node, java_code, indent_level):
-    #java_code.append('\n')
-    #if indent_level > 0:
-    #  java_code.append(' ' * indent_level)
     java_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
@@ -983,6 +980,37 @@ class ConverterToDotNet(HeadspaceConverter):
       self.emit_code_statement(return_statement_node.members[0], dotnet_code, indent_level)
       dotnet_code.append(';\n')
 
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'int'
+    else:
+      return provided_type
+
+  def emit_variable_declaration(self, variable_declaration, dotnet_code, indent_level):
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append(self.convert_data_type(variable_declaration.members[2].members[0]) + ' ' + variable_declaration.members[0].members[0] + ';\n')
+
+  def emit_assignment_statement(self, assignment_statement, dotnet_code, indent_level):
+    dotnet_code.append(' ' * indent_level)
+    # TODO: Need to introduce lvalue to be able to assign to things like function call return value.
+    if assignment_statement.members[0].node_type == 'ASSIGNMENT_TARGET':
+      dotnet_code.append(assignment_statement.members[0].members[0])
+    dotnet_code.append(' = ')
+    self.emit_code_statement(assignment_statement.members[2], dotnet_code, 0)
+    dotnet_code.append(';\n')
+
+  def emit_if_statement(self, if_statement, dotnet_code, indent_level):
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append('if (')
+    if if_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(if_statement.members[1], dotnet_code, indent_level)
+    dotnet_code.append(') ')
+    self.emit_code_block(if_statement.members[2], dotnet_code, indent_level)
+    if len(if_statement.members) > 4 and if_statement.members[3].node_type == 'ELSE_KEYWORD':
+      dotnet_code.append(' else ')
+      self.emit_code_block(if_statement.members[4], dotnet_code, indent_level)
+    dotnet_code.append('\n')
+
   def emit_code_block(self, code_block_node, dotnet_code, indent_level):
     dotnet_code.append('{\n')
     for member in code_block_node.members:
@@ -992,15 +1020,15 @@ class ConverterToDotNet(HeadspaceConverter):
         self.emit_foreign_code_block(member, dotnet_code, 'DOTNET')
       elif member.node_type == 'RETURN_STATEMENT':
         self.emit_return_statement(member, dotnet_code, indent_level + 2)
+      elif member.node_type == 'DECLARATION':
+        self.emit_variable_declaration(member, dotnet_code, indent_level + 2)
+      elif member.node_type == 'ASSIGNMENT':
+        self.emit_assignment_statement(member, dotnet_code, indent_level + 2)
+      elif member.node_type == 'IF_STATEMENT':
+        self.emit_if_statement(member, dotnet_code, indent_level + 2)
     if indent_level > 0:
       dotnet_code.append(' ' * indent_level)
     dotnet_code.append('}')
-
-  def convert_data_type(self, provided_type):
-    if provided_type == 'int32':
-      return 'int'
-    else:
-      return provided_type
 
   def emit_function_body(self, function_body_node, dotnet_code, indent_level):
     self.emit_code_block(function_body_node, dotnet_code, indent_level)
