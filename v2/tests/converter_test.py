@@ -231,6 +231,17 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertTrue('function addNumbers(a, b) {' in files[0].content)
     self.assertTrue('process.stdout.write("" + addNumbers(5 ,5));' in files[0].content)
 
+  def test_if_else(self):
+    """Example of including if-else statements for JavaScript."""
+    tree = parser.parse_source(IF_ELSE_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertTrue('  let a;' in files[0].content)
+    self.assertTrue('  a = 5;' in files[0].content)
+    self.assertTrue('  if (a == 5) {' in files[0].content)
+    self.assertTrue('    process.stdout.write("Yes, a is 5.\\n");' in files[0].content)
+    self.assertTrue('  } else {' in files[0].content)
+    self.assertTrue('    process.stdout.write("No, a is not 5.\\n");' in files[0].content)
+
 
 class TestConvertToJava(unittest.TestCase):
   """Convert the headspace code to Java."""

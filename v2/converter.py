@@ -4,13 +4,13 @@ import os
 
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
-# - creating main function               c  py  js  go  c#  java
-# - print statement                      c  py  js  go  c#  java
-# - passing through foreign code         c  py  js  go  c#  java
-# - function declarations                c  py  js  go  c#  java
-# - function calling                     c  py  js  go  c#  java
-# - conditional execution (ifs)          c  py      go
-# - declaring variables                  c  py      go
+# - creating main function               c  py  go  js  java  c#
+# - print statement                      c  py  go  js  java  c#
+# - passing through foreign code         c  py  go  js  java  c#
+# - function declarations                c  py  go  js  java  c#
+# - function calling                     c  py  go  js  java  c#
+# - conditional execution (ifs)          c  py  go  js
+# - declaring variables                  c  py  go  js
 # - loops (while/for)
 # - importing modules
 # - declaring classes
@@ -656,6 +656,37 @@ class ConverterToJavaScript(HeadspaceConverter):
       self.emit_code_statement(return_statement_node.members[0], js_code, indent_level)
       js_code.append(';\n')
 
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'number'
+    return provided_type
+
+  def emit_variable_declaration(self, variable_declaration, js_code, indent_level):
+    js_code.append(' ' * indent_level)
+    # Note that JS variables aren't declared with a data type.
+    js_code.append('let ' + variable_declaration.members[0].members[0] + ';\n')
+
+  def emit_assignment_statement(self, assignment_statement, js_code, indent_level):
+    js_code.append(' ' * indent_level)
+    # TODO: Need to introduce lvalue to be able to assign to things like function call return value.
+    if assignment_statement.members[0].node_type == 'ASSIGNMENT_TARGET':
+      js_code.append(assignment_statement.members[0].members[0])
+    js_code.append(' = ')
+    self.emit_code_statement(assignment_statement.members[2], js_code, 0)
+    js_code.append(';\n')
+
+  def emit_if_statement(self, if_statement, js_code, indent_level):
+    js_code.append(' ' * indent_level)
+    js_code.append('if (')
+    if if_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(if_statement.members[1], js_code, indent_level)
+    js_code.append(') ')
+    self.emit_code_block(if_statement.members[2], js_code, indent_level)
+    if len(if_statement.members) > 4 and if_statement.members[3].node_type == 'ELSE_KEYWORD':
+      js_code.append(' else ')
+      self.emit_code_block(if_statement.members[4], js_code, indent_level)
+    js_code.append('\n')
+
   def emit_code_block(self, code_block_node, js_code, indent_level):
     js_code.append('{\n')
     for member in code_block_node.members:
@@ -665,17 +696,19 @@ class ConverterToJavaScript(HeadspaceConverter):
         self.emit_foreign_code_block(member, js_code, 'JS')
       elif member.node_type == 'RETURN_STATEMENT':
         self.emit_return_statement(member, js_code, indent_level + 2)
+      elif member.node_type == 'DECLARATION':
+        self.emit_variable_declaration(member, js_code, indent_level + 2)
+      elif member.node_type == 'ASSIGNMENT':
+        self.emit_assignment_statement(member, js_code, indent_level + 2)
+      elif member.node_type == 'IF_STATEMENT':
+        self.emit_if_statement(member, js_code, indent_level + 2)
     if indent_level > 0:
       js_code.append(' ' * indent_level)
-    js_code.append('}\n')
+    #js_code.append('}\n')
+    js_code.append('}')
 
   def emit_function_body(self, function_body_node, js_code, indent_level):
     self.emit_code_block(function_body_node, js_code, indent_level)
-
-  def convert_data_type(self, provided_type):
-    if provided_type == 'int32':
-      return 'number'
-    return provided_type
 
   def emit_function_definition(self, function_declaration_node, js_code, indent_level):
     # Skip the main function because we have special case logic to place it at the end of the JavaScript.
