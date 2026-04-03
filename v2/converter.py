@@ -9,8 +9,8 @@ import os
 # - passing through foreign code         c  py  js  go  c#  java
 # - function declarations                c  py  js  go  c#  java
 # - function calling                     c  py  js  go  c#  java
-# - conditional execution (ifs)          c  py
-# - declaring variables                  c  py
+# - conditional execution (ifs)          c  py      go
+# - declaring variables                  c  py      go
 # - loops (while/for)
 # - importing modules
 # - declaring classes
@@ -499,6 +499,35 @@ class ConverterToGo(HeadspaceConverter):
       self.emit_code_statement(return_statement_node.members[0], go_code, indent_level)
       go_code.append('\n')
 
+  def convert_data_type(self, provided_type):
+    # Note the int32 type is the same in Go.
+    return provided_type
+
+  def emit_variable_declaration(self, variable_declaration, go_code, indent_level):
+    go_code.append('\t' * indent_level)
+    go_code.append('var ' + variable_declaration.members[0].members[0] + ' ' + self.convert_data_type(variable_declaration.members[2].members[0]) + '\n')
+
+  def emit_assignment_statement(self, assignment_statement, go_code, indent_level):
+    go_code.append('\t' * indent_level)
+    # TODO: Need to introduce lvalue to be able to assign to things like function call return value.
+    if assignment_statement.members[0].node_type == 'ASSIGNMENT_TARGET':
+      go_code.append(assignment_statement.members[0].members[0])
+    go_code.append(' = ')
+    self.emit_code_statement(assignment_statement.members[2], go_code, 0)
+    go_code.append('\n')
+
+  def emit_if_statement(self, if_statement, go_code, indent_level):
+    go_code.append('\t' * indent_level)
+    go_code.append('if ')
+    if if_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(if_statement.members[1], go_code, indent_level)
+    go_code.append(' ')
+    self.emit_code_block(if_statement.members[2], go_code, indent_level)
+    if len(if_statement.members) > 4 and if_statement.members[3].node_type == 'ELSE_KEYWORD':
+      go_code.append(' else ')
+      self.emit_code_block(if_statement.members[4], go_code, indent_level)
+    go_code.append('\n')
+
   def emit_code_block(self, code_block_node, go_code, indent_level):
     go_code.append('{\n')
     for member in code_block_node.members:
@@ -508,16 +537,19 @@ class ConverterToGo(HeadspaceConverter):
         self.emit_foreign_code_block(member, go_code, 'GO')
       elif member.node_type == 'RETURN_STATEMENT':
         self.emit_return_statement(member, go_code, indent_level + 1)
+      elif member.node_type == 'DECLARATION':
+        self.emit_variable_declaration(member, go_code, indent_level + 1)
+      elif member.node_type == 'ASSIGNMENT':
+        self.emit_assignment_statement(member, go_code, indent_level + 1)
+      elif member.node_type == 'IF_STATEMENT':
+        self.emit_if_statement(member, go_code, indent_level + 1)
     if indent_level > 0:
       go_code.append('\t' * indent_level)
-    go_code.append('}\n')
+    #go_code.append('}\n')
+    go_code.append('}')
 
   def emit_function_body(self, function_body_node, go_code, indent_level):
     self.emit_code_block(function_body_node, go_code, indent_level)
-
-  def convert_data_type(self, provided_type):
-    # Note the int32 type is the same in Go.
-    return provided_type
 
   def emit_function_definition(self, function_declaration_node, go_code, indent_level):
     # Skip the main function because we have special case logic to place it at the end of the Go module.

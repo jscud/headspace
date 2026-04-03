@@ -187,6 +187,17 @@ class TestConvertToGo(unittest.TestCase):
     self.assertTrue('\treturn a + b' in files[0].content)
     self.assertTrue('\tfmt.Printf("%d", addNumbers(5 ,5))' in files[0].content)
 
+  def test_if_else(self):
+    """Example of including if-else statements for Go."""
+    tree = parser.parse_source(IF_ELSE_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertTrue('\tvar a int32' in files[0].content)
+    self.assertTrue('\ta = 5' in files[0].content)
+    self.assertTrue('\tif a == 5 {' in files[0].content)
+    self.assertTrue('\t\tfmt.Print("Yes, a is 5.\\n")' in files[0].content)
+    self.assertTrue('\t} else {' in files[0].content)
+    self.assertTrue('\t\tfmt.Print("No, a is not 5.\\n")' in files[0].content)
+
 
 class TestConvertToJavaScript(unittest.TestCase):
   """Convert the headspace code to JavaScript."""
