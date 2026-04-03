@@ -9,16 +9,18 @@ import lexer
 # nested function call - done
 # function declaration - done
 # foreign code block - done
-# variable declaration
-# conditional statement (if)
+# variable declaration - done
+# conditional statement (if) - done
 # loop statement (while)
 # assigment statement - done
 # module name - done
 # return statement - done
 # infix operators - done
+# pass through comments
+# class declaration
 
 
-INFIX_OPERATORS = ['+']
+INFIX_OPERATORS = ['+', '==']
 
 
 class Node:
@@ -54,6 +56,7 @@ class Parser:
     self._tokens_len = len(tokens)
     self.index = 0
     self.debug_print = False
+    self.debug_indent = 0
 
   def current_token(self):
     if self.index >= self._tokens_len:
@@ -72,9 +75,26 @@ class Parser:
     if self.debug_print:
       current_token = self.current_token()
       if current_token and current_token.token_type != 'SPACE':
-        print('    consumed:', debug_note)
+        print(' ' * self.debug_indent, end='')
+        print('consumed@', debug_note)
+        print(' ' * (self.debug_indent + 2), end='')
         self.current_token().print()
     self.index += 1
+
+  def enter_method(self, debug_note):
+    if self.debug_print:
+      print(' ' * self.debug_indent, end='')
+      print('/ entering ', debug_note)
+      self.debug_indent += 4
+
+  def leave_method(self, debug_note):
+    if self.debug_print:
+      self.debug_indent -= 4
+      if self.debug_indent < 0:
+        print('error, enter and leave mismatch')
+        sys.exit(1)
+      print(' ' * self.debug_indent, end='')
+      print('\\  leaving ', debug_note)
 
   def process_whitespace(self, parent_node):
     # TODO: consider removing this in favor of skipping whitespace.
@@ -92,6 +112,7 @@ class Parser:
         current_token = self.current_token()
 
   def process_identifier_chain(self, parent_node):
+    self.enter_method('process_identifier_chain')
     # Starts with an identifier, possibly followed by a . and another identifier.
     current_token = self.current_token()
     identifier_chain = Node('IDENTIFIER_CHAIN')
@@ -114,8 +135,10 @@ class Parser:
       next_token = self.next_token()
     self.consume_current_token('processed final identifier in chain')
     parent_node.members.append(identifier_chain)
+    self.leave_method('process_identifier_chain')
 
   def process_argument_list(self, parent_node):
+    self.enter_method('process_argument_list')
     current_token = self.current_token()
     argument_list = Node('ARGUMENTS')
     while current_token and not current_token.matches('SYMBOL', ']'):
@@ -136,9 +159,11 @@ class Parser:
       self.process_whitespace(argument_list)
       current_token = self.current_token()
     parent_node.members.append(argument_list)
+    self.leave_method('process_argument_list')
 
   def process_function_call(self, parent_node):
     # Starts with an identifier followed by [.
+    self.enter_method('process_function_call')
     current_token = self.current_token()
     function_call = Node('FUNCTION_CALL_ARGUMENTS')
     if not current_token or not current_token.matches('SYMBOL', '['):
@@ -157,8 +182,10 @@ class Parser:
     function_call.members.append(Node('ARG_LIST_END', [current_token.content], True))
     self.consume_current_token('processed closing ] of arg list')
     parent_node.members.append(function_call)
+    self.leave_method('process_function_call')
 
   def process_foreign_code_block(self, parent_node):
+    self.enter_method('process_foreign_code_block')
     # Current node is the marker for starting the foreign code block.
     foreign_code_block = Node('FOREIGN_CODE_BLOCK')
     current_token = self.current_token()
@@ -186,8 +213,10 @@ class Parser:
       # We have reached the end of the code block, consume this token and move forward.
       self.consume_current_token('processed foreign code end')
     parent_node.members.append(foreign_code_block)
+    self.leave_method('process_foreign_code_block')
 
   def process_infix_operation(self, parent_node):
+    self.enter_method('process_infix_operation')
     infix_operation = Node('INFIX_OPERATION')
     current_token = self.current_token()
     if current_token and current_token.token_type == 'STRING':
@@ -226,8 +255,10 @@ class Parser:
     elif current_token and current_token.token_type == 'IDENTIFIER':
       self.process_identifier_chain(infix_operation)
     parent_node.members.append(infix_operation)
+    self.leave_method('process_infix_operation')
 
   def process_rvalue(self, parent_node):
+    self.enter_method('process_rvalue')
     current_token = self.current_token()
     # Lookahead to see if there is a symbol for an infix operation.
     next_token = self.next_token()
@@ -253,8 +284,10 @@ class Parser:
         # This is just an identifier chain so add the chain directly.
         parent_node.members.append(sub_node.members[0])
     self.process_whitespace(parent_node)
+    self.leave_method('process_rvalue')
 
   def process_assignment(self, parent_node):
+    self.enter_method('process_assignment')
     current_token = self.current_token()
     # First version: assignment starts with an identifier.
     assignment = Node('ASSIGNMENT')
@@ -273,8 +306,10 @@ class Parser:
     self.process_whitespace(assignment)
     self.process_rvalue(assignment)
     parent_node.members.append(assignment)
+    self.leave_method('process_assignment')
 
   def process_return_statement(self, parent_node):
+    self.enter_method('process_return_statement')
     current_token = self.current_token()
     return_statement = Node('RETURN_STATEMENT')
     if not current_token or not current_token.matches('IDENTIFIER', 'return'):
@@ -284,8 +319,72 @@ class Parser:
     self.process_whitespace(return_statement)
     self.process_rvalue(return_statement)
     parent_node.members.append(return_statement)
+    self.leave_method('process_return_statement')
+
+  def process_condition_expression(self, parent_node):
+    self.enter_method('process_condition_expression')
+    current_token = self.current_token()
+    condition_expression = Node('CONDITION_EXPRESSION')
+    if not current_token or not current_token.matches('SYMBOL', '['):
+      print('condition expression must start with an opening [')
+      sys.exit(1)
+    condition_expression.members.append(Node('CONDITION_EXPRESSION_START', [current_token.content], True))
+    self.consume_current_token('processed opening [ in condition expresion')
+    self.process_whitespace(condition_expression)
+    current_token = self.current_token()
+    self.process_rvalue(condition_expression)
+    self.process_whitespace(condition_expression)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', ']'):
+      print('condition expression must end with an closing ]')
+      sys.exit(1)
+    condition_expression.members.append(Node('CONDITION_EXPRESSION_END', [current_token.content], True))
+    self.consume_current_token('processed closing ] in condition expresion')
+    parent_node.members.append(condition_expression)
+    self.leave_method('process_condition_expression')
+
+  def process_if_statement(self, parent_node):
+    self.enter_method('process_if_statement')
+    current_token = self.current_token()
+    if_statement = Node('IF_STATEMENT')
+    if not current_token or not current_token.matches('IDENTIFIER', 'if'):
+      print('Expected an if statement to start with if')
+      sys.exit(1)
+    if_statement.members.append(Node('IF_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed if identifier')
+    self.process_whitespace(if_statement)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', '['):
+      print('The if keyword must be followed by an opening [')
+      sys.exit(1)
+    # Conditions
+    self.process_condition_expression(if_statement)
+    self.process_whitespace(if_statement)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', '['):
+      print('The if expression must be followed by a code block')
+      sys.exit(1)
+    #TODO: Need to decide if the inner code blocks inside of a function should
+    # perhaps be more restricted by not allowing variable declarations.
+    self.process_code_block(if_statement)
+    self.process_whitespace(if_statement)
+    current_token = self.current_token()
+    # Check to see if this if statement includes an else clause.
+    if current_token and current_token.matches('IDENTIFIER', 'else'):
+      if_statement.members.append(Node('ELSE_KEYWORD', [current_token.content], True))
+      self.consume_current_token('processed else identifier')
+      self.process_whitespace(if_statement)
+      current_token = self.current_token()
+      if not current_token or not current_token.matches('SYMBOL', '['):
+        print('The else expression must be followed by a code block')
+        sys.exit(1)
+      self.process_code_block(if_statement)
+      self.process_whitespace(if_statement)
+    parent_node.members.append(if_statement)
+    self.leave_method('process_if_statement')
 
   def process_code_block(self, parent_node):
+    self.enter_method('process_code_block')
     current_token = self.current_token()
     # We expect the code block to start with an opening [.
     code_block = Node('CODE_BLOCK')
@@ -297,12 +396,47 @@ class Parser:
     self.process_whitespace(code_block)
     current_token = self.current_token()
     while current_token and current_token.token_type == 'IDENTIFIER':
+      next_token = self.next_token()
       if current_token.content.startswith('BEGIN_FOREIGN_CODE_'):
         self.process_foreign_code_block(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       elif current_token.content == 'return':
         self.process_return_statement(code_block)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif current_token.content == 'if':
+        self.process_if_statement(code_block)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif next_token and next_token.matches('SYMBOL', ':'):
+        declaration_tree = Node('DECLARATION')
+        declaration_tree.members.append(Node('IDENTIFIER', [current_token.content], True))
+        self.consume_current_token('processed declared identifier in code block')
+        self.process_whitespace(declaration_tree)
+        current_token = self.current_token()
+        if current_token and current_token.matches('SYMBOL', ':'):
+          declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
+        else:
+          print('Expected : following variable identifer was missing from declaration')
+          sys.exit(1)
+        self.consume_current_token('processed declaration marker in code block')
+        current_token = self.current_token()
+        if current_token and current_token.matches('IDENTIFIER', 'function'):
+          print('A function cannot be declared in a code block')
+          sys.exit(1)
+        if not current_token or not current_token.token_type == 'IDENTIFIER':
+          print('Variable declaration must end with a type for the variable')
+          sys.exit(1)
+        else:
+          declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+          self.consume_current_token('processed type identifier in variable declaration')
+          code_block.members.append(declaration_tree)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif next_token and next_token.matches('SYMBOL', '='):
+        # This is assigning a variable a value.
+        self.process_assignment(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       else:
@@ -322,9 +456,12 @@ class Parser:
     current_token = self.current_token()
     if current_token and current_token.matches('SYMBOL', ']'):
       code_block.members.append(Node('CODE_BLOCK_END', [current_token.content], True))
+    self.consume_current_token('processed the closing ] for a code block')
     parent_node.members.append(code_block)
+    self.leave_method('process_code_block')
 
   def process_parameters_list(self, parent_node):
+    self.enter_method('process_parameters_list')
     parameters_list = Node('PARAMETERS_LIST')
     processing_parameters = True
     while processing_parameters:
@@ -363,9 +500,10 @@ class Parser:
       self.process_whitespace(declaration_tree)
       parent_node.members.append(declaration_tree)
       current_token = self.current_token()
-
+    self.leave_method('process_parameters_list')
 
   def process_function_definition(self, parent_node):
+    self.enter_method('process_function_definition')
     current_token = self.current_token()
     # The current token is the identifier 'function' to begin the declaration.
     function_definition = Node('FUNCTION_DEFINITION')
@@ -409,14 +547,11 @@ class Parser:
     self.consume_current_token('processed closing ] in function parameter list')
     self.process_whitespace(function_definition)
     self.process_code_block(function_definition)
-    current_token = self.current_token()
-    if not current_token or not current_token.matches('SYMBOL', ']'):
-      print('Expected a ] after the first [ in a function definition')
-      sys.exit(1)
     parent_node.members.append(function_definition)
-    self.consume_current_token('processing closing ] in function declaration')
+    self.leave_method('process_function_definition')
 
   def process_declaration(self, parent_node):
+    self.enter_method('process_declaration')
     current_token = self.current_token()
     declaration_tree = Node('DECLARATION')
     self.process_whitespace(declaration_tree)
@@ -441,7 +576,7 @@ class Parser:
       declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
       self.consume_current_token('processed variable type identifier in declaration')
     parent_node.members.append(declaration_tree)
-
+    self.leave_method('process_declaration')
 
   def build_parse_tree(self):
     top_node = Node('MODULE')

@@ -131,7 +131,7 @@ class TestLexerTokenize(unittest.TestCase):
           ('SYMBOL', ']'),
           ('SYMBOL', '==='),
         ), tokens)
-    
+
 
 if __name__ == '__main__':
   unittest.main()

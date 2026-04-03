@@ -167,7 +167,7 @@ class Tokenizer:
     contents = self.current_char()
     self.index += 1
     if contents in MULTI_CHARACTER_SYMBOLS:
-      while self.current_char() == contents:
+      while self.current_char() == contents[0]:
         contents += self.current_char()
         self.index += 1
     return Token(contents, 'SYMBOL')

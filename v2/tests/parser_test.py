@@ -24,6 +24,18 @@ RETURN_VALUE_EXAMPLE = """
     ]
 """
 
+IF_ELSE_EXAMPLE = """
+main:function:void[][
+  a:int32
+  a = 5
+  if[a == 5][
+    os.print["Yes, a is 5.\\n"]
+  ] else [
+    os.print["No, a is not 5.\\n"]
+  ]
+]
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -59,7 +71,7 @@ class TestParserParse(unittest.TestCase):
       :
     VARIABLE_TYPE:
       int32""", tree)
-    
+
   def test_parse_hello_world_example(self):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     self.assertEqual('MODULE', tree.node_type)
@@ -186,7 +198,7 @@ class TestParserParse(unittest.TestCase):
         function
       FUNCTION_RETURN_TYPE:
         void
-""", tree) 
+""", tree)
 
   def test_function_declaration_with_multiple_parameters(self):
     tree = parser.parse_source('addThreeNumbers:function:int32[first:int32, second:int32, third:int32][return first+second]')
@@ -217,6 +229,47 @@ class TestParserParse(unittest.TestCase):
       FUNCTION_PARAMS_END:
         ]""", tree)
 
+  def test_if_else_statement(self):
+    #tree = parser.parse_source(IF_ELSE_EXAMPLE, True)
+    tree = parser.parse_source(IF_ELSE_EXAMPLE)
+    #tree.print()
+    self.assertTreeContains("""
+        DECLARATION:
+          IDENTIFIER:
+            a
+          DECLARATION_MARKER:
+            :
+          VARIABLE_TYPE:
+            int32
+        ASSIGNMENT:
+          ASSIGNMENT_TARGET:
+            a
+          ASSIGNMENT_SYMBOL:
+            =
+          NUMBER_LITERAL:
+            5
+        IF_STATEMENT:
+          IF_KEYWORD:
+            if
+          CONDITION_EXPRESSION:
+            CONDITION_EXPRESSION_START:
+              [
+            INFIX_OPERATION:
+              IDENTIFIER_CHAIN:
+                IDENTIFIER:
+                  a
+              OPERATOR:
+                ==
+              NUMBER_LITERAL:
+                5
+            CONDITION_EXPRESSION_END:
+              ]""", tree)
+    self.assertTreeContains("""
+          ELSE_KEYWORD:
+            else
+          CODE_BLOCK:
+            CODE_BLOCK_START:
+              [""", tree)
 
 if __name__ == '__main__':
   unittest.main()
