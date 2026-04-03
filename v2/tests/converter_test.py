@@ -273,6 +273,17 @@ class TestConvertToJava(unittest.TestCase):
     self.assertTrue('    return a + b;' in files[0].content)
     self.assertTrue('    System.out.print(addNumbers(5 ,5));' in files[0].content)
 
+  def test_if_else(self):
+    """Example of including if-else statements for Java."""
+    tree = parser.parse_source(IF_ELSE_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertTrue('    int a;' in files[0].content)
+    self.assertTrue('    a = 5;' in files[0].content)
+    self.assertTrue('    if (a == 5) {' in files[0].content)
+    self.assertTrue('      System.out.print("Yes, a is 5.\\n");' in files[0].content)
+    self.assertTrue('    } else {' in files[0].content)
+    self.assertTrue('      System.out.print("No, a is not 5.\\n");' in files[0].content)
+
 
 class TestConvertToDotNet(unittest.TestCase):
   """Convert the headspace code to .NET (C#)."""
