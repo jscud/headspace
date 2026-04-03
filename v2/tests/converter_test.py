@@ -56,6 +56,20 @@ main: function: void[][
 ]
 """
 
+IF_ELSE_EXAMPLE = """
+moduleName = "ifelse"
+
+main:function:void[][
+  a:int32
+  a = 5
+  if[a == 5][
+    os.print["Yes, a is 5.\\n"]
+  ] else [
+    os.print["No, a is not 5.\\n"]
+  ]
+]
+"""
+
 
 class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -89,6 +103,17 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('int32_t addNumbers(int32_t a, int32_t b)' in files[0].content)
     self.assertTrue('  return a + b;' in files[0].content)
     self.assertTrue('  printf("%d", addNumbers(5 ,5));' in files[0].content)
+
+  def test_if_else(self):
+    """Example of including function calls for C."""
+    tree = parser.parse_source(IF_ELSE_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    self.assertTrue('int32_t a;' in files[0].content)
+    self.assertTrue('a = 5;' in files[0].content)
+    self.assertTrue('if(a == 5)' in files[0].content)
+    self.assertTrue('printf("%s", "Yes, a is 5.\\n");' in files[0].content)
+    self.assertTrue('else' in files[0].content)
+    self.assertTrue('printf("%s", "No, a is not 5.\\n");' in files[0].content)
 
 
 class TestConvertToPython(unittest.TestCase):

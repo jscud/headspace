@@ -9,7 +9,7 @@ import os
 # - passing through foreign code         c  py  js  go  c#  java
 # - function declarations                c  py  js  go  c#  java
 # - function calling                     c  py  js  go  c#  java
-# - conditional execution (ifs)
+# - conditional execution (ifs)          c
 # - loops (while/for)
 # - importing modules
 # - declaring classes
@@ -31,6 +31,10 @@ def find_module_name(parse_tree):
         top_node.members[2].members[0][0] == '"'):
       module_name = top_node.members[2].members[0][1:-1]
       return module_name
+  # The module name is required, so we know what to name the output files.
+  if not module_name:
+    print('Headspace source code must specify a module name.')
+    sys.exit(1)
   return module_name
 
 
@@ -87,6 +91,8 @@ class HeadspaceConverter:
       self.emit_identifier_chain(statement_node, source_code, indent_level)
     elif statement_node.node_type == 'OPERATOR':
       source_code.append(' ' + statement_node.members[0] + ' ')
+    elif statement_node.node_type == 'NUMBER_LITERAL' or statement_node.node_type == 'STRING_LITERAL':
+      source_code.append(statement_node.members[0])
 
 
 class ConverterToC(HeadspaceConverter):
@@ -150,8 +156,44 @@ class ConverterToC(HeadspaceConverter):
       self.emit_code_statement(return_statement_node.members[0], c_code, indent_level)
       c_code.append(';\n')
 
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'int32_t'
+    else:
+      return provided_type
+
+  def emit_variable_declaration(self, variable_declaration, c_code, indent_level):
+    c_code.append(' ' * indent_level)
+    c_code.append(self.convert_data_type(variable_declaration.members[2].members[0]) + ' ' + variable_declaration.members[0].members[0] + ';\n')
+
+  def emit_assignment_statement(self, assignment_statement, c_code, indent_level):
+    c_code.append(' ' * indent_level)
+    # TODO: Need to introduce lvalue to be able to assign to things like function call return value.
+    if assignment_statement.members[0].node_type == 'ASSIGNMENT_TARGET':
+      c_code.append(assignment_statement.members[0].members[0])
+    c_code.append(' = ')
+    self.emit_code_statement(assignment_statement.members[2], c_code, 0)
+    c_code.append(';\n')
+
+  def emit_condition_expression(self, condition_expression, c_code, indent_level):
+    self.emit_code_statement(condition_expression.members[1], c_code, 0)
+
+  def emit_if_statement(self, if_statement, c_code, indent_level):
+    c_code.append(' ' * indent_level)
+    c_code.append('if(')
+    if if_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(if_statement.members[1], c_code, indent_level)
+    c_code.append(')')
+    self.emit_code_block(if_statement.members[2], c_code, indent_level)
+    if len(if_statement.members) > 4 and if_statement.members[3].node_type == 'ELSE_KEYWORD':
+      c_code.append(' ' * indent_level)
+      c_code.append('else')
+      self.emit_code_block(if_statement.members[4], c_code, indent_level)
+
   def emit_code_block(self, code_block_node, c_code, indent_level):
-    c_code.append('\n{\n')
+    c_code.append('\n')
+    c_code.append(' ' * indent_level)
+    c_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, c_code, indent_level + 2)
@@ -159,13 +201,14 @@ class ConverterToC(HeadspaceConverter):
         self.emit_foreign_code_block(member, c_code, 'C')
       elif member.node_type == 'RETURN_STATEMENT':
         self.emit_return_statement(member, c_code, indent_level + 2)
+      elif member.node_type == 'DECLARATION':
+        self.emit_variable_declaration(member, c_code, indent_level + 2)
+      elif member.node_type == 'ASSIGNMENT':
+        self.emit_assignment_statement(member, c_code, indent_level + 2)
+      elif member.node_type == 'IF_STATEMENT':
+        self.emit_if_statement(member, c_code, indent_level + 2)
+    c_code.append(' ' * indent_level)
     c_code.append('}\n')
-
-  def convert_data_type(self, provided_type):
-    if provided_type == 'int32':
-      return 'int32_t'
-    else:
-      return provided_type
 
   def emit_function_signature(self, function_declaration_node, h_code, indent_level):
     # Skip the main function since it is not included in a .h file.
