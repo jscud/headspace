@@ -9,7 +9,8 @@ import os
 # - passing through foreign code         c  py  js  go  c#  java
 # - function declarations                c  py  js  go  c#  java
 # - function calling                     c  py  js  go  c#  java
-# - conditional execution (ifs)          c
+# - conditional execution (ifs)          c  py
+# - declaring variables                  c  py
 # - loops (while/for)
 # - importing modules
 # - declaring classes
@@ -94,6 +95,9 @@ class HeadspaceConverter:
     elif statement_node.node_type == 'NUMBER_LITERAL' or statement_node.node_type == 'STRING_LITERAL':
       source_code.append(statement_node.members[0])
 
+  def emit_condition_expression(self, condition_expression, source_code, indent_level):
+    self.emit_code_statement(condition_expression.members[1], source_code, 0)
+
 
 class ConverterToC(HeadspaceConverter):
 
@@ -174,9 +178,6 @@ class ConverterToC(HeadspaceConverter):
     c_code.append(' = ')
     self.emit_code_statement(assignment_statement.members[2], c_code, 0)
     c_code.append(';\n')
-
-  def emit_condition_expression(self, condition_expression, c_code, indent_level):
-    self.emit_code_statement(condition_expression.members[1], c_code, 0)
 
   def emit_if_statement(self, if_statement, c_code, indent_level):
     c_code.append(' ' * indent_level)
@@ -347,6 +348,37 @@ class ConverterToPython(HeadspaceConverter):
       self.emit_code_statement(return_statement_node.members[0], py_code, indent_level)
       py_code.append('\n')
 
+  def convert_data_type(self, provided_type):
+    if provided_type == 'int32':
+      return 'int'
+    else:
+      return provided_type
+
+  def emit_variable_declaration(self, variable_declaration, py_code, indent_level):
+    # In python, variables do not need to be forward declared.
+    pass
+
+  def emit_assignment_statement(self, assignment_statement, py_code, indent_level):
+    py_code.append(' ' * indent_level)
+    # TODO: Need to introduce lvalue to be able to assign to things like function call return value.
+    if assignment_statement.members[0].node_type == 'ASSIGNMENT_TARGET':
+      py_code.append(assignment_statement.members[0].members[0])
+    py_code.append(' = ')
+    self.emit_code_statement(assignment_statement.members[2], py_code, 0)
+    py_code.append('\n')
+
+  def emit_if_statement(self, if_statement, py_code, indent_level):
+    py_code.append(' ' * indent_level)
+    py_code.append('if ')
+    if if_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(if_statement.members[1], py_code, indent_level)
+    py_code.append(':\n')
+    self.emit_code_block(if_statement.members[2], py_code, indent_level)
+    if len(if_statement.members) > 4 and if_statement.members[3].node_type == 'ELSE_KEYWORD':
+      py_code.append(' ' * indent_level)
+      py_code.append('else:\n')
+      self.emit_code_block(if_statement.members[4], py_code, indent_level)
+
   def emit_code_block(self, code_block_node, py_code, indent_level):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
@@ -355,16 +387,15 @@ class ConverterToPython(HeadspaceConverter):
         self.emit_foreign_code_block(member, py_code, 'PYTHON')
       elif member.node_type == 'RETURN_STATEMENT':
         self.emit_return_statement(member, py_code, indent_level + 2)
-    py_code.append('\n')
+      elif member.node_type == 'DECLARATION':
+        self.emit_variable_declaration(member, py_code, indent_level + 2)
+      elif member.node_type == 'ASSIGNMENT':
+        self.emit_assignment_statement(member, py_code, indent_level + 2)
+      elif member.node_type == 'IF_STATEMENT':
+        self.emit_if_statement(member, py_code, indent_level + 2)
 
   def emit_function_body(self, function_body_node, py_code, indent_level):
     self.emit_code_block(function_body_node, py_code, indent_level)
-
-  def convert_data_type(self, provided_type):
-    if provided_type == 'int32':
-      return 'int'
-    else:
-      return provided_type
 
   def emit_function_definition(self, function_declaration_node, py_code, indent_level):
     # Skip the main function because we have special case logic to place it at the end of the module.

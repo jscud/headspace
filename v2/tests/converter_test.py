@@ -105,7 +105,7 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('  printf("%d", addNumbers(5 ,5));' in files[0].content)
 
   def test_if_else(self):
-    """Example of including function calls for C."""
+    """Example of including if-else statements for C."""
     tree = parser.parse_source(IF_ELSE_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertTrue('int32_t a;' in files[0].content)
@@ -145,6 +145,16 @@ class TestConvertToPython(unittest.TestCase):
     self.assertTrue('def addNumbers(a: int, b: int) -> int:' in files[0].content)
     self.assertTrue('  return a + b' in files[0].content)
     self.assertTrue('  print(addNumbers(5 ,5), end="")' in files[0].content)
+
+  def test_if_else(self):
+    """Example of including if-else statements for Python."""
+    tree = parser.parse_source(IF_ELSE_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertTrue('  a = 5' in files[0].content)
+    self.assertTrue('  if a == 5:' in files[0].content)
+    self.assertTrue('    print("Yes, a is 5.\\n", end="")' in files[0].content)
+    self.assertTrue('  else:' in files[0].content)
+    self.assertTrue('    print("No, a is not 5.\\n", end="")' in files[0].content)
 
 
 class TestConvertToGo(unittest.TestCase):
