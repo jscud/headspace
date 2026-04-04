@@ -327,6 +327,13 @@ class TestConvertToJava(unittest.TestCase):
     self.assertTrue('    } else {' in files[0].content)
     self.assertTrue('      System.out.print("No, a is not 5.\\n");' in files[0].content)
 
+  def test_while(self):
+    """Example of including while statements for Java."""
+    tree = parser.parse_source(WHILE_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertTrue('while (counter < 5) {' in files[0].content)
+    self.assertTrue('counter++;' in files[0].content)
+
 
 class TestConvertToDotNet(unittest.TestCase):
   """Convert the headspace code to .NET (C#)."""

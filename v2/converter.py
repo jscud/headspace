@@ -11,8 +11,8 @@ import os
 # - function calling                     c  py  go  js  java  c#
 # - conditional execution (ifs)          c  py  go  js  java  c#
 # - declaring variables                  c  py  go  js  java  c#
-# - infix and postfix operators          c  py  go  js
-# - loops (while)                        c  py  go  js
+# - infix and postfix operators          c  py  go  js  java
+# - loops (while)                        c  py  go  js  java
 # - importing modules
 # - declaring classes
 
@@ -928,6 +928,14 @@ class ConverterToJava(HeadspaceConverter):
       self.emit_code_block(if_statement.members[4], java_code, indent_level)
     java_code.append('\n')
 
+  def emit_while_statement(self, while_statement, java_code, indent_level):
+    java_code.append(' ' * indent_level)
+    java_code.append('while (')
+    if while_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(while_statement.members[1], java_code, indent_level)
+    java_code.append(') ')
+    self.emit_code_block(while_statement.members[2], java_code, indent_level)
+
   def emit_code_block(self, code_block_node, java_code, indent_level):
     java_code.append('{\n')
     for member in code_block_node.members:
@@ -943,6 +951,13 @@ class ConverterToJava(HeadspaceConverter):
         self.emit_assignment_statement(member, java_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, java_code, indent_level + 2)
+      elif member.node_type == 'WHILE_STATEMENT':
+        self.emit_while_statement(member, java_code, indent_level + 2)
+        java_code.append('\n')
+      elif member.node_type == 'POSTFIX_OPERATION':
+        java_code.append(' ' * (indent_level + 2))
+        self.emit_code_statement(member, java_code, 0)
+        java_code.append(';\n')
     if indent_level > 0:
       java_code.append(' ' * indent_level)
     java_code.append('}')
