@@ -11,7 +11,8 @@ import os
 # - function calling                     c  py  go  js  java  c#
 # - conditional execution (ifs)          c  py  go  js  java  c#
 # - declaring variables                  c  py  go  js  java  c#
-# - loops (while)
+# - infix and postfix operators          c
+# - loops (while)                        c
 # - importing modules
 # - declaring classes
 
@@ -88,10 +89,16 @@ class HeadspaceConverter:
     if statement_node.node_type == 'INFIX_OPERATION':
       for sub_node in statement_node.members:
         self.emit_code_statement(sub_node, source_code, indent_level)
+    elif statement_node.node_type == 'POSTFIX_OPERATION':
+      for sub_node in statement_node.members:
+        self.emit_code_statement(sub_node, source_code, indent_level)
     elif statement_node.node_type == 'IDENTIFIER_CHAIN':
       self.emit_identifier_chain(statement_node, source_code, indent_level)
     elif statement_node.node_type == 'OPERATOR':
-      source_code.append(' ' + statement_node.members[0] + ' ')
+      if statement_node.members[0] == '++' or statement_node.members[0] == '--':
+        source_code.append(statement_node.members[0])
+      else:
+        source_code.append(' ' + statement_node.members[0] + ' ')
     elif statement_node.node_type == 'NUMBER_LITERAL' or statement_node.node_type == 'STRING_LITERAL':
       source_code.append(statement_node.members[0])
 
@@ -191,6 +198,14 @@ class ConverterToC(HeadspaceConverter):
       c_code.append('else')
       self.emit_code_block(if_statement.members[4], c_code, indent_level)
 
+  def emit_while_statement(self, while_statement, c_code, indent_level):
+    c_code.append(' ' * indent_level)
+    c_code.append('while(')
+    if while_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(while_statement.members[1], c_code, indent_level)
+    c_code.append(')')
+    self.emit_code_block(while_statement.members[2], c_code, indent_level)
+
   def emit_code_block(self, code_block_node, c_code, indent_level):
     c_code.append('\n')
     c_code.append(' ' * indent_level)
@@ -208,6 +223,12 @@ class ConverterToC(HeadspaceConverter):
         self.emit_assignment_statement(member, c_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, c_code, indent_level + 2)
+      elif member.node_type == 'WHILE_STATEMENT':
+        self.emit_while_statement(member, c_code, indent_level + 2)
+      elif member.node_type == 'POSTFIX_OPERATION':
+        c_code.append(' ' * (indent_level + 2))
+        self.emit_code_statement(member, c_code, 0)
+        c_code.append(';\n')
     c_code.append(' ' * indent_level)
     c_code.append('}\n')
 

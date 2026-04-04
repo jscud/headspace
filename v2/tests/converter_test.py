@@ -70,6 +70,21 @@ main:function:void[][
 ]
 """
 
+WHILE_EXAMPLE = """
+moduleName = "while"
+
+main:function:void[][
+  counter:int32
+  counter = 0
+  os.print["Counting up to 5:\\n"]
+  while[counter < 5][
+    counter++
+    os.printInt[counter]
+    os.print["\\n"]
+  ]
+]
+"""
+
 
 class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -114,6 +129,13 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('printf("%s", "Yes, a is 5.\\n");' in files[0].content)
     self.assertTrue('else' in files[0].content)
     self.assertTrue('printf("%s", "No, a is not 5.\\n");' in files[0].content)
+
+  def test_while(self):
+    """Example of including if-else statements for C."""
+    tree = parser.parse_source(WHILE_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    self.assertTrue('while(counter < 5)' in files[0].content)
+    self.assertTrue('counter++;' in files[0].content)
 
 
 class TestConvertToPython(unittest.TestCase):
