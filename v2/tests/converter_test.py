@@ -376,6 +376,13 @@ class TestConvertToDotNet(unittest.TestCase):
     self.assertTrue('      } else {' in files[0].content)
     self.assertTrue('        Console.Write("No, a is not 5.\\n");' in files[0].content)
 
+  def test_while(self):
+    """Example of including while statements for .NET (C#)."""
+    tree = parser.parse_source(WHILE_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertTrue('while (counter < 5) {' in files[0].content)
+    self.assertTrue('counter++;' in files[0].content)
+
 
 if __name__ == '__main__':
   unittest.main()
