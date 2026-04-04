@@ -182,7 +182,6 @@ class TestConvertToPython(unittest.TestCase):
     """Example of including while statements for Python."""
     tree = parser.parse_source(WHILE_EXAMPLE)
     files = converter.convert(tree, 'python')
-    print(files[0].content)
     self.assertTrue('  while counter < 5:' in files[0].content)
     self.assertTrue('    counter += 1' in files[0].content)
 
@@ -227,6 +226,13 @@ class TestConvertToGo(unittest.TestCase):
     self.assertTrue('\t\tfmt.Print("Yes, a is 5.\\n")' in files[0].content)
     self.assertTrue('\t} else {' in files[0].content)
     self.assertTrue('\t\tfmt.Print("No, a is not 5.\\n")' in files[0].content)
+
+  def test_while(self):
+    """Example of including while statements for Go."""
+    tree = parser.parse_source(WHILE_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertTrue('\tfor counter < 5' in files[0].content)
+    self.assertTrue('\t\tcounter++' in files[0].content)
 
 
 class TestConvertToJavaScript(unittest.TestCase):
