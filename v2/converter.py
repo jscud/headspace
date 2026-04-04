@@ -13,8 +13,11 @@ import os
 # - declaring variables                  c  py  go  js  java  c#
 # - infix and postfix operators          c  py  go  js  java  c#
 # - loops (while)                        c  py  go  js  java  c#
+# - pass through comments
 # - importing modules
 # - declaring classes
+# - allocation memory
+# - passing references
 
 class SourceCodeFile:
 

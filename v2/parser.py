@@ -19,6 +19,9 @@ import lexer
 # postfix operators - done
 # pass through comments
 # class declaration
+# importing modules
+# allocation memory
+# passing references
 
 
 INFIX_OPERATORS = ['+', '==', '-', '<', '>']
