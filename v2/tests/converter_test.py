@@ -131,7 +131,7 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('printf("%s", "No, a is not 5.\\n");' in files[0].content)
 
   def test_while(self):
-    """Example of including if-else statements for C."""
+    """Example of including while statements for C."""
     tree = parser.parse_source(WHILE_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertTrue('while(counter < 5)' in files[0].content)
@@ -177,6 +177,14 @@ class TestConvertToPython(unittest.TestCase):
     self.assertTrue('    print("Yes, a is 5.\\n", end="")' in files[0].content)
     self.assertTrue('  else:' in files[0].content)
     self.assertTrue('    print("No, a is not 5.\\n", end="")' in files[0].content)
+
+  def test_while(self):
+    """Example of including while statements for Python."""
+    tree = parser.parse_source(WHILE_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    print(files[0].content)
+    self.assertTrue('  while counter < 5:' in files[0].content)
+    self.assertTrue('    counter += 1' in files[0].content)
 
 
 class TestConvertToGo(unittest.TestCase):

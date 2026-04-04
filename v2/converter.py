@@ -11,8 +11,8 @@ import os
 # - function calling                     c  py  go  js  java  c#
 # - conditional execution (ifs)          c  py  go  js  java  c#
 # - declaring variables                  c  py  go  js  java  c#
-# - infix and postfix operators          c
-# - loops (while)                        c
+# - infix and postfix operators          c  py
+# - loops (while)                        c  py
 # - importing modules
 # - declaring classes
 
@@ -85,6 +85,10 @@ class HeadspaceConverter:
       for source_token in foreign_code_block_node.members[0].members:
         source_code.append(source_token)
 
+  def convert_operator(self, provided_operator):
+    # For most lanauges, the operator passes through unchanged.
+    return provided_operator
+
   def emit_code_statement(self, statement_node, source_code, indent_level):
     if statement_node.node_type == 'INFIX_OPERATION':
       for sub_node in statement_node.members:
@@ -96,9 +100,9 @@ class HeadspaceConverter:
       self.emit_identifier_chain(statement_node, source_code, indent_level)
     elif statement_node.node_type == 'OPERATOR':
       if statement_node.members[0] == '++' or statement_node.members[0] == '--':
-        source_code.append(statement_node.members[0])
+        source_code.append(self.convert_operator(statement_node.members[0]))
       else:
-        source_code.append(' ' + statement_node.members[0] + ' ')
+        source_code.append(' ' + self.convert_operator(statement_node.members[0]) + ' ')
     elif statement_node.node_type == 'NUMBER_LITERAL' or statement_node.node_type == 'STRING_LITERAL':
       source_code.append(statement_node.members[0])
 
@@ -369,6 +373,13 @@ class ConverterToPython(HeadspaceConverter):
       self.emit_code_statement(return_statement_node.members[0], py_code, indent_level)
       py_code.append('\n')
 
+  def convert_operator(self, provided_operator):
+    if provided_operator == '++':
+      return ' += 1'
+    elif provided_operator == '--':
+      return ' -= 1'
+    return provided_operator
+
   def convert_data_type(self, provided_type):
     if provided_type == 'int32':
       return 'int'
@@ -400,6 +411,14 @@ class ConverterToPython(HeadspaceConverter):
       py_code.append('else:\n')
       self.emit_code_block(if_statement.members[4], py_code, indent_level)
 
+  def emit_while_statement(self, while_statement, py_code, indent_level):
+    py_code.append(' ' * indent_level)
+    py_code.append('while ')
+    if while_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(while_statement.members[1], py_code, indent_level)
+    py_code.append(':\n')
+    self.emit_code_block(while_statement.members[2], py_code, indent_level)
+
   def emit_code_block(self, code_block_node, py_code, indent_level):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
@@ -414,6 +433,12 @@ class ConverterToPython(HeadspaceConverter):
         self.emit_assignment_statement(member, py_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, py_code, indent_level + 2)
+      elif member.node_type == 'WHILE_STATEMENT':
+        self.emit_while_statement(member, py_code, indent_level + 2)
+      elif member.node_type == 'POSTFIX_OPERATION':
+        py_code.append(' ' * (indent_level + 2))
+        self.emit_code_statement(member, py_code, 0)
+        py_code.append('\n')
 
   def emit_function_body(self, function_body_node, py_code, indent_level):
     self.emit_code_block(function_body_node, py_code, indent_level)
