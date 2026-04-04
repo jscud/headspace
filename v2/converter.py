@@ -11,8 +11,8 @@ import os
 # - function calling                     c  py  go  js  java  c#
 # - conditional execution (ifs)          c  py  go  js  java  c#
 # - declaring variables                  c  py  go  js  java  c#
-# - infix and postfix operators          c  py  go
-# - loops (while)                        c  py  go
+# - infix and postfix operators          c  py  go  js
+# - loops (while)                        c  py  go  js
 # - importing modules
 # - declaring classes
 
@@ -748,6 +748,15 @@ class ConverterToJavaScript(HeadspaceConverter):
       self.emit_code_block(if_statement.members[4], js_code, indent_level)
     js_code.append('\n')
 
+  def emit_while_statement(self, while_statement, js_code, indent_level):
+    js_code.append(' ' * indent_level)
+    js_code.append('while (')
+    if while_statement.members[1].node_type == 'CONDITION_EXPRESSION':
+      self.emit_condition_expression(while_statement.members[1], js_code, indent_level)
+    js_code.append(') ')
+    self.emit_code_block(while_statement.members[2], js_code, indent_level)
+    js_code.append('\n')
+
   def emit_code_block(self, code_block_node, js_code, indent_level):
     js_code.append('{\n')
     for member in code_block_node.members:
@@ -763,6 +772,12 @@ class ConverterToJavaScript(HeadspaceConverter):
         self.emit_assignment_statement(member, js_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, js_code, indent_level + 2)
+      elif member.node_type == 'WHILE_STATEMENT':
+        self.emit_while_statement(member, js_code, indent_level + 2)
+      elif member.node_type == 'POSTFIX_OPERATION':
+        js_code.append(' ' * (indent_level + 2))
+        self.emit_code_statement(member, js_code, 0)
+        js_code.append(';\n')
     if indent_level > 0:
       js_code.append(' ' * indent_level)
     #js_code.append('}\n')

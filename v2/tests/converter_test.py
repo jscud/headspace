@@ -278,6 +278,13 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertTrue('  } else {' in files[0].content)
     self.assertTrue('    process.stdout.write("No, a is not 5.\\n");' in files[0].content)
 
+  def test_while(self):
+    """Example of including while statements for JavaScript."""
+    tree = parser.parse_source(WHILE_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertTrue('while (counter < 5) {' in files[0].content)
+    self.assertTrue('counter++;' in files[0].content)
+
 
 class TestConvertToJava(unittest.TestCase):
   """Convert the headspace code to Java."""
