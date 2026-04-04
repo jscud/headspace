@@ -11,16 +11,18 @@ import lexer
 # foreign code block - done
 # variable declaration - done
 # conditional statement (if) - done
-# loop statement (while)
+# loop statement (while) - done
 # assigment statement - done
 # module name - done
 # return statement - done
 # infix operators - done
+# postfix operators - done
 # pass through comments
 # class declaration
 
 
-INFIX_OPERATORS = ['+', '==']
+INFIX_OPERATORS = ['+', '==', '-', '<', '>']
+POSTFIX_OPERATORS = ['++', '--']
 
 
 class Node:
@@ -265,6 +267,9 @@ class Parser:
     if next_token and next_token.token_type == 'SYMBOL' and next_token.content in INFIX_OPERATORS:
       self.process_infix_operation(parent_node)
       self.process_whitespace(parent_node)
+    elif next_token and next_token.token_type == 'SYMBOL' and next_token.content in POSTFIX_OPERATORS:
+      self.process_postfix_operation(parent_node)
+      self.process_whitespace(parent_node)
     elif current_token and current_token.token_type == 'STRING':
       parent_node.members.append(Node('STRING_LITERAL', [current_token.content], True))
       self.consume_current_token('processed string rvalue')
@@ -285,6 +290,25 @@ class Parser:
         parent_node.members.append(sub_node.members[0])
     self.process_whitespace(parent_node)
     self.leave_method('process_rvalue')
+
+  def process_postfix_operation(self, parent_node):
+    self.enter_method('process_postfix_operation')
+    postfix_operation = Node('POSTFIX_OPERATION')
+    current_token = self.current_token()
+    if current_token and current_token.token_type == 'IDENTIFIER':
+      self.process_identifier_chain(postfix_operation)
+    self.process_whitespace(postfix_operation)
+    current_token = self.current_token()
+    if current_token and current_token.token_type != 'SYMBOL':
+      print('In an postfix operation, the symbol should follow the identifier.')
+      sys.exit(1)
+    if current_token and current_token.token_type == 'SYMBOL' and current_token.content in POSTFIX_OPERATORS:
+      postfix_operation.members.append(Node('OPERATOR', [current_token.content], True))
+    # Move past the operator.
+    self.consume_current_token('processed postfix operator')
+    self.process_whitespace(postfix_operation)
+    parent_node.members.append(postfix_operation)
+    self.leave_method('process_postfix_operation')
 
   def process_assignment(self, parent_node):
     self.enter_method('process_assignment')
@@ -383,6 +407,35 @@ class Parser:
     parent_node.members.append(if_statement)
     self.leave_method('process_if_statement')
 
+  def process_while_statement(self, parent_node):
+    self.enter_method('process_while_statement')
+    current_token = self.current_token()
+    while_statement = Node('WHILE_STATEMENT')
+    if not current_token or not current_token.matches('IDENTIFIER', 'while'):
+      print('Expected a while statement to start with while')
+      sys.exit(1)
+    while_statement.members.append(Node('WHILE_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed while identifier')
+    self.process_whitespace(while_statement)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', '['):
+      print('The while keyword must be followed by an opening [')
+      sys.exit(1)
+    # Conditions
+    self.process_condition_expression(while_statement)
+    self.process_whitespace(while_statement)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', '['):
+      print('The while expression must be followed by a code block')
+      sys.exit(1)
+    #TODO: Need to decide if the inner code blocks inside of a function should
+    # perhaps be more restricted by not allowing variable declarations.
+    self.process_code_block(while_statement)
+    self.process_whitespace(while_statement)
+    current_token = self.current_token()
+    parent_node.members.append(while_statement)
+    self.leave_method('process_while_statement')
+
   def process_code_block(self, parent_node):
     self.enter_method('process_code_block')
     current_token = self.current_token()
@@ -407,6 +460,10 @@ class Parser:
         current_token = self.current_token()
       elif current_token.content == 'if':
         self.process_if_statement(code_block)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif current_token.content == 'while':
+        self.process_while_statement(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       elif next_token and next_token.matches('SYMBOL', ':'):
@@ -437,6 +494,14 @@ class Parser:
       elif next_token and next_token.matches('SYMBOL', '='):
         # This is assigning a variable a value.
         self.process_assignment(code_block)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif next_token and next_token.content in INFIX_OPERATORS:
+        self.process_infix_operation(code_block)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif next_token and next_token.content in POSTFIX_OPERATORS:
+        self.process_postfix_operation(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       else:
@@ -595,8 +660,10 @@ class Parser:
           self.process_declaration(top_node)
         elif next_token.content == '=':
           self.process_assignment(top_node)
-        elif next_token.content == '+':
+        elif next_token.content in INFIX_OPERATORS:
           self.process_infix_operation(top_node)
+        elif next_token.content in POSTFIX_OPERATORS:
+          self.process_postfix_operation(top_node)
       current_token = self.current_token()
       if current_token:
         self.process_whitespace(top_node)

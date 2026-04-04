@@ -36,6 +36,16 @@ main:function:void[][
 ]
 """
 
+WHILE_EXAMPLE = """
+main:function:void[][
+  counter:int32
+  counter = 0
+  while[counter < 5][
+    counter++
+  ]
+]
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -230,9 +240,7 @@ class TestParserParse(unittest.TestCase):
         ]""", tree)
 
   def test_if_else_statement(self):
-    #tree = parser.parse_source(IF_ELSE_EXAMPLE, True)
     tree = parser.parse_source(IF_ELSE_EXAMPLE)
-    #tree.print()
     self.assertTreeContains("""
         DECLARATION:
           IDENTIFIER:
@@ -270,6 +278,37 @@ class TestParserParse(unittest.TestCase):
           CODE_BLOCK:
             CODE_BLOCK_START:
               [""", tree)
+
+  def test_while_statement(self):
+    tree = parser.parse_source(WHILE_EXAMPLE)
+    self.assertTreeContains("""
+        WHILE_STATEMENT:
+          WHILE_KEYWORD:
+            while
+          CONDITION_EXPRESSION:
+            CONDITION_EXPRESSION_START:
+              [
+            INFIX_OPERATION:
+              IDENTIFIER_CHAIN:
+                IDENTIFIER:
+                  counter
+              OPERATOR:
+                <
+              NUMBER_LITERAL:
+                5
+            CONDITION_EXPRESSION_END:
+              ]
+          CODE_BLOCK:
+            CODE_BLOCK_START:
+              [
+            POSTFIX_OPERATION:
+              IDENTIFIER_CHAIN:
+                IDENTIFIER:
+                  counter
+              OPERATOR:
+                ++
+            CODE_BLOCK_END:
+              ]""", tree)
 
 if __name__ == '__main__':
   unittest.main()
