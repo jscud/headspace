@@ -310,6 +310,16 @@ class TestParserParse(unittest.TestCase):
             CODE_BLOCK_END:
               ]""", tree)
 
+  def test_function_declaration_with_multiple_parameters(self):
+    tree = parser.parse_source('import "example.hsp"')
+    self.assertTreeContains("""
+  IMPORT_STATEMENT:
+    IMPORT_KEYWORD:
+      import
+    MODULE_LOCATION:
+      "example.hsp""", tree)
+
+
 if __name__ == '__main__':
   unittest.main()
 

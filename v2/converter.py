@@ -18,6 +18,10 @@ import os
 # - declaring classes
 # - allocation memory
 # - passing references
+# - raising exceptions/errors
+#
+# Future languages to support:
+# C++, Rust, PHP, Ruby
 
 class SourceCodeFile:
 

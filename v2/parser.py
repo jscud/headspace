@@ -19,7 +19,7 @@ import lexer
 # postfix operators - done
 # pass through comments
 # class declaration
-# importing modules
+# importing modules - done
 # allocation memory
 # passing references
 
@@ -646,6 +646,26 @@ class Parser:
     parent_node.members.append(declaration_tree)
     self.leave_method('process_declaration')
 
+  def process_import_statement(self, parent_node):
+    self.enter_method('process_import')
+    current_token = self.current_token()
+    import_tree = Node('IMPORT_STATEMENT')
+    if not current_token or not current_token.matches('IDENTIFIER', 'import'):
+      print('Import statements must start with keyword import')
+      sys.exit(1)
+    import_tree.members.append(Node('IMPORT_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed import keyword')
+    self.process_whitespace(import_tree)
+    current_token = self.current_token()
+    if not current_token or current_token.token_type != 'STRING':
+      print('The import keyword must be followed by a string with the path of the')
+      sys.exit(1)
+    import_tree.members.append(Node('MODULE_LOCATION', [current_token.content], True))
+    self.consume_current_token('processed import module location')
+    self.process_whitespace(import_tree)
+    parent_node.members.append(import_tree)
+    self.leave_method('process_import')
+
   def build_parse_tree(self):
     top_node = Node('MODULE')
     if not self._tokens or self._tokens_len == 0:
@@ -667,6 +687,8 @@ class Parser:
           self.process_infix_operation(top_node)
         elif next_token.content in POSTFIX_OPERATORS:
           self.process_postfix_operation(top_node)
+      elif current_token.content == 'import':
+        self.process_import_statement(top_node)
       current_token = self.current_token()
       if current_token:
         self.process_whitespace(top_node)
