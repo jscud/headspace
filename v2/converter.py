@@ -190,9 +190,10 @@ class ConverterToC(HeadspaceConverter):
             c_code.append(chain_entry.members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
-          self.emit_function_call(function_call_node.members[1].members[1].members[0], c_code, indent_level)
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], c_code, 0)
         c_code.append(');\n')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        c_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
         skip_next_dot = False
         for chain_node in function_call_node.members[0].members:
