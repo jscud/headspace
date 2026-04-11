@@ -56,7 +56,6 @@ def find_main_function(parse_tree):
 
 
 def convert_module_to_language_import(module_name, target_language):
-  #module_name_segments = module_name.split('/')
   module_path = module_name.strip('"')
   if target_language == 'c':
     return module_path + '.h'
@@ -155,6 +154,13 @@ class HeadspaceConverter:
       sys.exit(1)
     return self.module_name
 
+  def populate_symbol_table_from_declarations(self, top_node):
+    for member in top_node.members:
+      if member.node_type == 'FUNCTION_DECLARATION':
+        function_declaration_node = member
+        if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] != 'main':
+          self.symbol_table.set_symbol(find_function_identifier(function_declaration_node), 'FUNCTION')
+
 
 class ConverterToC(HeadspaceConverter):
 
@@ -189,7 +195,12 @@ class ConverterToC(HeadspaceConverter):
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
-          c_code.append(chain_node.members[0])
+          symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
+          if symbol_for_name == 'FUNCTION':
+            # This is a local function it needs the module name as a prefix.
+            c_code.append(self.module_name + '_' + chain_node.members[0])
+          else:
+            c_code.append(chain_node.members[0])
         # Emit the arguments for the function call.
         if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
           c_code.append('(')
@@ -287,7 +298,8 @@ class ConverterToC(HeadspaceConverter):
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
-    function_name = find_function_identifier(function_declaration_node)
+    # For C functions, we use the module name as a prefix to make collisions less likely.
+    function_name = self.module_name + '_' + find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
     h_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
     param_index = 0
@@ -306,7 +318,7 @@ class ConverterToC(HeadspaceConverter):
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
-    function_name = find_function_identifier(function_declaration_node)
+    function_name = self.module_name + '_' + find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
     c_code.append(' ' * indent_level)
     c_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
@@ -348,6 +360,11 @@ class ConverterToC(HeadspaceConverter):
     # TODO: gather the includes needed to express before source code.
     c_code.append('\n')
 
+    # Populate the symbol table before emitting function definitions so that
+    # function references can be correctly constructed.
+    self.populate_symbol_table_from_declarations(self.tree)
+
+    # Emit the function definitions and declarations.
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_signature(module_level_member, h_code, 0)
@@ -528,6 +545,8 @@ class ConverterToPython(HeadspaceConverter):
     module_name = self.find_module_name()
     module_name_py = module_name + '.py'
 
+    self.populate_symbol_table_from_declarations(self.tree)
+
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_definition(module_level_member, py_code, 0)
@@ -700,6 +719,8 @@ class ConverterToGo(HeadspaceConverter):
 
     go_code.append('package main\n\n')
     go_code.append('import "fmt"\n\n')
+
+    self.populate_symbol_table_from_declarations(self.tree)
 
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
@@ -884,6 +905,8 @@ class ConverterToJavaScript(HeadspaceConverter):
     js_code = []
     module_name = self.find_module_name()
 
+    self.populate_symbol_table_from_declarations(self.tree)
+
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_definition(module_level_member, js_code, 0)
@@ -1056,6 +1079,8 @@ class ConverterToJava(HeadspaceConverter):
     java_class_name = module_name.capitalize()
     java_code.append('public class ' + java_class_name + '\n')
     java_code.append('{\n')
+
+    self.populate_symbol_table_from_declarations(self.tree)
 
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
@@ -1234,6 +1259,8 @@ class ConverterToDotNet(HeadspaceConverter):
     dotnet_code.append('using System;\n')
     dotnet_code.append('\n')
     dotnet_code.append('namespace ' + dotnet_class_name + ' {\n')
+
+    self.populate_symbol_table_from_declarations(self.tree)
 
     dotnet_code.append('  class Functions {\n')
     for module_level_member in self.tree.members:

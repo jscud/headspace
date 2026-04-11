@@ -125,11 +125,11 @@ class TestConvertToC(unittest.TestCase):
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
     # Check function signature in .h file.
-    self.assertTrue('int32_t addNumbers(int32_t a, int32_t b);' in files[1].content)
+    self.assertTrue('int32_t functions_addNumbers(int32_t a, int32_t b);' in files[1].content)
     # Check funciton definition in .c file.
-    self.assertTrue('int32_t addNumbers(int32_t a, int32_t b)' in files[0].content)
+    self.assertTrue('int32_t functions_addNumbers(int32_t a, int32_t b)' in files[0].content)
     self.assertTrue('  return a + b;' in files[0].content)
-    self.assertTrue('  printf("%d", addNumbers(5 ,5));' in files[0].content)
+    self.assertTrue('  printf("%d", functions_addNumbers(5 ,5));' in files[0].content)
 
   def test_if_else(self):
     """Example of including if-else statements for C."""
