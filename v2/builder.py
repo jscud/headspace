@@ -14,15 +14,16 @@ import converter
 SUPPORTED_LANGUAGES = ['c', 'python', 'go', 'javascript', 'java', 'dotnet']
 
 
-def convert_project(project_directory, target_language):
+def convert_project(project_directory, target_language, print_log_messages=False):
   if target_language == 'all':
     for supported_language in SUPPORTED_LANGUAGES:
       convert_project(project_directory, supported_language)
     return
 
   directories = [f for f in pathlib.Path(project_directory).iterdir() if f.is_dir()]
-  print('converting project:', project_directory)
-  print('to target language:', target_language)
+  if print_log_messages:
+    print('converting project:', project_directory)
+    print('to target language:', target_language)
 
   # The source code must be found in a project's headspace directory.
   headspace_directory = None
@@ -62,4 +63,4 @@ if __name__ == '__main__':
   if len(sys.argv) < 3:
     print('To convert a project, the project source folder and target language must be specified')
     sys.exit(1)
-  convert_project(sys.argv[1], sys.argv[2])
+  convert_project(sys.argv[1], sys.argv[2], True)

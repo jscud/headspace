@@ -319,6 +319,8 @@ class ConverterToC(HeadspaceConverter):
       param_index += 1
     if len(function_params) > 0:
       h_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    elif len(function_params) == 0:
+      h_code.append('void')
     h_code.append(');\n')
 
   def emit_function_body(self, function_body_node, c_code, indent_level):
@@ -339,6 +341,8 @@ class ConverterToC(HeadspaceConverter):
       param_index += 1
     if len(function_params) > 0:
       c_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    elif len(function_params) == 0:
+      c_code.append('void')
     c_code.append(')')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), c_code, indent_level)

@@ -1,0 +1,44 @@
+import unittest
+import builder
+import os
+import subprocess
+
+
+class TestBuildCAndExecute(unittest.TestCase):
+  """Build a headspace project, converting to C."""
+
+  def test_imports_sample(self):
+    """Multiple files which import and run."""
+    builder.convert_project(os.path.join('tests', 'test_projects', 'import_example'), 'c')
+    # Compile the library source.
+    library_source_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'library.c')
+    library_header_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'library.h')
+    compiled_library_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'library.o')
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
+                    '-Wmissing-prototypes', '-Wstrict-prototypes',
+                    '-Wold-style-definition', '-c',
+                    library_source_path, '-o', compiled_library_path], check=True)
+    # Compile the main function.
+    binary_source_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'useLibrary.c')
+    binary_header_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'useLibrary.h')
+    executable_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'useLibrary')
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
+                    '-Wmissing-prototypes', '-Wstrict-prototypes',
+                    '-Wold-style-definition', '-o',
+                    executable_path, binary_source_path, compiled_library_path], check=True)
+    result = subprocess.run([executable_path], check=True, capture_output=True)
+    # Run the program that includes the import.
+    result = subprocess.run([executable_path], check=True, capture_output=True)
+    self.assertEqual(b'Hello from the library\n', result.stdout)
+    # Cleanup compiled files.
+    subprocess.run(['rm', library_source_path], check=True)
+    subprocess.run(['rm', library_header_path], check=True)
+    subprocess.run(['rm', compiled_library_path], check=True)
+    subprocess.run(['rm', binary_source_path], check=True)
+    subprocess.run(['rm', binary_header_path], check=True)
+    subprocess.run(['rm', executable_path], check=True)
+
+
+if __name__ == '__main__':
+  unittest.main()
+
