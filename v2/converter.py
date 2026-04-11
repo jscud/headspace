@@ -284,6 +284,7 @@ class ConverterToC(HeadspaceConverter):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, c_code, indent_level + 2)
+        c_code.append(';\n')
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, c_code, 'C')
       elif member.node_type == 'RETURN_STATEMENT':
