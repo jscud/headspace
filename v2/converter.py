@@ -30,6 +30,22 @@ class SourceCodeFile:
     self.content = content
 
 
+class SymbolTable:
+
+  def __init__(self):
+    self.parent_table = None
+    self.symbols = {}
+
+  def find_symbol(self, name):
+    if name in self.symbols:
+      return self.symbols[name]
+    elif self.parent_table:
+      return self.parent_table.find_symbol(name)
+
+  def set_symbol(self, name, symbol_type):
+    self.symbols[name] = symbol_type
+
+
 def find_module_name(parse_tree):
   module_name = None
   for top_node in parse_tree.members:
@@ -54,15 +70,6 @@ def find_main_function(parse_tree):
         top_node.members[0].members[0] == 'main'):
       return top_node
   return None
-
-
-def find_imports(parse_tree):
-  imports = []
-  for top_node in parse_tree.members:
-    if (top_node.node_type == 'IMPORT_STATEMENT' and
-        top_node.members[1].node_type == 'MODULE_LOCATION'):
-      imports.append(top_node.members[1].members[0])
-  return imports
 
 
 def convert_module_to_language_import(module_name, target_language):
@@ -102,8 +109,13 @@ def find_function_body_code_block(function_declaration_node):
 
 class HeadspaceConverter:
 
+  #TODO: add a symbol table
+  # For the C converter, the module name needs to become a prefix
+  # When a library method is called, it needs to be changed from lib.func to lib_func for C.
+
   def __init__(self, parse_tree):
     self.tree = parse_tree
+    self.symbol_table = SymbolTable()
 
   def emit_foreign_code_block(self, foreign_code_block_node, source_code, target_language):
     if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == target_language:
@@ -134,11 +146,21 @@ class HeadspaceConverter:
   def emit_condition_expression(self, condition_expression, source_code, indent_level):
     self.emit_code_statement(condition_expression.members[1], source_code, 0)
 
+  def find_imports(self):
+    imports = []
+    for top_node in self.tree.members:
+      if (top_node.node_type == 'IMPORT_STATEMENT' and
+          top_node.members[1].node_type == 'MODULE_LOCATION'):
+        module_name = top_node.members[1].members[0].strip('"')
+        self.symbol_table.set_symbol(module_name, 'MODULE')
+        imports.append(module_name)
+    return imports
+
 
 class ConverterToC(HeadspaceConverter):
 
   def __init__(self, parse_tree):
-    self.tree = parse_tree
+    super().__init__(parse_tree)
 
   def emit_function_call(self, function_call_node, c_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
@@ -308,7 +330,7 @@ class ConverterToC(HeadspaceConverter):
     module_name_h = module_name + '.h'
 
     includes = []
-    for module in find_imports(self.tree):
+    for module in self.find_imports():
       includes.append('#include"' + convert_module_to_language_import(module, 'c') + '"\n')
 
     # Start the .h file with a ifdef guard.
@@ -354,7 +376,7 @@ class ConverterToC(HeadspaceConverter):
 class ConverterToPython(HeadspaceConverter):
 
   def __init__(self, parse_tree):
-    self.tree = parse_tree
+    super().__init__(parse_tree)
 
   def emit_function_call(self, function_call_node, py_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
@@ -526,7 +548,7 @@ class ConverterToPython(HeadspaceConverter):
 class ConverterToGo(HeadspaceConverter):
 
   def __init__(self, parse_tree):
-    self.tree = parse_tree
+    super().__init__(parse_tree)
 
   def emit_function_call(self, function_call_node, go_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
@@ -700,7 +722,7 @@ class ConverterToGo(HeadspaceConverter):
 class ConverterToJavaScript(HeadspaceConverter):
 
   def __init__(self, parse_tree):
-    self.tree = parse_tree
+    super().__init__(parse_tree)
 
   def emit_function_call(self, function_call_node, js_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
@@ -883,7 +905,7 @@ class ConverterToJavaScript(HeadspaceConverter):
 class ConverterToJava(HeadspaceConverter):
 
   def __init__(self, parse_tree):
-    self.tree = parse_tree
+    super().__init__(parse_tree)
 
   def emit_function_call(self, function_call_node, java_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
@@ -1057,7 +1079,7 @@ class ConverterToJava(HeadspaceConverter):
 class ConverterToDotNet(HeadspaceConverter):
 
   def __init__(self, parse_tree):
-    self.tree = parse_tree
+    super().__init__(parse_tree)
 
   def emit_function_call(self, function_call_node, dotnet_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
