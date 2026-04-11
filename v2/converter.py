@@ -273,7 +273,9 @@ class ConverterToC(HeadspaceConverter):
     while param_index < len(function_params) - 1:
       h_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
       param_index += 1
-    h_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ');\n')
+    if len(function_params) > 0:
+      h_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    h_code.append(');\n')
 
   def emit_function_body(self, function_body_node, c_code, indent_level):
     self.emit_code_block(function_body_node, c_code, indent_level)
@@ -291,7 +293,9 @@ class ConverterToC(HeadspaceConverter):
     while param_index < len(function_params) - 1:
       c_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
       param_index += 1
-    c_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ')')
+    if len(function_params) > 0:
+      c_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    c_code.append(')')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), c_code, indent_level)
     c_code.append('\n')
@@ -489,7 +493,9 @@ class ConverterToPython(HeadspaceConverter):
     while param_index < len(function_params) - 1:
       py_code.append(function_params[param_index][0] + ': ' + self.convert_data_type(function_params[param_index][1]) + ', ')
       param_index += 1
-    py_code.append(function_params[param_index][0] + ': ' + self.convert_data_type(function_params[param_index][1]) + ')')
+    if len(function_params) > 0:
+      py_code.append(function_params[param_index][0] + ': ' + self.convert_data_type(function_params[param_index][1]))
+    py_code.append(')')
     # Include the return type of the function.
     py_code.append(' -> ' + self.convert_data_type(return_type) + ':\n')
     # Now emit the code block body of the function.
@@ -658,7 +664,9 @@ class ConverterToGo(HeadspaceConverter):
     while param_index < len(function_params) - 1:
       go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]) + ', ')
       param_index += 1
-    go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]) + ')')
+    if len(function_params) > 0:
+      go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]))
+    go_code.append(')')
     # Include the return type of the function.
     go_code.append(' ' + self.convert_data_type(return_type) + ' ')
     # Now emit the code block body of the function.
@@ -844,7 +852,9 @@ class ConverterToJavaScript(HeadspaceConverter):
     while param_index < len(function_params) - 1:
       js_code.append(function_params[param_index][0] + ', ')
       param_index += 1
-    js_code.append(function_params[param_index][0] + ') ')
+    if len(function_params) > 0:
+      js_code.append(function_params[param_index][0])
+    js_code.append(') ')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), js_code, indent_level)
     js_code.append('\n')
@@ -1011,7 +1021,9 @@ class ConverterToJava(HeadspaceConverter):
     while param_index < len(function_params) - 1:
       java_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
       param_index += 1
-    java_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ')')
+    if len(function_params) > 0:
+      java_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    java_code.append(')')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), java_code, indent_level)
     java_code.append('\n')
@@ -1185,7 +1197,9 @@ class ConverterToDotNet(HeadspaceConverter):
     while param_index < len(function_params) - 1:
       dotnet_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
       param_index += 1
-    dotnet_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0] + ') ')
+    if len(function_params) > 0:
+      dotnet_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    dotnet_code.append(') ')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), dotnet_code, indent_level)
     dotnet_code.append('\n')
