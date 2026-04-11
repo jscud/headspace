@@ -46,23 +46,6 @@ class SymbolTable:
     self.symbols[name] = symbol_type
 
 
-def find_module_name(parse_tree):
-  module_name = None
-  for top_node in parse_tree.members:
-    if (top_node.node_type == 'ASSIGNMENT' and
-        top_node.members[0].node_type == 'ASSIGNMENT_TARGET' and
-        top_node.members[0].members[0] == 'moduleName' and
-        top_node.members[2].node_type == 'STRING_LITERAL' and
-        top_node.members[2].members[0][0] == '"'):
-      module_name = top_node.members[2].members[0][1:-1]
-      return module_name
-  # The module name is required, so we know what to name the output files.
-  if not module_name:
-    print('Headspace source code must specify a module name.')
-    sys.exit(1)
-  return module_name
-
-
 def find_main_function(parse_tree):
   for top_node in parse_tree.members:
     if (top_node.node_type == 'FUNCTION_DECLARATION' and
@@ -116,6 +99,7 @@ class HeadspaceConverter:
   def __init__(self, parse_tree):
     self.tree = parse_tree
     self.symbol_table = SymbolTable()
+    self.module_name = None
 
   def emit_foreign_code_block(self, foreign_code_block_node, source_code, target_language):
     if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == target_language:
@@ -155,6 +139,21 @@ class HeadspaceConverter:
         self.symbol_table.set_symbol(module_name, 'MODULE')
         imports.append(module_name)
     return imports
+
+  def find_module_name(self):
+    for top_node in self.tree.members:
+      if (top_node.node_type == 'ASSIGNMENT' and
+          top_node.members[0].node_type == 'ASSIGNMENT_TARGET' and
+          top_node.members[0].members[0] == 'moduleName' and
+          top_node.members[2].node_type == 'STRING_LITERAL' and
+          top_node.members[2].members[0][0] == '"'):
+        self.module_name = top_node.members[2].members[0][1:-1]
+        return self.module_name
+    # The module name is required, so we know what to name the output files.
+    if not self.module_name:
+      print('Headspace source code must specify a module name.')
+      sys.exit(1)
+    return self.module_name
 
 
 class ConverterToC(HeadspaceConverter):
@@ -325,7 +324,7 @@ class ConverterToC(HeadspaceConverter):
   def emit_code(self):
     c_code = []
     h_code = []
-    module_name = find_module_name(self.tree)
+    module_name = self.find_module_name()
     module_name_c = module_name + '.c'
     module_name_h = module_name + '.h'
 
@@ -526,7 +525,7 @@ class ConverterToPython(HeadspaceConverter):
 
   def emit_code(self):
     py_code = []
-    module_name = find_module_name(self.tree)
+    module_name = self.find_module_name()
     module_name_py = module_name + '.py'
 
     for module_level_member in self.tree.members:
@@ -697,7 +696,7 @@ class ConverterToGo(HeadspaceConverter):
 
   def emit_code(self):
     go_code = []
-    module_name = find_module_name(self.tree)
+    module_name = self.find_module_name()
 
     go_code.append('package main\n\n')
     go_code.append('import "fmt"\n\n')
@@ -883,7 +882,7 @@ class ConverterToJavaScript(HeadspaceConverter):
 
   def emit_code(self):
     js_code = []
-    module_name = find_module_name(self.tree)
+    module_name = self.find_module_name()
 
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
@@ -1052,7 +1051,7 @@ class ConverterToJava(HeadspaceConverter):
 
   def emit_code(self):
     java_code = []
-    module_name = find_module_name(self.tree)
+    module_name = self.find_module_name()
 
     java_class_name = module_name.capitalize()
     java_code.append('public class ' + java_class_name + '\n')
@@ -1228,7 +1227,7 @@ class ConverterToDotNet(HeadspaceConverter):
 
   def emit_code(self):
     dotnet_code = []
-    module_name = find_module_name(self.tree)
+    module_name = self.find_module_name()
     main_function_declaration = find_main_function(self.tree)
 
     dotnet_class_name = module_name.capitalize()
