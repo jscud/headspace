@@ -194,11 +194,20 @@ class ConverterToC(HeadspaceConverter):
         c_code.append(');\n')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
+        skip_next_dot = False
         for chain_node in function_call_node.members[0].members:
           symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
           if symbol_for_name == 'FUNCTION':
             # This is a local function it needs the module name as a prefix.
             c_code.append(self.module_name + '_' + chain_node.members[0])
+          elif symbol_for_name == 'MODULE':
+            # The first member in the chain is a module, so switch to a module_function style call.
+            c_code.append(chain_node.members[0])
+            # We should use moduleName_functionName instead of parent.functionName since this is a module.
+            skip_next_dot = True
+          elif chain_node.members[0] == '.' and skip_next_dot:
+            c_code.append('_')
+            skip_next_dot = False
           else:
             c_code.append(chain_node.members[0])
         # Emit the arguments for the function call.
