@@ -14,7 +14,7 @@ import os
 # - infix and postfix operators          c  py  go  js  java  c#
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
-# - importing modules
+# - importing modules                    c
 # - declaring classes
 # - allocation memory
 # - passing references
@@ -54,6 +54,24 @@ def find_main_function(parse_tree):
         top_node.members[0].members[0] == 'main'):
       return top_node
   return None
+
+
+def find_imports(parse_tree):
+  imports = []
+  for top_node in parse_tree.members:
+    if (top_node.node_type == 'IMPORT_STATEMENT' and
+        top_node.members[1].node_type == 'MODULE_LOCATION'):
+      imports.append(top_node.members[1].members[0])
+  return imports
+
+
+def convert_module_to_language_import(module_name, target_language):
+  #module_name_segments = module_name.split('/')
+  module_path = module_name.strip('"')
+  if target_language == 'c':
+    return module_path + '.h'
+  else:
+    return module_path
 
 
 def find_function_return_type(function_declaration_node):
@@ -285,14 +303,22 @@ class ConverterToC(HeadspaceConverter):
     module_name_c = module_name + '.c'
     module_name_h = module_name + '.h'
 
+    includes = []
+    for module in find_imports(self.tree):
+      includes.append('#include"' + convert_module_to_language_import(module, 'c') + '"\n')
+
     # Start the .h file with a ifdef guard.
     h_code.append('#ifndef HEADSPACE_' + module_name.upper() + '_H\n#define HEADSPACE_' + module_name.upper() + '_H\n')
     h_code.append('#include<stdint.h>\n')
+    for include in includes:
+      h_code.append(include)
     h_code.append('\n')
 
     # Start the .c file with include directives.
     c_code.append('#include<stdio.h>\n')
     c_code.append('#include<stdint.h>\n')
+    for include in includes:
+      c_code.append(include)
     c_code.append('#include"' + module_name + '.h"\n')
     # TODO: gather the includes needed to express before source code.
     c_code.append('\n')

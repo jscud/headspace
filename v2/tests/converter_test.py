@@ -85,6 +85,18 @@ main:function:void[][
 ]
 """
 
+IMPORTS_EXAMPLE = """
+import "moduleA"
+
+moduleName = "imports"
+
+import "moduleB"
+
+main:function:void[][
+  os.print["I have imports.\\n"]
+]
+"""
+
 
 class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -136,6 +148,15 @@ class TestConvertToC(unittest.TestCase):
     files = converter.convert(tree, 'c')
     self.assertTrue('while(counter < 5)' in files[0].content)
     self.assertTrue('counter++;' in files[0].content)
+
+  def test_imports(self):
+    """Example of using import statements with C."""
+    tree = parser.parse_source(IMPORTS_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    self.assertTrue('#include"moduleA.h"' in files[0].content)
+    self.assertTrue('#include"moduleB.h"' in files[0].content)
+    self.assertTrue('#include"moduleA.h"' in files[1].content)
+    self.assertTrue('#include"moduleB.h"' in files[1].content)
 
 
 class TestConvertToPython(unittest.TestCase):
