@@ -1239,3 +1239,23 @@ def convert(parse_tree, target_langauge):
     sys.exit(1)
   return converter.emit_code()
 
+
+def convert_filename(filename, target_language):
+  with open(filename, 'r') as source_file:
+    print('we opened the file')
+    source_code = source_file.read()
+
+  source_tree = parser.parse_source(source_code)
+  results_files = convert(source_tree, target_language)
+
+  for result_file in results_files:
+    with open(result_file.filename, 'w') as output_file:
+      output_file.write(result_file.content)
+
+
+if __name__ == '__main__':
+  if len(sys.argv) < 3:
+    print('To compile the Headspace source code, you must specify the headspace file and target language')
+    sys.exit(1)
+  convert_filename(sys.argv[1], sys.argv[2])
+
