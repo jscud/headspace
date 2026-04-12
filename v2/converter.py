@@ -14,7 +14,7 @@ import os
 # - infix and postfix operators          c  py  go  js  java  c#
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
-# - importing modules                    c  py
+# - importing modules                    c  py  go
 # - declaring classes
 # - allocation memory
 # - passing references
@@ -87,6 +87,10 @@ def find_function_body_code_block(function_declaration_node):
       return node
   print('Expected function definition to contain a code block for the body.')
   sys.exit(1)
+
+
+def capitalize_first_letter(input_str):
+  return input_str[0].capitalize() + input_str[1:]
 
 
 class HeadspaceConverter:
@@ -565,11 +569,8 @@ class ConverterToPython(HeadspaceConverter):
 
     self.populate_symbol_table_from_declarations(self.tree)
 
-    includes = []
     for module in self.find_imports():
-      includes.append('import ' + convert_module_to_language_import(module, 'python') + '\n')
-    for include in includes:
-      py_code.append(include)
+      py_code.append('import ' + convert_module_to_language_import(module, 'python') + '\n')
 
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
@@ -591,6 +592,7 @@ class ConverterToGo(HeadspaceConverter):
 
   def __init__(self, parse_tree):
     super().__init__(parse_tree)
+    self.required_imports = []
 
   def emit_function_call(self, function_call_node, go_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
@@ -604,8 +606,12 @@ class ConverterToGo(HeadspaceConverter):
         go_code.append('\t' * indent_level)
         if function_call_node.members[0].members[2].members[0] == 'print':
           go_code.append('fmt.Print(')
+          if '"fmt"' not in self.required_imports:
+            self.required_imports.append('"fmt"')
         elif function_call_node.members[0].members[2].members[0] == 'printInt':
           go_code.append('fmt.Printf("%d", ')
+          if '"fmt"' not in self.required_imports:
+            self.required_imports.append('"fmt"')
         if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
             function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
           go_code.append(function_call_node.members[1].members[1].members[0].members[0])
@@ -615,12 +621,18 @@ class ConverterToGo(HeadspaceConverter):
             go_code.append(chain_entry.members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
-          self.emit_function_call(function_call_node.members[1].members[1].members[0], go_code, indent_level)
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], go_code, 0)
         go_code.append(')\n')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        go_code.append('\t' * indent_level)
         # Emit the chain of identifiers.
-        for chain_node in function_call_node.members[0].members:
-          go_code.append(chain_node.members[0])
+        i = 0
+        num_identifiers = len(function_call_node.members[0].members)
+        while i < num_identifiers - 1:
+          go_code.append(function_call_node.members[0].members[i].members[0])
+          i += 1
+        # Capitalize the first letter of the function call.
+        go_code.append(capitalize_first_letter(function_call_node.members[0].members[num_identifiers-1].members[0]))
         # Emit the arguments for the function call.
         if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
           go_code.append('(')
@@ -691,6 +703,7 @@ class ConverterToGo(HeadspaceConverter):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, go_code, indent_level + 1)
+        go_code.append('\n')
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, go_code, 'GO')
       elif member.node_type == 'RETURN_STATEMENT':
@@ -709,7 +722,6 @@ class ConverterToGo(HeadspaceConverter):
         go_code.append('\n')
     if indent_level > 0:
       go_code.append('\t' * indent_level)
-    #go_code.append('}\n')
     go_code.append('}')
 
   def emit_function_body(self, function_body_node, go_code, indent_level):
@@ -720,7 +732,7 @@ class ConverterToGo(HeadspaceConverter):
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
-    function_name = find_function_identifier(function_declaration_node)
+    function_name = capitalize_first_letter(find_function_identifier(function_declaration_node))
     function_params = find_function_parameters(function_declaration_node)
     go_code.append('\t' * indent_level)
     go_code.append('func ' + function_name + '(')
@@ -732,7 +744,10 @@ class ConverterToGo(HeadspaceConverter):
       go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]))
     go_code.append(')')
     # Include the return type of the function.
-    go_code.append(' ' + self.convert_data_type(return_type) + ' ')
+    if return_type == 'void':
+      go_code.append(' ')
+    else:
+      go_code.append(' ' + self.convert_data_type(return_type) + ' ')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), go_code, indent_level)
     go_code.append('\n')
@@ -740,27 +755,46 @@ class ConverterToGo(HeadspaceConverter):
   def emit_code(self):
     go_code = []
     module_name = self.find_module_name()
+    main_function_declaration = find_main_function(self.tree)
 
-    go_code.append('package main\n\n')
-    go_code.append('import "fmt"\n\n')
+    # use go mod init to install a library
 
-    self.populate_symbol_table_from_declarations(self.tree)
-
+    go_body_code = []
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
-        self.emit_function_definition(module_level_member, go_code, 0)
+        self.emit_function_definition(module_level_member, go_body_code, 0)
 
-    main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
-      go_code.append('func main() ')
+      go_body_code.append('func main() ')
       for member in main_function_declaration.members:
         if member.node_type == 'FUNCTION_DEFINITION':
           for def_member in member.members:
             if def_member.node_type == 'CODE_BLOCK':
-              self.emit_code_block(def_member, go_code, 0)
+              self.emit_code_block(def_member, go_body_code, 0)
+
+    self.populate_symbol_table_from_declarations(self.tree)
+
+    if main_function_declaration:
+      go_code.append('package main\n\n')
+    else:
+      go_code.append('package ' + module_name + '\n\n')
+
+    for import_lib in self.required_imports:
+      go_code.append('import ' + import_lib + '\n')
+
+    for module in self.find_imports():
+      go_code.append('import "' + convert_module_to_language_import(module, 'go') + '"\n')
+    go_code.append('\n')
+
+    go_code.extend(go_body_code)
+
+    if main_function_declaration:
       # Create file name with a main.go module.
       main_module_filename = os.path.join(module_name, 'main.go')
       return [SourceCodeFile(main_module_filename, ''.join(go_code))]
+    else:
+      # This module has no main function, so it is only a library.
+      return [SourceCodeFile(module_name + '.go', ''.join(go_code))]
 
 
 class ConverterToJavaScript(HeadspaceConverter):
@@ -1100,7 +1134,7 @@ class ConverterToJava(HeadspaceConverter):
     java_code = []
     module_name = self.find_module_name()
 
-    java_class_name = module_name.capitalize()
+    java_class_name = capitalize_first_letter(module_name)
     java_code.append('public class ' + java_class_name + '\n')
     java_code.append('{\n')
 
@@ -1279,7 +1313,7 @@ class ConverterToDotNet(HeadspaceConverter):
     module_name = self.find_module_name()
     main_function_declaration = find_main_function(self.tree)
 
-    dotnet_class_name = module_name.capitalize()
+    dotnet_class_name = capitalize_first_letter(module_name)
     dotnet_code.append('using System;\n')
     dotnet_code.append('\n')
     dotnet_code.append('namespace ' + dotnet_class_name + ' {\n')

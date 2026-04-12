@@ -233,9 +233,9 @@ class TestConvertToGo(unittest.TestCase):
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
     files = converter.convert(tree, 'go')
     self.assertEqual(1, len(files))
-    self.assertTrue('func addNumbers(a int32, b int32) int32 {' in files[0].content)
+    self.assertTrue('func AddNumbers(a int32, b int32) int32 {' in files[0].content)
     self.assertTrue('\treturn a + b' in files[0].content)
-    self.assertTrue('\tfmt.Printf("%d", addNumbers(5 ,5))' in files[0].content)
+    self.assertTrue('\tfmt.Printf("%d", AddNumbers(5 ,5))' in files[0].content)
 
   def test_if_else(self):
     """Example of including if-else statements for Go."""
