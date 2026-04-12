@@ -1,1 +1,0 @@
-python3 builder.py tests/test_projects/hello_world all

@@ -14,7 +14,7 @@ import os
 # - infix and postfix operators          c  py  go  js  java  c#
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
-# - importing modules                    c
+# - importing modules                    c  py
 # - declaring classes
 # - allocation memory
 # - passing references
@@ -430,9 +430,10 @@ class ConverterToPython(HeadspaceConverter):
             py_code.append(chain_entry.members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
-          self.emit_function_call(function_call_node.members[1].members[1].members[0], py_code, indent_level)
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], py_code, 0)
         py_code.append(', end="")\n')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        py_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
           py_code.append(chain_node.members[0])
@@ -473,6 +474,8 @@ class ConverterToPython(HeadspaceConverter):
   def convert_data_type(self, provided_type):
     if provided_type == 'int32':
       return 'int'
+    elif provided_type == 'void':
+      return 'None'
     else:
       return provided_type
 
@@ -561,6 +564,12 @@ class ConverterToPython(HeadspaceConverter):
     module_name_py = module_name + '.py'
 
     self.populate_symbol_table_from_declarations(self.tree)
+
+    includes = []
+    for module in self.find_imports():
+      includes.append('import ' + convert_module_to_language_import(module, 'python') + '\n')
+    for include in includes:
+      py_code.append(include)
 
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':

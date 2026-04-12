@@ -26,7 +26,6 @@ class TestBuildCAndExecute(unittest.TestCase):
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
                     '-Wold-style-definition', '-o',
                     executable_path, binary_source_path, compiled_library_path], check=True)
-    result = subprocess.run([executable_path], check=True, capture_output=True)
     # Run the program that includes the import.
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Hello from the library\n', result.stdout)
@@ -37,6 +36,22 @@ class TestBuildCAndExecute(unittest.TestCase):
     subprocess.run(['rm', binary_source_path], check=True)
     subprocess.run(['rm', binary_header_path], check=True)
     subprocess.run(['rm', executable_path], check=True)
+
+
+class TestBuildPythonAndExecute(unittest.TestCase):
+  """Build a headspace project, converting to Python."""
+
+  def test_imports_sample(self):
+    """Multiple files which import and run."""
+    builder.convert_project(os.path.join('tests', 'test_projects', 'import_example'), 'python')
+    library_source_path = os.path.join('tests', 'test_projects', 'import_example', 'python', 'library.py')
+    executable_source_path = os.path.join('tests', 'test_projects', 'import_example', 'python', 'useLibrary.py')
+    # Run the program that includes the import.
+    result = subprocess.run(['python3', executable_source_path], check=True, capture_output=True)
+    self.assertEqual(b'Hello from the library\n', result.stdout)
+    # Cleanup compiled files.
+    subprocess.run(['rm', library_source_path], check=True)
+    subprocess.run(['rm', executable_source_path], check=True)
 
 
 if __name__ == '__main__':
