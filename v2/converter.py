@@ -14,7 +14,7 @@ import os
 # - infix and postfix operators          c  py  go  js  java  c#
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
-# - importing modules                    c  py  go
+# - importing modules                    c  py  go  js
 # - declaring classes
 # - allocation memory
 # - passing references
@@ -622,7 +622,7 @@ class ConverterToGo(HeadspaceConverter):
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], go_code, 0)
-        go_code.append(')\n')
+        go_code.append(')')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         go_code.append('\t' * indent_level)
         # Emit the chain of identifiers.
@@ -757,8 +757,7 @@ class ConverterToGo(HeadspaceConverter):
     module_name = self.find_module_name()
     main_function_declaration = find_main_function(self.tree)
 
-    # use go mod init to install a library
-
+    # Note: use go mod init to install a library
     go_body_code = []
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
@@ -771,6 +770,7 @@ class ConverterToGo(HeadspaceConverter):
           for def_member in member.members:
             if def_member.node_type == 'CODE_BLOCK':
               self.emit_code_block(def_member, go_body_code, 0)
+              go_body_code.append('\n')
 
     self.populate_symbol_table_from_declarations(self.tree)
 
@@ -825,9 +825,10 @@ class ConverterToJavaScript(HeadspaceConverter):
             js_code.append(chain_entry.members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
-          self.emit_function_call(function_call_node.members[1].members[1].members[0], js_code, indent_level)
-        js_code.append(');\n')
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], js_code, 0)
+        js_code.append(')')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+        js_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
           js_code.append(chain_node.members[0])
@@ -903,6 +904,7 @@ class ConverterToJavaScript(HeadspaceConverter):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, js_code, indent_level + 2)
+        js_code.append(';\n')
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, js_code, 'JS')
       elif member.node_type == 'RETURN_STATEMENT':
@@ -947,7 +949,7 @@ class ConverterToJavaScript(HeadspaceConverter):
     js_code.append(' ' * indent_level)
     js_code.append(' */\n')
     js_code.append(' ' * indent_level)
-    js_code.append('function ' + function_name + '(')
+    js_code.append('export function ' + function_name + '(')
     param_index = 0
     while param_index < len(function_params) - 1:
       js_code.append(function_params[param_index][0] + ', ')
@@ -965,6 +967,12 @@ class ConverterToJavaScript(HeadspaceConverter):
 
     self.populate_symbol_table_from_declarations(self.tree)
 
+    for module in self.find_imports():
+      import_module_name = convert_module_to_language_import(module, 'javascript')
+      import_module_file = import_module_name + '.js'
+      js_code.append('import * as ' + import_module_name + ' from "./' + import_module_file + '";\n')
+    js_code.append('\n')
+
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_definition(module_level_member, js_code, 0)
@@ -978,8 +986,14 @@ class ConverterToJavaScript(HeadspaceConverter):
             if def_member.node_type == 'CODE_BLOCK':
               self.emit_code_block(def_member, js_code, 0)
       js_code.append('\nmain();\n')
-      module_filename = module_name + '.js'
-      return [SourceCodeFile(module_filename, ''.join(js_code))]
+
+    module_filename = module_name + '.js'
+
+    # Include a package.json to support exporting public functions in a module.
+    package_json_content = '{\n  "type": "module"\n}\n'
+
+    return [SourceCodeFile(module_filename, ''.join(js_code)), SourceCodeFile('package.json', package_json_content)]
+
 
 
 class ConverterToJava(HeadspaceConverter):

@@ -4,6 +4,9 @@ import os
 import subprocess
 
 
+CLEANUP_GENERATED_SOURCE = True
+
+
 class TestBuildCAndExecute(unittest.TestCase):
   """Build a headspace project, converting to C."""
 
@@ -30,12 +33,13 @@ class TestBuildCAndExecute(unittest.TestCase):
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Hello from the library\n', result.stdout)
     # Cleanup compiled files.
-    subprocess.run(['rm', library_source_path], check=True)
-    subprocess.run(['rm', library_header_path], check=True)
-    subprocess.run(['rm', compiled_library_path], check=True)
-    subprocess.run(['rm', binary_source_path], check=True)
-    subprocess.run(['rm', binary_header_path], check=True)
-    subprocess.run(['rm', executable_path], check=True)
+    if CLEANUP_GENERATED_SOURCE:
+      subprocess.run(['rm', library_source_path], check=True)
+      subprocess.run(['rm', library_header_path], check=True)
+      subprocess.run(['rm', compiled_library_path], check=True)
+      subprocess.run(['rm', binary_source_path], check=True)
+      subprocess.run(['rm', binary_header_path], check=True)
+      subprocess.run(['rm', executable_path], check=True)
 
 
 class TestBuildPythonAndExecute(unittest.TestCase):
@@ -50,8 +54,9 @@ class TestBuildPythonAndExecute(unittest.TestCase):
     result = subprocess.run(['python3', executable_source_path], check=True, capture_output=True)
     self.assertEqual(b'Hello from the library\n', result.stdout)
     # Cleanup compiled files.
-    subprocess.run(['rm', library_source_path], check=True)
-    subprocess.run(['rm', executable_source_path], check=True)
+    if CLEANUP_GENERATED_SOURCE:
+      subprocess.run(['rm', library_source_path], check=True)
+      subprocess.run(['rm', executable_source_path], check=True)
 
 
 class TestBuildGoAndExecute(unittest.TestCase):
@@ -70,10 +75,30 @@ class TestBuildGoAndExecute(unittest.TestCase):
     result = subprocess.run(['go', 'run', os.path.join('useLibrary', 'main.go')], check=True, capture_output=True)
     self.assertEqual(b'Hello from the library\n', result.stdout)
     # Cleanup compiled files.
-    subprocess.run(['rm', 'go.mod'], check=True)
-    subprocess.run(['rm', 'library.go'], check=True)
-    subprocess.run(['rm', os.path.join('useLibrary', 'main.go')], check=True)
+    if CLEANUP_GENERATED_SOURCE:
+      subprocess.run(['rm', 'go.mod'], check=True)
+      subprocess.run(['rm', 'library.go'], check=True)
+      subprocess.run(['rm', os.path.join('useLibrary', 'main.go')], check=True)
     os.chdir(os.path.join('..', '..', '..', '..'))
+
+
+class TestBuildJavaScriptAndExecute(unittest.TestCase):
+  """Build a headspace project, converting to JavaScript."""
+
+  def test_imports_sample(self):
+    """Multiple files which import and run."""
+    builder.convert_project(os.path.join('tests', 'test_projects', 'import_example'), 'javascript')
+    library_source_path = os.path.join('tests', 'test_projects', 'import_example', 'javascript', 'library.js')
+    executable_source_path = os.path.join('tests', 'test_projects', 'import_example', 'javascript', 'useLibrary.js')
+    package_source_path = os.path.join('tests', 'test_projects', 'import_example', 'javascript', 'package.json')
+    # Run the program that includes the import.
+    result = subprocess.run(['node', executable_source_path], check=True, capture_output=True)
+    self.assertEqual(b'Hello from the library\n', result.stdout)
+    # Cleanup compiled files.
+    if CLEANUP_GENERATED_SOURCE:
+      subprocess.run(['rm', library_source_path], check=True)
+      subprocess.run(['rm', executable_source_path], check=True)
+      subprocess.run(['rm', package_source_path], check=True)
 
 
 if __name__ == '__main__':

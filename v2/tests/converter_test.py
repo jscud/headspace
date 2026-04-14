@@ -263,7 +263,7 @@ class TestConvertToJavaScript(unittest.TestCase):
     """Hello World program in JavaScript"""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'javascript')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     self.assertTrue('.js' in files[0].filename)
     self.assertTrue('function main() {' in files[0].content)
     self.assertTrue('process.stdout.write("Hello World\\n");' in files[0].content)
@@ -272,7 +272,7 @@ class TestConvertToJavaScript(unittest.TestCase):
     """Example of including foreign code for JavaScript."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'javascript')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     self.assertTrue('const hello_str = "hello\\n";' in files[0].content)
     self.assertTrue('process.stdout.write(hello_str);' in files[0].content)
     self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
@@ -281,7 +281,7 @@ class TestConvertToJavaScript(unittest.TestCase):
     """Example of including function calls for JavaScript."""
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
     files = converter.convert(tree, 'javascript')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     self.assertTrue(' * @param {number} a' in files[0].content)
     self.assertTrue(' * @param {number} b' in files[0].content)
     self.assertTrue(' * @returns {number}' in files[0].content)
