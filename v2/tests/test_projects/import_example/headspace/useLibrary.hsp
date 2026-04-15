@@ -1,0 +1,7 @@
+import "library"
+
+moduleName = "useLibrary"
+
+main:function:void[][
+  library.sayHello[]
+]

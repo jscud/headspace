@@ -1101,6 +1101,7 @@ class ConverterToJava(HeadspaceConverter):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, java_code, indent_level + 2)
+        java_code.append(';');
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, java_code, 'JAVA')
       elif member.node_type == 'RETURN_STATEMENT':
@@ -1148,6 +1149,13 @@ class ConverterToJava(HeadspaceConverter):
     java_code = []
     module_name = self.find_module_name()
 
+    # javac -d . Library.java UseLibrary.java
+    # java -cp . UseLibrary
+
+    for module in self.find_imports():
+      java_code.append('import ' + module + '.*;\n')
+    java_code.append('\n')
+
     java_class_name = capitalize_first_letter(module_name)
     java_code.append('public class ' + java_class_name + '\n')
     java_code.append('{\n')
@@ -1166,10 +1174,10 @@ class ConverterToJava(HeadspaceConverter):
           for def_member in member.members:
             if def_member.node_type == 'CODE_BLOCK':
               self.emit_code_block(def_member, java_code, 2)
-      java_code.append('\n}\n')
-      # Create file name with a .java class file.
-      java_class_filename = java_class_name + '.java'
-      return [SourceCodeFile(java_class_filename, ''.join(java_code))]
+    java_code.append('\n}\n')
+    # Create file name with a .java class file.
+    java_class_filename = java_class_name + '.java'
+    return [SourceCodeFile(java_class_filename, ''.join(java_code))]
 
 
 class ConverterToDotNet(HeadspaceConverter):
