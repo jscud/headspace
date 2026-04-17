@@ -9,7 +9,7 @@ running of external programs."""
 
 
 HELLO_WORLD_EXAMPLE = """
-moduleName = "hello"
+moduleName = "jeffscudder.com/headspace/tests/hello"
 
 main: function: void[][
   os.print["Hello World\\n"]
@@ -18,7 +18,7 @@ main: function: void[][
 
 
 FOREIGN_CODE_EXAMPLE = """
-moduleName = "foreign"
+moduleName = "jeffscudder.com/headspace/tests/foreign"
 
 main: function: void[][
 BEGIN_FOREIGN_CODE_C
@@ -44,7 +44,7 @@ END_FOREIGN_CODE_DOTNET
 """
 
 FUNCTION_CALLING_EXAMPLE = """
-moduleName = "functions"
+moduleName = "jeffscudder.com/headspace/tests/functions"
 
 addNumbers: function: int32[a:int32, b:int32][
   return a + b
@@ -57,7 +57,7 @@ main: function: void[][
 """
 
 IF_ELSE_EXAMPLE = """
-moduleName = "ifelse"
+moduleName = "jeffscudder.com/headspace/tests/ifelse"
 
 main:function:void[][
   a:int32
@@ -71,7 +71,7 @@ main:function:void[][
 """
 
 WHILE_EXAMPLE = """
-moduleName = "while"
+moduleName = "jeffscudder.com/headspace/tests/while"
 
 main:function:void[][
   counter:int32
@@ -86,11 +86,11 @@ main:function:void[][
 """
 
 IMPORTS_EXAMPLE = """
-import "moduleA"
+import "jeffscudder.com/headspace/tests/moduleA" as moduleA
 
-moduleName = "imports"
+moduleName = "jeffscudder.com/headspace/tests/imports"
 
-import "moduleB"
+import "jeffscudder.com/headspace/tests/moduleB" as moduleB
 
 main:function:void[][
   os.print["I have imports.\\n"]
@@ -153,10 +153,10 @@ class TestConvertToC(unittest.TestCase):
     """Example of using import statements with C."""
     tree = parser.parse_source(IMPORTS_EXAMPLE)
     files = converter.convert(tree, 'c')
-    self.assertTrue('#include"moduleA.h"' in files[0].content)
-    self.assertTrue('#include"moduleB.h"' in files[0].content)
-    self.assertTrue('#include"moduleA.h"' in files[1].content)
-    self.assertTrue('#include"moduleB.h"' in files[1].content)
+    self.assertTrue('#include"headspace/tests/moduleA.h"' in files[0].content)
+    self.assertTrue('#include"headspace/tests/moduleB.h"' in files[0].content)
+    self.assertTrue('#include"headspace/tests/moduleA.h"' in files[1].content)
+    self.assertTrue('#include"headspace/tests/moduleB.h"' in files[1].content)
 
 
 class TestConvertToPython(unittest.TestCase):
@@ -166,7 +166,7 @@ class TestConvertToPython(unittest.TestCase):
     """Hello World program in Python."""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'python')
-    self.assertEqual(1, len(files))
+    self.assertEqual(3, len(files))  # Note this includes __init__.py files.
     self.assertTrue('.py' in files[0].filename)
     self.assertTrue('def main():' in files[0].content)
     self.assertTrue('print("Hello World\\n", end="")' in files[0].content)
@@ -175,7 +175,7 @@ class TestConvertToPython(unittest.TestCase):
     """Example of including foreign code for Python."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'python')
-    self.assertEqual(1, len(files))
+    self.assertEqual(3, len(files))
     self.assertTrue('hello_str = \'hello\\n\'' in files[0].content)
     self.assertTrue('print(hello_str, end="")' in files[0].content)
     self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
@@ -184,7 +184,7 @@ class TestConvertToPython(unittest.TestCase):
     """Example of including function calls for Python."""
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
     files = converter.convert(tree, 'python')
-    self.assertEqual(1, len(files))
+    self.assertEqual(3, len(files))
     self.assertTrue('def addNumbers(a: int, b: int) -> int:' in files[0].content)
     self.assertTrue('  return a + b' in files[0].content)
     self.assertTrue('  print(addNumbers(5 ,5), end="")' in files[0].content)

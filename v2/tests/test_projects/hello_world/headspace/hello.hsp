@@ -1,4 +1,4 @@
-moduleName = "hello"
+moduleName = "jeffscudder.com/tests/projects/hello"
 
 main: function: void[][
   os.print["Hello World\n"]

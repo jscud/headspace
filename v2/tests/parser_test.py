@@ -311,13 +311,17 @@ class TestParserParse(unittest.TestCase):
               ]""", tree)
 
   def test_function_declaration_with_multiple_parameters(self):
-    tree = parser.parse_source('import "example_module"')
+    tree = parser.parse_source('import "example_module" as example')
     self.assertTreeContains("""
   IMPORT_STATEMENT:
     IMPORT_KEYWORD:
       import
     MODULE_LOCATION:
-      "example_module""", tree)
+      "example_module"
+    AS_KEYWORD:
+      as
+    MODULE_NAME:
+      example""", tree)
 
 
 if __name__ == '__main__':

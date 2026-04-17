@@ -14,20 +14,22 @@ class TestBuildCAndExecute(unittest.TestCase):
     """Multiple files which import and run."""
     builder.convert_project(os.path.join('tests', 'test_projects', 'import_example'), 'c')
     # Compile the library source.
-    library_source_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'library.c')
-    library_header_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'library.h')
-    compiled_library_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'library.o')
+    compilation_directory = os.path.join('tests', 'test_projects', 'import_example', 'c')
+    library_source_path = os.path.join(compilation_directory, 'tests', 'projects', 'library.c')
+    library_header_path = os.path.join(compilation_directory, 'tests', 'projects', 'library.h')
+    compiled_library_path = os.path.join(compilation_directory, 'tests', 'projects', 'library.o')
+    include_path_arg = '-I' + compilation_directory
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-c',
+                    '-Wold-style-definition', include_path_arg, '-c',
                     library_source_path, '-o', compiled_library_path], check=True)
     # Compile the main function.
-    binary_source_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'useLibrary.c')
-    binary_header_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'useLibrary.h')
-    executable_path = os.path.join('tests', 'test_projects', 'import_example', 'c', 'useLibrary')
+    binary_source_path = os.path.join(compilation_directory, 'tests', 'projects', 'useLibrary.c')
+    binary_header_path = os.path.join(compilation_directory, 'tests', 'projects', 'useLibrary.h')
+    executable_path = os.path.join(compilation_directory, 'tests', 'projects', 'useLibrary')
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-o',
+                    '-Wold-style-definition', include_path_arg, '-o',
                     executable_path, binary_source_path, compiled_library_path], check=True)
     # Run the program that includes the import.
     result = subprocess.run([executable_path], check=True, capture_output=True)
@@ -48,10 +50,13 @@ class TestBuildPythonAndExecute(unittest.TestCase):
   def test_imports_sample(self):
     """Multiple files which import and run."""
     builder.convert_project(os.path.join('tests', 'test_projects', 'import_example'), 'python')
-    library_source_path = os.path.join('tests', 'test_projects', 'import_example', 'python', 'library.py')
-    executable_source_path = os.path.join('tests', 'test_projects', 'import_example', 'python', 'useLibrary.py')
+    library_source_path = os.path.join('tests', 'test_projects', 'import_example', 'python', 'tests', 'projects', 'library.py')
+    executable_source_path = os.path.join('tests', 'test_projects', 'import_example', 'python', 'tests', 'projects', 'useLibrary.py')
     # Run the program that includes the import.
-    result = subprocess.run(['python3', executable_source_path], check=True, capture_output=True)
+    # Set the PYTHONPATH to point to the project's root directory that contains the library packages.
+    test_env = os.environ.copy()
+    test_env['PYTHONPATH'] = os.path.join('tests', 'test_projects', 'import_example', 'python')
+    result = subprocess.run(['python3', executable_source_path], env=test_env, check=True, capture_output=True)
     self.assertEqual(b'Hello from the library\n', result.stdout)
     # Cleanup compiled files.
     if CLEANUP_GENERATED_SOURCE:

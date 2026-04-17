@@ -2,11 +2,12 @@ import unittest
 import parser
 import converter
 import os
+import pathlib
 import subprocess
 
 
 HELLO_WORLD_EXAMPLE = """
-moduleName = "hello"
+moduleName = "jeffscudder.com/headspace/tests/hello"
 
 main: function: void[][
   os.print["Hello World\\n"]
@@ -15,7 +16,7 @@ main: function: void[][
 
 
 FOREIGN_CODE_EXAMPLE = """
-moduleName = "foreign"
+moduleName = "jeffscudder.com/headspace/tests/foreign"
 
 main: function: void[][
 BEGIN_FOREIGN_CODE_C
@@ -42,7 +43,7 @@ END_FOREIGN_CODE_DOTNET
 
 
 FUNCTION_CALLING_EXAMPLE = """
-moduleName = "functions"
+moduleName = "jeffscudder.com/headspace/tests/functions"
 
 addNumbers: function: int32[a:int32, b:int32][
   return a + b
@@ -56,7 +57,7 @@ main: function: void[][
 
 
 IF_ELSE_EXAMPLE = """
-moduleName = "ifelse"
+moduleName = "jeffscudder.com/headspace/tests/ifelse"
 
 main:function:void[][
   a:int32
@@ -70,7 +71,7 @@ main:function:void[][
 """
 
 WHILE_EXAMPLE = """
-moduleName = "while"
+moduleName = "jeffscudder.com/headspace/tests/while"
 
 main:function:void[][
   counter:int32
@@ -93,17 +94,19 @@ class TestConvertToCAndExecute(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    c_file_path = os.path.join('tests', 'test_output', files[0].filename)
-    h_file_path = os.path.join('tests', 'test_output', files[1].filename)
-    executable_path = os.path.join('tests', 'test_output', 'hello_test')
-    with open(c_file_path, 'w') as c_source:
-      c_source.write(files[0].content)
-    with open(h_file_path, 'w') as h_source:
-      h_source.write(files[1].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    executable_path = os.path.join(compilation_directory, 'hello_test')
+    c_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    c_file_path.parent.mkdir(parents=True, exist_ok=True)
+    c_file_path.write_text(files[0].content)
+    h_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    h_file_path.parent.mkdir(parents=True, exist_ok=True)
+    h_file_path.write_text(files[1].content)
     # Then compile and run the C code.
+    include_path_arg = '-I' + compilation_directory
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-o',
+                    '-Wold-style-definition', include_path_arg, '-o',
                     executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
@@ -116,17 +119,19 @@ class TestConvertToCAndExecute(unittest.TestCase):
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    c_file_path = os.path.join('tests', 'test_output', files[0].filename)
-    h_file_path = os.path.join('tests', 'test_output', files[1].filename)
-    executable_path = os.path.join('tests', 'test_output', 'foreign')
-    with open(c_file_path, 'w') as c_source:
-      c_source.write(files[0].content)
-    with open(h_file_path, 'w') as h_source:
-      h_source.write(files[1].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    executable_path = os.path.join(compilation_directory, 'foreign')
+    c_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    c_file_path.parent.mkdir(parents=True, exist_ok=True)
+    c_file_path.write_text(files[0].content)
+    h_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    h_file_path.parent.mkdir(parents=True, exist_ok=True)
+    h_file_path.write_text(files[1].content)
     # Then compile and run the C code.
+    include_path_arg = '-I' + compilation_directory
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-o',
+                    '-Wold-style-definition', include_path_arg, '-o',
                     executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
@@ -139,17 +144,19 @@ class TestConvertToCAndExecute(unittest.TestCase):
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    c_file_path = os.path.join('tests', 'test_output', files[0].filename)
-    h_file_path = os.path.join('tests', 'test_output', files[1].filename)
-    executable_path = os.path.join('tests', 'test_output', 'functions')
-    with open(c_file_path, 'w') as c_source:
-      c_source.write(files[0].content)
-    with open(h_file_path, 'w') as h_source:
-      h_source.write(files[1].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    executable_path = os.path.join(compilation_directory, 'functions')
+    c_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    c_file_path.parent.mkdir(parents=True, exist_ok=True)
+    c_file_path.write_text(files[0].content)
+    h_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    h_file_path.parent.mkdir(parents=True, exist_ok=True)
+    h_file_path.write_text(files[1].content)
     # Then compile and run the C code.
+    include_path_arg = '-I' + compilation_directory
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-o',
+                    '-Wold-style-definition', include_path_arg, '-o',
                     executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'10\n', result.stdout)
@@ -162,17 +169,19 @@ class TestConvertToCAndExecute(unittest.TestCase):
     tree = parser.parse_source(WHILE_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
-    c_file_path = os.path.join('tests', 'test_output', files[0].filename)
-    h_file_path = os.path.join('tests', 'test_output', files[1].filename)
-    executable_path = os.path.join('tests', 'test_output', 'functions')
-    with open(c_file_path, 'w') as c_source:
-      c_source.write(files[0].content)
-    with open(h_file_path, 'w') as h_source:
-      h_source.write(files[1].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    executable_path = os.path.join(compilation_directory, 'while_statements')
+    c_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    c_file_path.parent.mkdir(parents=True, exist_ok=True)
+    c_file_path.write_text(files[0].content)
+    h_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    h_file_path.parent.mkdir(parents=True, exist_ok=True)
+    h_file_path.write_text(files[1].content)
     # Then compile and run the C code.
+    include_path_arg = '-I' + compilation_directory
     subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
                     '-Wmissing-prototypes', '-Wstrict-prototypes',
-                    '-Wold-style-definition', '-o',
+                    '-Wold-style-definition', include_path_arg, '-o',
                     executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Counting up to 5:\n1\n2\n3\n4\n5\n', result.stdout)
@@ -188,7 +197,7 @@ class TestConvertToPythonAndExecute(unittest.TestCase):
     """Hello World program in Python."""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'python')
-    self.assertEqual(1, len(files))
+    self.assertEqual(3, len(files))
     file_path = os.path.join('tests', 'test_output', files[0].filename)
     with open(file_path, 'w') as py_source:
       py_source.write(files[0].content)
@@ -201,7 +210,7 @@ class TestConvertToPythonAndExecute(unittest.TestCase):
     """Example of including foreign code for Python."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'python')
-    self.assertEqual(1, len(files))
+    self.assertEqual(3, len(files))
     file_path = os.path.join('tests', 'test_output', files[0].filename)
     with open(file_path, 'w') as py_source:
       py_source.write(files[0].content)
@@ -278,7 +287,7 @@ class TestConvertToGoAndExecute(unittest.TestCase):
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rmdir', package_path], check=True)
 
-  def test_converts_if_else(self):
+  def test_converts_while_statements(self):
     """Example of while statements for Go."""
     tree = parser.parse_source(WHILE_EXAMPLE)
     files = converter.convert(tree, 'go')
@@ -349,42 +358,47 @@ class TestConvertToJavaAndExecute(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'java')
     self.assertEqual(1, len(files))
+    compilation_directory = os.path.join('tests', 'test_output')
     file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as java_source:
-      java_source.write(files[0].content)
+    java_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    java_file_path.parent.mkdir(parents=True, exist_ok=True)
+    java_file_path.write_text(files[0].content)
+    java_class_path = os.path.join(*(files[0].filename.split('/')[:-1]))
     # Then execute the Java code using javac then java.
-    result = subprocess.run(['javac', file_path], check=True, capture_output=True)
+    result = subprocess.run(['javac', java_file_path], check=True, capture_output=True)
     os.chdir(os.path.join('tests', 'test_output'))
     # Run the program as java Hello (minus the .java)
-    class_file_name = os.path.split(file_path)[-1][:-5]
-    result = subprocess.run(['java', class_file_name], check=True, capture_output=True)
+    class_file_name = os.path.split(java_file_path)[-1][:-5]
+    result = subprocess.run(['java', '-cp', java_class_path, class_file_name], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
     # Move back to the test running directory.
     os.chdir(os.path.join('..', '..'))
     # Delete both the .java and .class file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
+    subprocess.run(['rm', java_file_path], check=True)
+    subprocess.run(['rm', os.path.join(compilation_directory, java_class_path, class_file_name) + '.class'], check=True)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for Java."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'java')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as java_source:
-      java_source.write(files[0].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    java_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    java_file_path.parent.mkdir(parents=True, exist_ok=True)
+    java_file_path.write_text(files[0].content)
+    java_class_path = os.path.join(*(files[0].filename.split('/')[:-1]))
     # Then execute the Java code using javac then java.
-    result = subprocess.run(['javac', file_path], check=True, capture_output=True)
+    result = subprocess.run(['javac', java_file_path], check=True, capture_output=True)
     os.chdir(os.path.join('tests', 'test_output'))
     # Run the program as java Hello (minus the .java)
-    class_file_name = os.path.split(file_path)[-1][:-5]
-    result = subprocess.run(['java', class_file_name], check=True, capture_output=True)
+    class_file_name = os.path.split(java_file_path)[-1][:-5]
+    result = subprocess.run(['java', '-cp', java_class_path, class_file_name], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
     # Move back to the test running directory.
     os.chdir(os.path.join('..', '..'))
     # Delete both the .java and .class file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
-    subprocess.run(['rm', file_path[:-5] + '.class'], check=True)
+    subprocess.run(['rm', java_file_path], check=True)
+    subprocess.run(['rm', os.path.join(compilation_directory, java_class_path, class_file_name) + '.class'], check=True)
 
 
 class TestConvertToDotNetAndExecute(unittest.TestCase):
@@ -395,42 +409,45 @@ class TestConvertToDotNetAndExecute(unittest.TestCase):
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as dotnet_source:
-      dotnet_source.write(files[0].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dotnet_file_path.write_text(files[0].content)
     # Then execute the .NET code using dotnet run.
-    result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
+    result = subprocess.run(['dotnet', 'run', dotnet_file_path], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
     # Delete the .cs file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', dotnet_file_path], check=True)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for .NET (C#)."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as dotnet_source:
-      dotnet_source.write(files[0].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dotnet_file_path.write_text(files[0].content)
     # Then execute the .NET code using dotnet run.
-    result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
+    result = subprocess.run(['dotnet', 'run', dotnet_file_path], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
     # Delete the .cs file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', dotnet_file_path], check=True)
 
   def test_converts_function_calls(self):
     """Example of defining and calling a function for .NET (C#)."""
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
     self.assertEqual(1, len(files))
-    file_path = os.path.join('tests', 'test_output', files[0].filename)
-    with open(file_path, 'w') as dotnet_source:
-      dotnet_source.write(files[0].content)
+    compilation_directory = os.path.join('tests', 'test_output')
+    dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dotnet_file_path.write_text(files[0].content)
     # Then execute the .NET code using dotnet run.
-    result = subprocess.run(['dotnet', 'run', file_path], check=True, capture_output=True)
+    result = subprocess.run(['dotnet', 'run', dotnet_file_path], check=True, capture_output=True)
     self.assertEqual(b'10\n', result.stdout)
     # Delete the .cs file for the hello world program.
-    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', dotnet_file_path], check=True)
 
 
 if __name__ == '__main__':

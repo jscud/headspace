@@ -46,6 +46,68 @@ class SymbolTable:
     self.symbols[name] = symbol_type
 
 
+class ModuleDetails:
+
+  def __init__(self):
+    self.domain_full = None
+    self.domain_prefix = None
+    self.package_name_parts = None
+    self.module_name = None
+
+  def load_from_headspace_source(self, headspace_module_name):
+    segments = headspace_module_name.strip('"').split('/')
+    if len(segments) < 3:
+      print('A moduleName must be in the form "domainName.tld/package/module".')
+      sys.exit(1)
+    self.domain_full = segments[0]
+    self.domain_prefix = self.domain_full.split('.')[0]
+    self.package_name_parts = segments[1:-1]
+    self.module_name = segments[-1]
+
+  def print(self):
+    print('ModuleName:')
+    print('  domain_full:', self.domain_full)
+    print('  domain_prefix:', self.domain_prefix)
+    print('  package_name_parts:', os.path.join(*self.package_name_parts))
+    print('  module_name:', self.module_name)
+
+  def to_import(self, target_language):
+    #if target_language == 'c':
+    return ''
+
+  def to_namespace(self, target_language):
+    if target_language == 'c':
+      namespace_segments = self.package_name_parts.copy()
+      namespace_segments.append(self.module_name)
+      return '_'.join(namespace_segments)
+    elif target_language == 'go':
+      # This is used for the go package name.
+      return (''.join(self.package_name_parts)).lower()
+    elif target_language == 'dotnet':
+      capitalized_package_name_parts = [name.capitalize() for name in self.package_name_parts]
+      return '.'.join(capitalized_package_name_parts)
+    return ''
+
+  def to_file_path(self, target_language):
+    # Note for C that we avoid adding the .c or .h suffix.
+    if target_language == 'c' or target_language == 'python':
+      return os.path.join(*self.package_name_parts, self.module_name)
+    elif target_language == 'java':
+      java_path_parts = self.domain_full.split('.')
+      java_path_parts.reverse()
+      java_path_parts.extend(self.package_name_parts)
+      return os.path.join(*java_path_parts)
+    elif target_language == 'dotnet':
+      return self.to_namespace(target_language)
+    return ''
+
+
+def parse_module_id(module_id):
+  module_details = ModuleDetails()
+  module_details.load_from_headspace_source(module_id)
+  return module_details
+
+
 def find_main_function(parse_tree):
   for top_node in parse_tree.members:
     if (top_node.node_type == 'FUNCTION_DECLARATION' and
@@ -55,10 +117,16 @@ def find_main_function(parse_tree):
   return None
 
 
-def convert_module_to_language_import(module_name, target_language):
-  module_path = module_name.strip('"')
+def convert_module_to_language_import(module_details, target_language):
+  module_path = module_details.to_file_path(target_language)
   if target_language == 'c':
     return module_path + '.h'
+  elif target_language == 'python':
+    return '.'.join(module_path.split('/'))
+  elif target_language == 'go':
+    return module_details.to_namespace('go')
+  elif target_language == 'javascript':
+    return module_details.module_name
   else:
     return module_path
 
@@ -102,7 +170,7 @@ class HeadspaceConverter:
   def __init__(self, parse_tree):
     self.tree = parse_tree
     self.symbol_table = SymbolTable()
-    self.module_name = None
+    self.module_details = None
 
   def emit_foreign_code_block(self, foreign_code_block_node, source_code, target_language):
     if foreign_code_block_node.members[0] and foreign_code_block_node.members[0].node_type == target_language:
@@ -138,25 +206,27 @@ class HeadspaceConverter:
     for top_node in self.tree.members:
       if (top_node.node_type == 'IMPORT_STATEMENT' and
           top_node.members[1].node_type == 'MODULE_LOCATION'):
-        module_name = top_node.members[1].members[0].strip('"')
-        self.symbol_table.set_symbol(module_name, 'MODULE')
-        imports.append(module_name)
+        imported_module_details = parse_module_id(top_node.members[1].members[0].strip('"'))
+        module_alias = top_node.members[3].members[0]
+        self.symbol_table.set_symbol(module_alias, imported_module_details)
+        imports.append(module_alias)
     return imports
 
-  def find_module_name(self):
+  def find_module_details(self):
     for top_node in self.tree.members:
       if (top_node.node_type == 'ASSIGNMENT' and
           top_node.members[0].node_type == 'ASSIGNMENT_TARGET' and
           top_node.members[0].members[0] == 'moduleName' and
           top_node.members[2].node_type == 'STRING_LITERAL' and
           top_node.members[2].members[0][0] == '"'):
-        self.module_name = top_node.members[2].members[0][1:-1]
-        return self.module_name
+        self.module_details = parse_module_id(top_node.members[2].members[0][1:-1])
+        #self.module_name = top_node.members[2].members[0][1:-1]
+        return self.module_details
     # The module name is required, so we know what to name the output files.
-    if not self.module_name:
+    if not self.module_details:
       print('Headspace source code must specify a module name.')
       sys.exit(1)
-    return self.module_name
+    return self.module_details
 
   def populate_symbol_table_from_declarations(self, top_node):
     for member in top_node.members:
@@ -195,7 +265,7 @@ class ConverterToC(HeadspaceConverter):
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], c_code, 0)
-        c_code.append(');\n')
+        c_code.append(')')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         c_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
@@ -204,8 +274,8 @@ class ConverterToC(HeadspaceConverter):
           symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
           if symbol_for_name == 'FUNCTION':
             # This is a local function it needs the module name as a prefix.
-            c_code.append(self.module_name + '_' + chain_node.members[0])
-          elif symbol_for_name == 'MODULE':
+            c_code.append(self.module_details.module_name + '_' + chain_node.members[0])
+          elif type(symbol_for_name) == ModuleDetails:
             # The first member in the chain is a module, so switch to a module_function style call.
             c_code.append(chain_node.members[0])
             # We should use moduleName_functionName instead of parent.functionName since this is a module.
@@ -314,7 +384,7 @@ class ConverterToC(HeadspaceConverter):
       return
     return_type = find_function_return_type(function_declaration_node)
     # For C functions, we use the module name as a prefix to make collisions less likely.
-    function_name = self.module_name + '_' + find_function_identifier(function_declaration_node)
+    function_name = self.module_details.module_name + '_' + find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
     h_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
     param_index = 0
@@ -335,7 +405,7 @@ class ConverterToC(HeadspaceConverter):
     if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] == 'main':
       return
     return_type = find_function_return_type(function_declaration_node)
-    function_name = self.module_name + '_' + find_function_identifier(function_declaration_node)
+    function_name = self.module_details.module_name + '_' + find_function_identifier(function_declaration_node)
     function_params = find_function_parameters(function_declaration_node)
     c_code.append(' ' * indent_level)
     c_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
@@ -355,16 +425,19 @@ class ConverterToC(HeadspaceConverter):
   def emit_code(self):
     c_code = []
     h_code = []
-    module_name = self.find_module_name()
-    module_name_c = module_name + '.c'
-    module_name_h = module_name + '.h'
+    module_details = self.find_module_details()
+    module_path_c = module_details.to_file_path('c') + '.c'
+    module_path_h = module_details.to_file_path('c') + '.h'
 
     includes = []
     for module in self.find_imports():
-      includes.append('#include"' + convert_module_to_language_import(module, 'c') + '"\n')
+      # Look for the module name in the symbol table to find details of the module that was imported.
+      include_module_details = self.symbol_table.find_symbol(module)
+      includes.append('#include"' + convert_module_to_language_import(include_module_details, 'c') + '"\n')
 
     # Start the .h file with a ifdef guard.
-    h_code.append('#ifndef HEADSPACE_' + module_name.upper() + '_H\n#define HEADSPACE_' + module_name.upper() + '_H\n')
+    #h_code.append('#ifndef HEADSPACE_' + module_name.upper() + '_H\n#define HEADSPACE_' + module_name.upper() + '_H\n')
+    h_code.append('#ifndef HEADSPACE_' + module_details.to_namespace('c').upper() + '_H\n#define HEADSPACE_' + module_details.to_namespace('c').upper() + '_H\n')
     h_code.append('#include<stdint.h>\n')
     for include in includes:
       h_code.append(include)
@@ -375,7 +448,7 @@ class ConverterToC(HeadspaceConverter):
     c_code.append('#include<stdint.h>\n')
     for include in includes:
       c_code.append(include)
-    c_code.append('#include"' + module_name + '.h"\n')
+    c_code.append('#include"' + module_path_h + '"\n')
     # TODO: gather the includes needed to express before source code.
     c_code.append('\n')
 
@@ -405,7 +478,7 @@ class ConverterToC(HeadspaceConverter):
               # function's code block.
               c_code.insert(-1, '  return 0;\n')
 
-    return [SourceCodeFile(module_name_c, ''.join(c_code)), SourceCodeFile(module_name_h, ''.join(h_code))]
+    return [SourceCodeFile(module_path_c, ''.join(c_code)), SourceCodeFile(module_path_h, ''.join(h_code))]
 
 
 class ConverterToPython(HeadspaceConverter):
@@ -564,13 +637,14 @@ class ConverterToPython(HeadspaceConverter):
 
   def emit_code(self):
     py_code = []
-    module_name = self.find_module_name()
-    module_name_py = module_name + '.py'
+    module_details = self.find_module_details()
+    module_path_py = module_details.to_file_path('python') + '.py'
 
     self.populate_symbol_table_from_declarations(self.tree)
 
     for module in self.find_imports():
-      py_code.append('import ' + convert_module_to_language_import(module, 'python') + '\n')
+      import_module_details = self.symbol_table.find_symbol(module)
+      py_code.append('import ' + convert_module_to_language_import(import_module_details, 'python') + ' as ' + module + '\n')
 
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
@@ -585,7 +659,20 @@ class ConverterToPython(HeadspaceConverter):
             if def_member.node_type == 'CODE_BLOCK':
               self.emit_code_block(def_member, py_code, 0)
       py_code.append('\nif __name__ == \'__main__\':\n  main()\n')
-    return [SourceCodeFile(module_name_py, ''.join(py_code))]
+
+    python_files = [SourceCodeFile(module_path_py, ''.join(py_code))]
+
+    # We need to create __init__.py files for each of the packages in the module's path.
+    package_index = 0
+    package_layers = []
+    while package_index < len(module_details.package_name_parts):
+      package_layers.append(module_details.package_name_parts[package_index])
+      package_index += 1
+      init_file_path = os.path.join(*package_layers, '__init__.py')
+      # Create an empty init file for this package.
+      python_files.append(SourceCodeFile(init_file_path, ''))
+
+    return python_files
 
 
 class ConverterToGo(HeadspaceConverter):
@@ -754,7 +841,7 @@ class ConverterToGo(HeadspaceConverter):
 
   def emit_code(self):
     go_code = []
-    module_name = self.find_module_name()
+    module_details = self.find_module_details()
     main_function_declaration = find_main_function(self.tree)
 
     # Note: use go mod init to install a library
@@ -777,24 +864,25 @@ class ConverterToGo(HeadspaceConverter):
     if main_function_declaration:
       go_code.append('package main\n\n')
     else:
-      go_code.append('package ' + module_name + '\n\n')
+      go_code.append('package ' + module_details.to_namespace('go') + '\n\n')
 
     for import_lib in self.required_imports:
       go_code.append('import ' + import_lib + '\n')
 
     for module in self.find_imports():
-      go_code.append('import "' + convert_module_to_language_import(module, 'go') + '"\n')
+      import_module_details = self.symbol_table.find_symbol(module)
+      go_code.append('import ' + module + ' "' + convert_module_to_language_import(import_module_details, 'go') + '"\n')
     go_code.append('\n')
 
     go_code.extend(go_body_code)
 
     if main_function_declaration:
       # Create file name with a main.go module.
-      main_module_filename = os.path.join(module_name, 'main.go')
+      main_module_filename = os.path.join(module_details.module_name, 'main.go')
       return [SourceCodeFile(main_module_filename, ''.join(go_code))]
     else:
       # This module has no main function, so it is only a library.
-      return [SourceCodeFile(module_name + '.go', ''.join(go_code))]
+      return [SourceCodeFile(module_details.module_name + '.go', ''.join(go_code))]
 
 
 class ConverterToJavaScript(HeadspaceConverter):
@@ -963,14 +1051,15 @@ class ConverterToJavaScript(HeadspaceConverter):
 
   def emit_code(self):
     js_code = []
-    module_name = self.find_module_name()
+    module_details = self.find_module_details()
 
     self.populate_symbol_table_from_declarations(self.tree)
 
     for module in self.find_imports():
-      import_module_name = convert_module_to_language_import(module, 'javascript')
+      import_module_details = self.symbol_table.find_symbol(module)
+      import_module_name = convert_module_to_language_import(import_module_details, 'javascript')
       import_module_file = import_module_name + '.js'
-      js_code.append('import * as ' + import_module_name + ' from "./' + import_module_file + '";\n')
+      js_code.append('import * as ' + module + ' from "./' + import_module_file + '";\n')
     js_code.append('\n')
 
     for module_level_member in self.tree.members:
@@ -987,7 +1076,8 @@ class ConverterToJavaScript(HeadspaceConverter):
               self.emit_code_block(def_member, js_code, 0)
       js_code.append('\nmain();\n')
 
-    module_filename = module_name + '.js'
+    #module_filename = module_name + '.js'
+    module_filename = module_details.module_name + '.js'
 
     # Include a package.json to support exporting public functions in a module.
     package_json_content = '{\n  "type": "module"\n}\n'
@@ -1147,7 +1237,7 @@ class ConverterToJava(HeadspaceConverter):
 
   def emit_code(self):
     java_code = []
-    module_name = self.find_module_name()
+    module_details = self.find_module_details()
 
     # javac -d . Library.java UseLibrary.java
     # java -cp . UseLibrary
@@ -1156,7 +1246,7 @@ class ConverterToJava(HeadspaceConverter):
       java_code.append('import ' + module + '.*;\n')
     java_code.append('\n')
 
-    java_class_name = capitalize_first_letter(module_name)
+    java_class_name = capitalize_first_letter(module_details.module_name)
     java_code.append('public class ' + java_class_name + '\n')
     java_code.append('{\n')
 
@@ -1176,7 +1266,7 @@ class ConverterToJava(HeadspaceConverter):
               self.emit_code_block(def_member, java_code, 2)
     java_code.append('\n}\n')
     # Create file name with a .java class file.
-    java_class_filename = java_class_name + '.java'
+    java_class_filename = os.path.join(module_details.to_file_path('java'), java_class_name + '.java')
     return [SourceCodeFile(java_class_filename, ''.join(java_code))]
 
 
@@ -1332,10 +1422,10 @@ class ConverterToDotNet(HeadspaceConverter):
 
   def emit_code(self):
     dotnet_code = []
-    module_name = self.find_module_name()
+    module_details = self.find_module_details()
     main_function_declaration = find_main_function(self.tree)
 
-    dotnet_class_name = capitalize_first_letter(module_name)
+    dotnet_class_name = capitalize_first_letter(module_details.module_name)
     dotnet_code.append('using System;\n')
     dotnet_code.append('\n')
     dotnet_code.append('namespace ' + dotnet_class_name + ' {\n')
@@ -1359,7 +1449,7 @@ class ConverterToDotNet(HeadspaceConverter):
       dotnet_code.append('\n  }\n')
       dotnet_code.append('}\n')
       # Create file name with a .cs (C#) module.
-      dotnet_class_filename = dotnet_class_name + '.cs'
+      dotnet_class_filename = os.path.join(module_details.to_file_path('dotnet'), dotnet_class_name + '.cs')
       return [SourceCodeFile(dotnet_class_filename, ''.join(dotnet_code))]
 
 
