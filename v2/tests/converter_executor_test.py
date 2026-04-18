@@ -408,7 +408,7 @@ class TestConvertToDotNetAndExecute(unittest.TestCase):
     """Hello World program in .NET (C#)."""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     compilation_directory = os.path.join('tests', 'test_output')
     dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
     dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -423,7 +423,7 @@ class TestConvertToDotNetAndExecute(unittest.TestCase):
     """Example of including foreign code for .NET (C#)."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     compilation_directory = os.path.join('tests', 'test_output')
     dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
     dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -438,7 +438,7 @@ class TestConvertToDotNetAndExecute(unittest.TestCase):
     """Example of defining and calling a function for .NET (C#)."""
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     compilation_directory = os.path.join('tests', 'test_output')
     dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
     dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)

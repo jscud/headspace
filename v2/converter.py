@@ -14,7 +14,7 @@ import os
 # - infix and postfix operators          c  py  go  js  java  c#
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
-# - importing modules                    c  py  go  js  java
+# - importing modules                    c  py  go  js  java  c#
 # - declaring classes
 # - allocation memory
 # - passing references
@@ -22,6 +22,20 @@ import os
 #
 # Future languages to support:
 # C++, Rust, PHP, Ruby
+
+
+DOTNET_CSPROJ_CONFIG = """<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+"""
+
 
 class SourceCodeFile:
 
@@ -134,6 +148,8 @@ def convert_module_to_language_import(module_details, target_language):
     return module_details.module_name
   elif target_language == 'java':
     return '.'.join(module_details.to_file_path('java').split('/')) + '.' + module_details.module_name.capitalize()
+  elif target_language == 'dotnet':
+    return module_details.to_namespace('dotnet')
   else:
     return module_path
 
@@ -189,6 +205,7 @@ class HeadspaceConverter:
     return provided_operator
 
   def emit_code_statement(self, statement_node, source_code, indent_level):
+    # TODO: Does this need to indent?
     if statement_node.node_type == 'INFIX_OPERATION':
       for sub_node in statement_node.members:
         self.emit_code_statement(sub_node, source_code, indent_level)
@@ -1291,13 +1308,13 @@ class ConverterToDotNet(HeadspaceConverter):
   def emit_function_call(self, function_call_node, dotnet_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
       # Handle a print function.
+      dotnet_code.append(' ' * indent_level)
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           (function_call_node.members[0].members[2].members[0] == 'print' or
            function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
-        dotnet_code.append(' ' * indent_level)
         if (function_call_node.members[0].members[2].members[0] == 'print' or
             function_call_node.members[0].members[2].members[0] == 'printInt'):
           dotnet_code.append('Console.Write(')
@@ -1310,14 +1327,17 @@ class ConverterToDotNet(HeadspaceConverter):
             dotnet_code.append(chain_entry.members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
-          self.emit_function_call(function_call_node.members[1].members[1].members[0], dotnet_code, indent_level)
-        dotnet_code.append(');\n')
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], dotnet_code, 0)
+        dotnet_code.append(')')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
-        # In .NET, the top level static functions are in a Functions class.
-        dotnet_code.append('Functions.')
         for chain_node in function_call_node.members[0].members:
-          dotnet_code.append(chain_node.members[0])
+          symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
+          if type(symbol_for_name) == ModuleDetails:
+            # The first member in the chain is a module, use the class name to reference the static function.
+            dotnet_code.append(chain_node.members[0].capitalize())
+          else:
+            dotnet_code.append(chain_node.members[0])
         # Emit the arguments for the function call.
         if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
           dotnet_code.append('(')
@@ -1390,6 +1410,7 @@ class ConverterToDotNet(HeadspaceConverter):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, dotnet_code, indent_level + 2)
+        dotnet_code.append(';\n')
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, dotnet_code, 'DOTNET')
       elif member.node_type == 'RETURN_STATEMENT':
@@ -1403,8 +1424,7 @@ class ConverterToDotNet(HeadspaceConverter):
       elif member.node_type == 'WHILE_STATEMENT':
         self.emit_while_statement(member, dotnet_code, indent_level + 2)
       elif member.node_type == 'POSTFIX_OPERATION':
-        dotnet_code.append(' ' * (indent_level + 2))
-        self.emit_code_statement(member, dotnet_code, 0)
+        self.emit_code_statement(member, dotnet_code, indent_level + 2)
         dotnet_code.append(';\n')
     if indent_level > 0:
       dotnet_code.append(' ' * indent_level)
@@ -1440,30 +1460,49 @@ class ConverterToDotNet(HeadspaceConverter):
 
     dotnet_class_name = capitalize_first_letter(module_details.module_name)
     dotnet_code.append('using System;\n')
+
+    for module in self.find_imports():
+      import_module_details = self.symbol_table.find_symbol(module)
+      import_module_classpath = convert_module_to_language_import(import_module_details, 'dotnet')
+      dotnet_code.append('using ' + import_module_classpath + ';\n')
     dotnet_code.append('\n')
-    dotnet_code.append('namespace ' + dotnet_class_name + ' {\n')
+
+    dotnet_code.append('\n')
+    dotnet_code.append('namespace ' + module_details.to_namespace('dotnet') + ' {\n')
 
     self.populate_symbol_table_from_declarations(self.tree)
 
-    dotnet_code.append('  class Functions {\n')
+    dotnet_class_name = capitalize_first_letter(module_details.module_name)
+
+    dotnet_code.append('  class ' + dotnet_class_name + ' {\n')
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_definition(module_level_member, dotnet_code, 4)
-    dotnet_code.append('  }\n')
+
+    output_files = []
 
     if main_function_declaration:
-      dotnet_code.append('\n  class MainProgram {\n')
       dotnet_code.append('    static void Main(string[] args) ')
       for member in main_function_declaration.members:
         if member.node_type == 'FUNCTION_DEFINITION':
           for def_member in member.members:
             if def_member.node_type == 'CODE_BLOCK':
               self.emit_code_block(def_member, dotnet_code, 4)
-      dotnet_code.append('\n  }\n')
-      dotnet_code.append('}\n')
+    dotnet_code.append('\n  }\n')
+    dotnet_code.append('}\n')
+
+    if main_function_declaration:
       # Create file name with a .cs (C#) module.
       dotnet_class_filename = os.path.join(module_details.to_file_path('dotnet'), dotnet_class_name + '.cs')
-      return [SourceCodeFile(dotnet_class_filename, ''.join(dotnet_code))]
+      output_files.append(SourceCodeFile(dotnet_class_filename, ''.join(dotnet_code)))
+      # Since there is a main function, this package must also contain a .csproj config file.
+      csproj_filename = os.path.join(module_details.to_file_path('dotnet'), 'headspace.csproj')
+      output_files.append(SourceCodeFile(csproj_filename, ''.join(DOTNET_CSPROJ_CONFIG)))
+    else:
+      # There is no main function, so create a library module.
+      dotnet_class_filename = os.path.join(module_details.to_file_path('dotnet'), dotnet_class_name + '.cs')
+      output_files.append(SourceCodeFile(dotnet_class_filename, ''.join(dotnet_code)))
+    return output_files
 
 
 def convert(parse_tree, target_langauge):

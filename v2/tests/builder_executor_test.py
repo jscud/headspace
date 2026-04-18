@@ -133,6 +133,27 @@ class TestBuildJavaAndExecute(unittest.TestCase):
     os.chdir(os.path.join('..', '..', '..', '..'))
 
 
+class TestBuildDotNetAndExecute(unittest.TestCase):
+  """Build a headspace project, converting to .NET (C#)."""
+
+  def test_imports_sample(self):
+    """Multiple files which import and run."""
+    builder.convert_project(os.path.join('tests', 'test_projects', 'import_example'), 'dotnet')
+    # Compile the library source.
+    compilation_directory = os.path.join('tests', 'test_projects', 'import_example', 'dotnet', 'Tests.Projects')
+    os.chdir(compilation_directory)
+    result = subprocess.run(['dotnet', 'run'], check=True, capture_output=True)
+    self.assertEqual(b'Hello from the library\n', result.stdout)
+    # Cleanup compiled files.
+    if CLEANUP_GENERATED_SOURCE:
+      subprocess.run(['rm', 'headspace.csproj'], check=True)
+      subprocess.run(['rm', 'Library.cs'], check=True)
+      subprocess.run(['rm', 'UseLibrary.cs'], check=True)
+      subprocess.run(['rm', '-r', 'bin'], check=True)
+      subprocess.run(['rm', '-r', 'obj'], check=True)
+    os.chdir(os.path.join('..', '..', '..', '..', '..'))
+
+
 if __name__ == '__main__':
   unittest.main()
 

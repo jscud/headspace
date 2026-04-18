@@ -363,7 +363,7 @@ class TestConvertToDotNet(unittest.TestCase):
     """Hello World program in .NET (C#)."""
     tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     self.assertTrue('.cs' in files[0].filename)
     self.assertTrue('static void Main(string[] args) {' in files[0].content)
     self.assertTrue('Console.Write("Hello World\\n");' in files[0].content)
@@ -372,7 +372,7 @@ class TestConvertToDotNet(unittest.TestCase):
     """Example of including foreign code for .NET (C#)."""
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     self.assertTrue('string hello_str = "hello\\n";' in files[0].content)
     self.assertTrue('Console.Write(hello_str);' in files[0].content)
     self.assertFalse('char* hello_str = "hello\\n";' in files[0].content)
@@ -381,10 +381,10 @@ class TestConvertToDotNet(unittest.TestCase):
     """Example of including function calls for .NET (C#)."""
     tree = parser.parse_source(FUNCTION_CALLING_EXAMPLE)
     files = converter.convert(tree, 'dotnet')
-    self.assertEqual(1, len(files))
+    self.assertEqual(2, len(files))
     self.assertTrue('    public static int addNumbers(int a, int b) {' in files[0].content)
     self.assertTrue('      return a + b;' in files[0].content)
-    self.assertTrue('      Console.Write(Functions.addNumbers(5 ,5));' in files[0].content)
+    self.assertTrue('      Console.Write(addNumbers(5 ,5));' in files[0].content)
 
   def test_if_else(self):
     """Example of including if-else statements for .NET (C#)."""
