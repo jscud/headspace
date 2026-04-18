@@ -14,7 +14,7 @@ import os
 # - infix and postfix operators          c  py  go  js  java  c#
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
-# - importing modules                    c  py  go  js
+# - importing modules                    c  py  go  js  java
 # - declaring classes
 # - allocation memory
 # - passing references
@@ -83,6 +83,11 @@ class ModuleDetails:
     elif target_language == 'go':
       # This is used for the go package name.
       return (''.join(self.package_name_parts)).lower()
+    elif target_language == 'java':
+      java_path_parts = self.domain_full.split('.')
+      java_path_parts.reverse()
+      java_path_parts.extend(self.package_name_parts)
+      return '.'.join(java_path_parts)
     elif target_language == 'dotnet':
       capitalized_package_name_parts = [name.capitalize() for name in self.package_name_parts]
       return '.'.join(capitalized_package_name_parts)
@@ -127,6 +132,8 @@ def convert_module_to_language_import(module_details, target_language):
     return module_details.to_namespace('go')
   elif target_language == 'javascript':
     return module_details.module_name
+  elif target_language == 'java':
+    return '.'.join(module_details.to_file_path('java').split('/')) + '.' + module_details.module_name.capitalize()
   else:
     return module_path
 
@@ -1100,7 +1107,6 @@ class ConverterToJava(HeadspaceConverter):
           (function_call_node.members[0].members[2].members[0] == 'print' or
            function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
-        java_code.append(' ' * indent_level)
         if (function_call_node.members[0].members[2].members[0] == 'print' or
             function_call_node.members[0].members[2].members[0] == 'printInt'):
           java_code.append('System.out.print(')
@@ -1113,12 +1119,17 @@ class ConverterToJava(HeadspaceConverter):
             java_code.append(chain_entry.members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
-          self.emit_function_call(function_call_node.members[1].members[1].members[0], java_code, indent_level)
-        java_code.append(');\n')
+          self.emit_function_call(function_call_node.members[1].members[1].members[0], java_code, 0)
+        java_code.append(')')
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
-          java_code.append(chain_node.members[0])
+          symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
+          if type(symbol_for_name) == ModuleDetails:
+            # The first member in the chain is a module, use the class name to reference the static function.
+            java_code.append(chain_node.members[0].capitalize())
+          else:
+            java_code.append(chain_node.members[0])
         # Emit the arguments for the function call.
         if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
           java_code.append('(')
@@ -1188,10 +1199,11 @@ class ConverterToJava(HeadspaceConverter):
 
   def emit_code_block(self, code_block_node, java_code, indent_level):
     java_code.append('{\n')
+    java_code.append(' ' * (indent_level + 2))
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, java_code, indent_level + 2)
-        java_code.append(';');
+        java_code.append(';\n');
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, java_code, 'JAVA')
       elif member.node_type == 'RETURN_STATEMENT':
@@ -1205,7 +1217,6 @@ class ConverterToJava(HeadspaceConverter):
       elif member.node_type == 'WHILE_STATEMENT':
         self.emit_while_statement(member, java_code, indent_level + 2)
       elif member.node_type == 'POSTFIX_OPERATION':
-        java_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, java_code, 0)
         java_code.append(';\n')
     if indent_level > 0:
@@ -1230,27 +1241,29 @@ class ConverterToJava(HeadspaceConverter):
       param_index += 1
     if len(function_params) > 0:
       java_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
-    java_code.append(')')
+    java_code.append(') ')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), java_code, indent_level)
-    java_code.append('\n')
 
   def emit_code(self):
     java_code = []
     module_details = self.find_module_details()
 
-    # javac -d . Library.java UseLibrary.java
-    # java -cp . UseLibrary
+    self.populate_symbol_table_from_declarations(self.tree)
+
+    # Declare the package for this Java module.
+    # Should be for example: com.jeffscudder.tests.projects;
+    java_code.append('package ' + module_details.to_namespace('java') + ';\n\n')
 
     for module in self.find_imports():
-      java_code.append('import ' + module + '.*;\n')
+      import_module_details = self.symbol_table.find_symbol(module)
+      import_module_classpath = convert_module_to_language_import(import_module_details, 'java')
+      java_code.append('import ' + import_module_classpath + ';\n')
     java_code.append('\n')
 
     java_class_name = capitalize_first_letter(module_details.module_name)
     java_code.append('public class ' + java_class_name + '\n')
     java_code.append('{\n')
-
-    self.populate_symbol_table_from_declarations(self.tree)
 
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':

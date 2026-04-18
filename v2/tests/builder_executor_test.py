@@ -75,7 +75,7 @@ class TestBuildGoAndExecute(unittest.TestCase):
     executable_source_path = os.path.join('tests', 'test_projects', 'import_example', 'python', 'useLibrary', 'main.go')
     # Generate the go module.
     os.chdir(go_mod_directory_path)
-    subprocess.run(['go', 'mod', 'init', 'library'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(['go', 'mod', 'init', 'testsprojects'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     # Run the program that includes the import.
     result = subprocess.run(['go', 'run', os.path.join('useLibrary', 'main.go')], check=True, capture_output=True)
     self.assertEqual(b'Hello from the library\n', result.stdout)
@@ -104,6 +104,33 @@ class TestBuildJavaScriptAndExecute(unittest.TestCase):
       subprocess.run(['rm', library_source_path], check=True)
       subprocess.run(['rm', executable_source_path], check=True)
       subprocess.run(['rm', package_source_path], check=True)
+
+
+class TestBuildJavaAndExecute(unittest.TestCase):
+  """Build a headspace project, converting to Java."""
+
+  def test_imports_sample(self):
+    """Multiple files which import and run."""
+    builder.convert_project(os.path.join('tests', 'test_projects', 'import_example'), 'java')
+    # Compile the library source.
+    compilation_directory = os.path.join('tests', 'test_projects', 'import_example', 'java')
+    os.chdir(compilation_directory)
+    library_source_path = os.path.join('com', 'jeffscudder', 'tests', 'projects', 'Library.java')
+    use_library_source_path = os.path.join('com', 'jeffscudder', 'tests', 'projects', 'UseLibrary.java')
+    compiled_use_library_class = 'com.jeffscudder.tests.projects.UseLibrary'
+    subprocess.run(['javac', '-d', '.', library_source_path], check=True)
+    # Compile the main function.
+    subprocess.run(['javac', '-d', '.', use_library_source_path], check=True)
+    # Run the program that includes the import.
+    result = subprocess.run(['java', compiled_use_library_class], check=True, capture_output=True)
+    self.assertEqual(b'Hello from the library\n', result.stdout)
+    # Cleanup compiled files.
+    if CLEANUP_GENERATED_SOURCE:
+      subprocess.run(['rm', library_source_path], check=True)
+      subprocess.run(['rm', use_library_source_path], check=True)
+      subprocess.run(['rm', os.path.join('com', 'jeffscudder', 'tests', 'projects', 'Library.class')], check=True)
+      subprocess.run(['rm', os.path.join('com', 'jeffscudder', 'tests', 'projects', 'UseLibrary.class')], check=True)
+    os.chdir(os.path.join('..', '..', '..', '..'))
 
 
 if __name__ == '__main__':

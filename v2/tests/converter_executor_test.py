@@ -363,19 +363,19 @@ class TestConvertToJavaAndExecute(unittest.TestCase):
     java_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
     java_file_path.parent.mkdir(parents=True, exist_ok=True)
     java_file_path.write_text(files[0].content)
-    java_class_path = os.path.join(*(files[0].filename.split('/')[:-1]))
+    java_class_path = '.'
     # Then execute the Java code using javac then java.
     result = subprocess.run(['javac', java_file_path], check=True, capture_output=True)
     os.chdir(os.path.join('tests', 'test_output'))
     # Run the program as java Hello (minus the .java)
-    class_file_name = os.path.split(java_file_path)[-1][:-5]
+    class_file_name = '.'.join(str(java_file_path).split('/')[2:])[:-5]
     result = subprocess.run(['java', '-cp', java_class_path, class_file_name], check=True, capture_output=True)
     self.assertEqual(b'Hello World\n', result.stdout)
     # Move back to the test running directory.
     os.chdir(os.path.join('..', '..'))
     # Delete both the .java and .class file for the hello world program.
     subprocess.run(['rm', java_file_path], check=True)
-    subprocess.run(['rm', os.path.join(compilation_directory, java_class_path, class_file_name) + '.class'], check=True)
+    subprocess.run(['rm', str(java_file_path)[:-5] + '.class'], check=True)
 
   def test_converts_foreign_code(self):
     """Example of including foreign code for Java."""
@@ -386,19 +386,19 @@ class TestConvertToJavaAndExecute(unittest.TestCase):
     java_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
     java_file_path.parent.mkdir(parents=True, exist_ok=True)
     java_file_path.write_text(files[0].content)
-    java_class_path = os.path.join(*(files[0].filename.split('/')[:-1]))
+    java_class_path = '.'
     # Then execute the Java code using javac then java.
     result = subprocess.run(['javac', java_file_path], check=True, capture_output=True)
     os.chdir(os.path.join('tests', 'test_output'))
-    # Run the program as java Hello (minus the .java)
-    class_file_name = os.path.split(java_file_path)[-1][:-5]
+    # Run the program as java com....Foreign (minus the .java)
+    class_file_name = '.'.join(str(java_file_path).split('/')[2:])[:-5]
     result = subprocess.run(['java', '-cp', java_class_path, class_file_name], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
     # Move back to the test running directory.
     os.chdir(os.path.join('..', '..'))
     # Delete both the .java and .class file for the hello world program.
     subprocess.run(['rm', java_file_path], check=True)
-    subprocess.run(['rm', os.path.join(compilation_directory, java_class_path, class_file_name) + '.class'], check=True)
+    subprocess.run(['rm', str(java_file_path)[:-5] + '.class'], check=True)
 
 
 class TestConvertToDotNetAndExecute(unittest.TestCase):
