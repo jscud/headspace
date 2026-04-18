@@ -618,6 +618,40 @@ class Parser:
     parent_node.members.append(function_definition)
     self.leave_method('process_function_definition')
 
+  def process_class_definition(self, parent_node):
+    self.enter_method('process_class_definition')
+    current_token = self.current_token()
+    # The current token is the identifier 'class' to begin the declaration.
+    class_definition = Node('CLASS_DEFINITION')
+    if not current_token or not current_token.matches('IDENTIFIER', 'class'):
+      print('class definition did not begin with keyword class')
+      sys.exit(1)
+    class_definition.members.append(Node('CLASS_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed class keyword in class declaration')
+    self.process_whitespace(class_definition)
+    current_token = self.current_token()
+    # TODO: Support class inheritance by allowing a : parent_type pattern after the class keyword.
+    # Should be an opening [ for the list of members and methods.
+    if not current_token or not current_token.matches('SYMBOL', '['):
+      print('Expected a [ after the class name in class definition')
+      sys.exit(1)
+    class_definition.members.append(Node('CLASS_MEMBERS_START', [current_token.content], True))
+    self.consume_current_token('processed opening [ in class members declaration')
+    self.process_whitespace(class_definition)
+    current_token = self.current_token()
+    while current_token and current_token.token_type == 'IDENTIFIER':
+      self.process_declaration(class_definition)
+      self.process_whitespace(class_definition)
+      current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', ']'):
+      print('Expected a ] after the first [ in a class definition')
+      sys.exit(1)
+    class_definition.members.append(Node('CLASS_MEMBERS_END', [current_token.content], True))
+    self.consume_current_token('processed closing ] in class members declaration')
+    self.process_whitespace(class_definition)
+    parent_node.members.append(class_definition)
+    self.leave_method('process_class_definition')
+
   def process_declaration(self, parent_node):
     self.enter_method('process_declaration')
     current_token = self.current_token()
@@ -639,6 +673,10 @@ class Parser:
       # This is a function declaration.
       declaration_tree.node_type = 'FUNCTION_DECLARATION'
       self.process_function_definition(declaration_tree)
+    elif current_token and current_token.matches('IDENTIFIER', 'class'):
+      # This is a class declaration.
+      declaration_tree.node_type = 'CLASS_DECLARATION'
+      self.process_class_definition(declaration_tree)
     else:
       # This is a variable declaration, use this identifier as the type.
       declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))

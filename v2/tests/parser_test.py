@@ -46,6 +46,21 @@ main:function:void[][
 ]
 """
 
+DATA_CLASS_EXAMPLE = """
+DataClass: class [
+  x: int
+]
+
+main: function: void[][
+  instance:DataClass
+  instance.x = 42
+  os.print["Class member x: "]
+  os.printInt[instance.x]
+  os.print["\\n"]
+]
+"""
+
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -322,6 +337,24 @@ class TestParserParse(unittest.TestCase):
       as
     MODULE_NAME:
       example""", tree)
+
+  def test_simple_class(self):
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    self.assertTreeContains("""
+    CLASS_DEFINITION:
+      CLASS_KEYWORD:
+        class
+      CLASS_MEMBERS_START:
+        [
+      DECLARATION:
+        IDENTIFIER:
+          x
+        DECLARATION_MARKER:
+          :
+        VARIABLE_TYPE:
+          int
+      CLASS_MEMBERS_END:
+        ]""", tree)
 
 
 if __name__ == '__main__':
