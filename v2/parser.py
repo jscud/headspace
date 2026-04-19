@@ -18,7 +18,7 @@ import lexer
 # infix operators - done
 # postfix operators - done
 # pass through comments
-# class declaration
+# class declaration - done
 # importing modules - done
 # allocation memory
 # passing references
@@ -262,6 +262,23 @@ class Parser:
     parent_node.members.append(infix_operation)
     self.leave_method('process_infix_operation')
 
+  def process_class_instantiation(self, parent_node):
+    self.enter_method('process_class_instantiation')
+    class_instantiation = Node('CLASS_INSTANTIATION')
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('IDENTIFIER', 'new'):
+      print('Class instantiation must begin with new keyword')
+      sys.exit(1)
+    class_instantiation.members.append(Node('NEW_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed new keyowrd in class instantiation')
+    # The new keyword should be followed by what looks like a function call, executing the constructor.
+    self.process_whitespace(class_instantiation)
+    self.process_identifier_chain(class_instantiation)
+    self.process_whitespace(class_instantiation)
+    self.process_function_call(class_instantiation)
+    parent_node.members.append(class_instantiation)
+    self.leave_method('process_class_instantiation')
+
   def process_rvalue(self, parent_node):
     self.enter_method('process_rvalue')
     current_token = self.current_token()
@@ -280,17 +297,20 @@ class Parser:
       parent_node.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
       self.consume_current_token('processed number rvalue')
     elif current_token and current_token.token_type == 'IDENTIFIER':
-      sub_node = Node('temp')
-      self.process_identifier_chain(sub_node)
-      current_token = self.current_token()
-      if current_token and current_token.matches('SYMBOL', '['):
-        # This is a function/method call.
-        self.process_function_call(sub_node)
-        sub_node.node_type = 'FUNCTION_CALL'
-        parent_node.members.append(sub_node)
+      if current_token.content == 'new':
+        self.process_class_instantiation(parent_node)
       else:
-        # This is just an identifier chain so add the chain directly.
-        parent_node.members.append(sub_node.members[0])
+        sub_node = Node('temp')
+        self.process_identifier_chain(sub_node)
+        current_token = self.current_token()
+        if current_token and current_token.matches('SYMBOL', '['):
+          # This is a function/method call.
+          self.process_function_call(sub_node)
+          sub_node.node_type = 'FUNCTION_CALL'
+          parent_node.members.append(sub_node)
+        else:
+          # This is just an identifier chain so add the chain directly.
+          parent_node.members.append(sub_node.members[0])
     self.process_whitespace(parent_node)
     self.leave_method('process_rvalue')
 
@@ -312,6 +332,20 @@ class Parser:
     self.process_whitespace(postfix_operation)
     parent_node.members.append(postfix_operation)
     self.leave_method('process_postfix_operation')
+
+  def process_assignment_statement(self, parent_node):
+    self.enter_method('process_assignment_statement')
+    current_token = self.current_token()
+    assignment = Node('ASSIGNMENT')
+    if not current_token or not current_token.matches('SYMBOL', '='):
+      print('Expected assignment to have a = after the identifier')
+      sys.exit(1)
+    assignment.members.append(Node('ASSIGNMENT_SYMBOL', [current_token.content], True))
+    self.consume_current_token('processed assignment symbol')
+    self.process_whitespace(assignment)
+    self.process_rvalue(assignment)
+    parent_node.members.append(assignment)
+    self.leave_method('process_assignment_statement')
 
   def process_assignment(self, parent_node):
     self.enter_method('process_assignment')
@@ -517,6 +551,10 @@ class Parser:
           # This is a function/method call.
           self.process_function_call(sub_node)
           sub_node.node_type = 'FUNCTION_CALL'
+          code_block.members.append(sub_node)
+        elif current_token and current_token.matches('SYMBOL', '='):
+          self.process_assignment_statement(sub_node)
+          sub_node.node_type = 'MEMBER_ASSIGNMENT'
           code_block.members.append(sub_node)
         self.process_whitespace(sub_node)
         current_token = self.current_token()

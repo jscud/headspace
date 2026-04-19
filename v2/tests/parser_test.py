@@ -53,13 +53,14 @@ DataClass: class [
 
 main: function: void[][
   instance:DataClass
+  instance = new DataClass[]
   instance.x = 42
   os.print["Class member x: "]
   os.printInt[instance.x]
   os.print["\\n"]
+  delete instance
 ]
 """
-
 
 
 class TestParserParse(unittest.TestCase):
@@ -355,6 +356,20 @@ class TestParserParse(unittest.TestCase):
           int
       CLASS_MEMBERS_END:
         ]""", tree)
+    self.assertTreeContains("""
+        MEMBER_ASSIGNMENT:
+          IDENTIFIER_CHAIN:
+            IDENTIFIER:
+              instance
+            MEMBER_DOT_ACCESS:
+              .
+            IDENTIFIER:
+              x
+          ASSIGNMENT:
+            ASSIGNMENT_SYMBOL:
+              =
+            NUMBER_LITERAL:
+              42""", tree)
 
 
 if __name__ == '__main__':
