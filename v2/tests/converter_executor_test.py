@@ -85,6 +85,24 @@ main:function:void[][
 ]
 """
 
+DATA_CLASS_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/dataclass"
+
+DataClass: class [
+  x: int
+]
+
+main: function: void[][
+  instance:DataClass
+  instance = new DataClass[]
+  instance.x = 42
+  os.print["Class member x: "]
+  os.printInt[instance.x]
+  os.print["\\n"]
+  delete instance
+]
+"""
+
 
 class TestConvertToCAndExecute(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -188,6 +206,32 @@ class TestConvertToCAndExecute(unittest.TestCase):
     subprocess.run(['rm', c_file_path], check=True)
     subprocess.run(['rm', h_file_path], check=True)
     subprocess.run(['rm', executable_path], check=True)
+
+  def test_converts_data_class(self):
+    """Example of while statements for C."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    self.assertEqual(2, len(files))
+    compilation_directory = os.path.join('tests', 'test_output')
+    executable_path = os.path.join(compilation_directory, 'data_class')
+    c_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    c_file_path.parent.mkdir(parents=True, exist_ok=True)
+    c_file_path.write_text(files[0].content)
+    h_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    h_file_path.parent.mkdir(parents=True, exist_ok=True)
+    h_file_path.write_text(files[1].content)
+    # Then compile and run the C code.
+    include_path_arg = '-I' + compilation_directory
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
+                    '-Wmissing-prototypes', '-Wstrict-prototypes',
+                    '-Wold-style-definition', include_path_arg, '-o',
+                    executable_path, c_file_path], check=True)
+    result = subprocess.run([executable_path], check=True, capture_output=True)
+    self.assertEqual(b'Class member x: 42\n', result.stdout)
+    subprocess.run(['rm', c_file_path], check=True)
+    subprocess.run(['rm', h_file_path], check=True)
+    subprocess.run(['rm', executable_path], check=True)
+
 
 
 class TestConvertToPythonAndExecute(unittest.TestCase):

@@ -97,6 +97,24 @@ main:function:void[][
 ]
 """
 
+DATA_CLASS_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/dataclass"
+
+DataClass: class [
+  x: int
+]
+
+main: function: void[][
+  instance:DataClass
+  instance = new DataClass[]
+  instance.x = 42
+  os.print["Class member x: "]
+  os.printInt[instance.x]
+  os.print["\\n"]
+  delete instance
+]
+"""
+
 
 class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -157,6 +175,24 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('#include"headspace/tests/moduleB.h"' in files[0].content)
     self.assertTrue('#include"headspace/tests/moduleA.h"' in files[1].content)
     self.assertTrue('#include"headspace/tests/moduleB.h"' in files[1].content)
+
+  def test_data_class(self):
+    """Example of declaring and using a class with C."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    # Check .c file contents.
+    self.assertTrue('dataclass_DataClass* dataclass_DataClass_constructor(void) {' in files[0].content)
+    self.assertTrue('  return malloc(sizeof(dataclass_DataClass));' in files[0].content)
+    self.assertTrue('  dataclass_DataClass* instance;' in files[0].content)
+    self.assertTrue('  instance = dataclass_DataClass_constructor();' in files[0].content)
+    self.assertTrue('  instance->x = 42;' in files[0].content)
+    self.assertTrue('  printf("%d", instance->x);' in files[0].content)
+    self.assertTrue('  free(instance);' in files[0].content)
+    # Check .h file contents.
+    self.assertTrue('typedef struct {' in files[1].content)
+    self.assertTrue('  int x;' in files[1].content)
+    self.assertTrue('} dataclass_DataClass;' in files[1].content)
+    self.assertTrue('dataclass_DataClass* dataclass_DataClass_constructor(void);' in files[1].content)
 
 
 class TestConvertToPython(unittest.TestCase):

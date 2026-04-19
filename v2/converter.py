@@ -15,8 +15,8 @@ import os
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
 # - importing modules                    c  py  go  js  java  c#
-# - declaring classes
-# - allocation memory
+# - declaring classes                    c
+# - memory allocation                    c
 # - passing references
 # - raising exceptions/errors
 #
@@ -46,8 +46,8 @@ class SourceCodeFile:
 
 class SymbolTable:
 
-  def __init__(self):
-    self.parent_table = None
+  def __init__(self, parent_table=None):
+    self.parent_table = parent_table
     self.symbols = {}
 
   def find_symbol(self, name):
@@ -162,6 +162,10 @@ def find_function_identifier(function_declaration_node):
   return function_declaration_node.members[0].members[0]
 
 
+def find_class_identifier(class_declaration_node):
+  return class_declaration_node.members[0].members[0]
+
+
 def find_function_parameters(function_declaration_node):
   params = []
   for node in function_declaration_node.members[2].members:
@@ -221,6 +225,8 @@ class HeadspaceConverter:
         source_code.append(' ' + self.convert_operator(statement_node.members[0]) + ' ')
     elif statement_node.node_type == 'NUMBER_LITERAL' or statement_node.node_type == 'STRING_LITERAL':
       source_code.append(statement_node.members[0])
+    elif statement_node.node_type == 'CLASS_INSTANTIATION':
+      self.emit_class_instantiation(find_class_identifier(statement_node.members[1]), source_code, indent_level)
 
   def emit_condition_expression(self, condition_expression, source_code, indent_level):
     self.emit_code_statement(condition_expression.members[1], source_code, 0)
@@ -258,6 +264,17 @@ class HeadspaceConverter:
         function_declaration_node = member
         if function_declaration_node.members[0].node_type == 'IDENTIFIER' and function_declaration_node.members[0].members[0] != 'main':
           self.symbol_table.set_symbol(find_function_identifier(function_declaration_node), 'FUNCTION')
+      elif member.node_type == 'CLASS_DECLARATION':
+        class_declaration_node = member
+        if class_declaration_node.members[0].node_type == 'IDENTIFIER':
+          self.symbol_table.set_symbol(find_class_identifier(class_declaration_node), 'CLASS')
+      # TODO: also process variable declarations, but scoped to the code block level.
+      elif member.node_type == 'DECLARATION':
+        # Code blocks need their own scoped symbol table for things like local vars to be able to do -> access patterns for pointers in C.
+        variable_declaration_node = member
+        variable_name = variable_declaration_node.members[0].members[0]
+        variable_type = variable_declaration_node.members[2].members[0]
+        self.symbol_table.set_symbol(variable_name, variable_type)
 
 
 class ConverterToC(HeadspaceConverter):
@@ -284,8 +301,7 @@ class ConverterToC(HeadspaceConverter):
           c_code.append(function_call_node.members[1].members[1].members[0].members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-          for chain_entry in function_call_node.members[1].members[1].members[0].members:
-            c_code.append(chain_entry.members[0])
+          self.emit_identifier_chain(function_call_node.members[1].members[1].members[0], c_code, indent_level)
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], c_code, 0)
@@ -293,22 +309,7 @@ class ConverterToC(HeadspaceConverter):
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         c_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
-        skip_next_dot = False
-        for chain_node in function_call_node.members[0].members:
-          symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
-          if symbol_for_name == 'FUNCTION':
-            # This is a local function it needs the module name as a prefix.
-            c_code.append(self.module_details.module_name + '_' + chain_node.members[0])
-          elif type(symbol_for_name) == ModuleDetails:
-            # The first member in the chain is a module, so switch to a module_function style call.
-            c_code.append(chain_node.members[0])
-            # We should use moduleName_functionName instead of parent.functionName since this is a module.
-            skip_next_dot = True
-          elif chain_node.members[0] == '.' and skip_next_dot:
-            c_code.append('_')
-            skip_next_dot = False
-          else:
-            c_code.append(chain_node.members[0])
+        self.emit_identifier_chain(function_call_node.members[0], c_code, indent_level)
         # Emit the arguments for the function call.
         if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
           c_code.append('(')
@@ -325,9 +326,24 @@ class ConverterToC(HeadspaceConverter):
           sys.exit(1)
 
   def emit_identifier_chain(self, identifier_chain_node, c_code, indent_level):
-    for member in identifier_chain_node.members:
-      if member.node_type == 'IDENTIFIER':
-        c_code.append(member.members[0])
+    skip_next_dot = False
+    for chain_node in identifier_chain_node.members:
+      symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
+      if symbol_for_name == 'FUNCTION':
+        # This is a local function it needs the module name as a prefix.
+        c_code.append(self.module_details.module_name + '_' + chain_node.members[0])
+      elif self.symbol_table.find_symbol(symbol_for_name) == 'CLASS':
+        c_code.append(chain_node.members[0] + '->')
+        skip_next_dot = True
+      elif type(symbol_for_name) == ModuleDetails:
+        # The first member in the chain is a module, so switch to a module_function style call.
+        c_code.append(chain_node.members[0] + '_')
+        # We should use moduleName_functionName instead of parent.functionName since this is a module.
+        skip_next_dot = True
+      elif chain_node.members[0] == '.' and skip_next_dot:
+        skip_next_dot = False
+      else:
+        c_code.append(chain_node.members[0])
 
   def emit_return_statement(self, return_statement_node, c_code, indent_level):
     if return_statement_node.members[0]:
@@ -339,6 +355,9 @@ class ConverterToC(HeadspaceConverter):
   def convert_data_type(self, provided_type):
     if provided_type == 'int32':
       return 'int32_t'
+    elif self.symbol_table.find_symbol(provided_type) == 'CLASS':
+      # This is a locally defined class, so use the reference type with the module prefix.
+      return self.module_details.module_name + '_' + provided_type + '*'
     else:
       return provided_type
 
@@ -353,6 +372,14 @@ class ConverterToC(HeadspaceConverter):
       c_code.append(assignment_statement.members[0].members[0])
     c_code.append(' = ')
     self.emit_code_statement(assignment_statement.members[2], c_code, 0)
+    c_code.append(';\n')
+
+  def emit_member_assignment_statement(self, member_assignment_statement, c_code, indent_level):
+    c_code.append(' ' * indent_level)
+    if member_assignment_statement.members[0].node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(member_assignment_statement.members[0], c_code, indent_level)
+    c_code.append(' = ')
+    self.emit_code_statement(member_assignment_statement.members[1].members[1], c_code, 0)
     c_code.append(';\n')
 
   def emit_if_statement(self, if_statement, c_code, indent_level):
@@ -375,7 +402,18 @@ class ConverterToC(HeadspaceConverter):
     c_code.append(')')
     self.emit_code_block(while_statement.members[2], c_code, indent_level)
 
+  def emit_deletion(self, delete_statement, c_code, indent_level):
+    c_code.append(' ' * indent_level)
+    # TODO: handle the deletion of an identifier chain.
+    c_code.append('free(' + delete_statement.members[1].members[0].members[0] + ');\n')
+
   def emit_code_block(self, code_block_node, c_code, indent_level):
+    # Start by gathering symbols in the code block to get the correct types for local variables.
+    block_symbol_table = SymbolTable(self.symbol_table)
+    self.symbol_table = block_symbol_table
+    # Populate an inner symbol table.
+    self.populate_symbol_table_from_declarations(code_block_node)
+
     c_code.append('\n')
     c_code.append(' ' * indent_level)
     c_code.append('{\n')
@@ -391,6 +429,8 @@ class ConverterToC(HeadspaceConverter):
         self.emit_variable_declaration(member, c_code, indent_level + 2)
       elif member.node_type == 'ASSIGNMENT':
         self.emit_assignment_statement(member, c_code, indent_level + 2)
+      elif member.node_type == 'MEMBER_ASSIGNMENT':
+        self.emit_member_assignment_statement(member, c_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, c_code, indent_level + 2)
       elif member.node_type == 'WHILE_STATEMENT':
@@ -399,8 +439,16 @@ class ConverterToC(HeadspaceConverter):
         c_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, c_code, 0)
         c_code.append(';\n')
+      elif member.node_type == 'DELETE_STATEMENT':
+        self.emit_deletion(member, c_code, indent_level + 2)
     c_code.append(' ' * indent_level)
     c_code.append('}\n')
+
+    # Restore the top level symbol table.
+    self.symbol_table = self.symbol_table.parent_table
+    if self.symbol_table is None:
+      print('Logic error restoring the parent symbol table.')
+      sys.exit(1)
 
   def emit_function_signature(self, function_declaration_node, h_code, indent_level):
     # Skip the main function since it is not included in a .h file.
@@ -446,6 +494,38 @@ class ConverterToC(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), c_code, indent_level)
     c_code.append('\n')
 
+  def emit_class_instantiation(self, class_name, c_code, indent_level):
+    if self.symbol_table.find_symbol(class_name) != 'CLASS':
+      print('Unable to instantiate unknown class:', class_name)
+      sys.exit(1)
+    # TODO: need to support imported classes.
+    c_code.append(self.module_details.module_name + '_' + class_name + '_constructor()')
+
+  def emit_class_signature(self, class_declaration_node, h_code, indent_level):
+    class_name = self.module_details.module_name + '_' + class_declaration_node.members[0].members[0]
+    h_code.append(' ' * indent_level)
+    h_code.append('typedef struct {\n')
+    # TODO: method definitions
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          self.emit_variable_declaration(class_member_node, h_code, indent_level + 2)
+    h_code.append(' ' * indent_level)
+    h_code.append('} ' + class_name + ';\n\n')
+    # Add a constructor function that allocates memory.
+    h_code.append(' ' * indent_level)
+    h_code.append(class_name + '* ' + class_name + '_constructor(void);\n')
+
+  def emit_class_definition(self, class_declaration_node, c_code, indent_level):
+    # Note that the typedef was added to the .h file, this .c file should contain the constructor function definition.
+    class_name = self.module_details.module_name + '_' + class_declaration_node.members[0].members[0]
+    c_code.append(' ' * indent_level)
+    c_code.append(class_name + '* ' + class_name + '_constructor(void) {\n')
+    c_code.append(' ' * (indent_level + 2))
+    c_code.append('return malloc(sizeof(' + class_name + '));\n')
+    c_code.append(' ' * indent_level)
+    c_code.append('}\n\n')
+
   def emit_code(self):
     c_code = []
     h_code = []
@@ -460,8 +540,8 @@ class ConverterToC(HeadspaceConverter):
       includes.append('#include"' + convert_module_to_language_import(include_module_details, 'c') + '"\n')
 
     # Start the .h file with a ifdef guard.
-    #h_code.append('#ifndef HEADSPACE_' + module_name.upper() + '_H\n#define HEADSPACE_' + module_name.upper() + '_H\n')
-    h_code.append('#ifndef HEADSPACE_' + module_details.to_namespace('c').upper() + '_H\n#define HEADSPACE_' + module_details.to_namespace('c').upper() + '_H\n')
+    h_code.append('#ifndef HEADSPACE_' + module_details.to_namespace('c').upper() + '_H\n')
+    h_code.append('#define HEADSPACE_' + module_details.to_namespace('c').upper() + '_H\n')
     h_code.append('#include<stdint.h>\n')
     for include in includes:
       h_code.append(include)
@@ -470,6 +550,7 @@ class ConverterToC(HeadspaceConverter):
     # Start the .c file with include directives.
     c_code.append('#include<stdio.h>\n')
     c_code.append('#include<stdint.h>\n')
+    c_code.append('#include<stdlib.h>\n')
     for include in includes:
       c_code.append(include)
     c_code.append('#include"' + module_path_h + '"\n')
@@ -485,6 +566,9 @@ class ConverterToC(HeadspaceConverter):
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_signature(module_level_member, h_code, 0)
         self.emit_function_definition(module_level_member, c_code, 0)
+      elif module_level_member.node_type == 'CLASS_DECLARATION':
+        self.emit_class_signature(module_level_member, h_code, 0)
+        self.emit_class_definition(module_level_member, c_code, 0)
       # TODO: handle top level variable declarations, class defintions, etc.
     # End the .h file with an ifdef guard.
     h_code.append('\n#endif\n')
