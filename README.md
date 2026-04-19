@@ -5,12 +5,6 @@ powerful programming language which compiles to multiple target programming
 languages. Envisioned as a way to build cross language libraries, it's pretty
 nifty.
 
-## Syntax
-
-Define identifier/variable: `name:type`
-
-Group/code block: `[ ]`
-
 ## Examples
 
 ### Simple Hello World
@@ -42,3 +36,15 @@ To run the unit tests for the Headspace parser and translator, run the script:
 
     cd v2
     ./run_tests
+
+## Syntax
+
+Define identifier/variable: `name: type`
+
+Group/code block: `[ ]`
+
+Define function: `name: function: return_type [params] [statements]`
+
+Define class: `name: class [members and methods]`
+
+
