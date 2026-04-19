@@ -279,6 +279,22 @@ class Parser:
     parent_node.members.append(class_instantiation)
     self.leave_method('process_class_instantiation')
 
+  def process_delete_statment(self, parent_node):
+    self.enter_method('process_delete_statment')
+    delete_statement = Node('DELETE_STATEMENT')
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('IDENTIFIER', 'delete'):
+      print('Delete statement must begin with delete keyword')
+      sys.exit(1)
+    delete_statement.members.append(Node('DELETE_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed delete keyowrd in delete statement')
+    # The delete keyword should be followed by an identifier.
+    self.process_whitespace(delete_statement)
+    self.process_identifier_chain(delete_statement)
+    self.process_whitespace(delete_statement)
+    parent_node.members.append(delete_statement)
+    self.leave_method('process_delete_statment')
+
   def process_rvalue(self, parent_node):
     self.enter_method('process_rvalue')
     current_token = self.current_token()
@@ -501,6 +517,10 @@ class Parser:
         current_token = self.current_token()
       elif current_token.content == 'while':
         self.process_while_statement(code_block)
+        self.process_whitespace(code_block)
+        current_token = self.current_token()
+      elif current_token.content == 'delete':
+        self.process_delete_statment(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       elif next_token and next_token.matches('SYMBOL', ':'):

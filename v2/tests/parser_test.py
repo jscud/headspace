@@ -340,7 +340,7 @@ class TestParserParse(unittest.TestCase):
       example""", tree)
 
   def test_simple_class(self):
-    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE) 
     self.assertTreeContains("""
     CLASS_DEFINITION:
       CLASS_KEYWORD:
@@ -357,6 +357,19 @@ class TestParserParse(unittest.TestCase):
       CLASS_MEMBERS_END:
         ]""", tree)
     self.assertTreeContains("""
+          CLASS_INSTANTIATION:
+            NEW_KEYWORD:
+              new
+            IDENTIFIER_CHAIN:
+              IDENTIFIER:
+                DataClass
+            FUNCTION_CALL_ARGUMENTS:
+              ARG_LIST_START:
+                [
+              ARGUMENTS:
+              ARG_LIST_END:
+                ]""", tree)
+    self.assertTreeContains("""
         MEMBER_ASSIGNMENT:
           IDENTIFIER_CHAIN:
             IDENTIFIER:
@@ -370,6 +383,13 @@ class TestParserParse(unittest.TestCase):
               =
             NUMBER_LITERAL:
               42""", tree)
+    self.assertTreeContains("""
+        DELETE_STATEMENT:
+          DELETE_KEYWORD:
+            delete
+          IDENTIFIER_CHAIN:
+            IDENTIFIER:
+              instance""", tree)
 
 
 if __name__ == '__main__':
