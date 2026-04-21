@@ -364,6 +364,19 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertTrue('while (counter < 5) {' in files[0].content)
     self.assertTrue('counter++;' in files[0].content)
 
+  def test_data_class(self):
+    """Example of declaring and using a class with JavaScript."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    print(files[0].content)
+    self.assertTrue('class DataClass {' in files[0].content)
+    self.assertTrue('  constructor() {' in files[0].content)
+    self.assertTrue('    this.x = null;' in files[0].content)
+    self.assertTrue('  instance = new DataClass();' in files[0].content)
+    self.assertTrue('  instance.x = 42;' in files[0].content)
+    self.assertTrue('  process.stdout.write("" + instance.x);' in files[0].content)
+    self.assertTrue('  instance = null;' in files[0].content)
+
 
 class TestConvertToJava(unittest.TestCase):
   """Convert the headspace code to Java."""

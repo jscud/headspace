@@ -422,6 +422,24 @@ class TestConvertToJavaScriptAndExecute(unittest.TestCase):
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rm', package_file_path], check=True)
 
+  def test_converts_data_class(self):
+    """Example of simple class definition for JavaScripty."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertEqual(2, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as js_source:
+      js_source.write(files[0].content)
+    package_file_path = os.path.join('tests', 'test_output', files[1].filename)
+    with open(package_file_path, 'w') as package_source:
+      package_source.write(files[1].content)
+    # Then execute the JavaScript code using Node.
+    result = subprocess.run(['node', file_path], check=True, capture_output=True)
+    self.assertEqual(b'Class member x: 42\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rm', package_file_path], check=True)
+
+
 class TestConvertToJavaAndExecute(unittest.TestCase):
   """Convert the headspace code to Java."""
 

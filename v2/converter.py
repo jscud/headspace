@@ -15,7 +15,7 @@ import os
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
 # - importing modules                    c  py  go  js  java  c#
-# - declaring classes                    c  py  go
+# - declaring classes                    c  py  go  js
 # - memory allocation                    c
 # - passing references
 # - raising exceptions/errors
@@ -1128,8 +1128,7 @@ class ConverterToJavaScript(HeadspaceConverter):
 
   def emit_identifier_chain(self, identifier_chain_node, js_code, indent_level):
     for member in identifier_chain_node.members:
-      if member.node_type == 'IDENTIFIER':
-        js_code.append(member.members[0])
+      js_code.append(member.members[0])
 
   def emit_return_statement(self, return_statement_node, js_code, indent_level):
     if return_statement_node.members[0]:
@@ -1157,6 +1156,14 @@ class ConverterToJavaScript(HeadspaceConverter):
     self.emit_code_statement(assignment_statement.members[2], js_code, 0)
     js_code.append(';\n')
 
+  def emit_member_assignment_statement(self, member_assignment_statement, js_code, indent_level):
+    js_code.append(' ' * indent_level)
+    if member_assignment_statement.members[0].node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(member_assignment_statement.members[0], js_code, indent_level)
+    js_code.append(' = ')
+    self.emit_code_statement(member_assignment_statement.members[1].members[1], js_code, 0)
+    js_code.append(';\n')
+
   def emit_if_statement(self, if_statement, js_code, indent_level):
     js_code.append(' ' * indent_level)
     js_code.append('if (')
@@ -1168,6 +1175,11 @@ class ConverterToJavaScript(HeadspaceConverter):
       js_code.append(' else ')
       self.emit_code_block(if_statement.members[4], js_code, indent_level)
     js_code.append('\n')
+
+  def emit_deletion(self, delete_statement, js_code, indent_level):
+    js_code.append(' ' * indent_level)
+    # TODO: handle the deletion of an identifier chain.
+    js_code.append(delete_statement.members[1].members[0].members[0] + ' = null;\n')
 
   def emit_while_statement(self, while_statement, js_code, indent_level):
     js_code.append(' ' * indent_level)
@@ -1192,6 +1204,8 @@ class ConverterToJavaScript(HeadspaceConverter):
         self.emit_variable_declaration(member, js_code, indent_level + 2)
       elif member.node_type == 'ASSIGNMENT':
         self.emit_assignment_statement(member, js_code, indent_level + 2)
+      elif member.node_type == 'MEMBER_ASSIGNMENT':
+        self.emit_member_assignment_statement(member, js_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, js_code, indent_level + 2)
       elif member.node_type == 'WHILE_STATEMENT':
@@ -1200,6 +1214,8 @@ class ConverterToJavaScript(HeadspaceConverter):
         js_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, js_code, 0)
         js_code.append(';\n')
+      elif member.node_type == 'DELETE_STATEMENT':
+        self.emit_deletion(member, js_code, indent_level + 2)
     if indent_level > 0:
       js_code.append(' ' * indent_level)
     #js_code.append('}\n')
@@ -1240,6 +1256,30 @@ class ConverterToJavaScript(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), js_code, indent_level)
     js_code.append('\n')
 
+  def emit_class_instantiation(self, class_name, js_code, indent_level):
+    if self.symbol_table.find_symbol(class_name) != 'CLASS':
+      print('Unable to instantiate unknown class:', class_name)
+      sys.exit(1)
+    # TODO: need to support imported classes.
+    js_code.append('new ' + class_name + '()')
+
+  def emit_class_definition(self, class_declaration_node, js_code, indent_level):
+    class_name = class_declaration_node.members[0].members[0]
+    js_code.append(' ' * indent_level)
+    js_code.append('class ' + class_name + ' {\n')
+    js_code.append(' ' * indent_level)
+    js_code.append('  constructor() {\n')
+    js_code.append(' ' * indent_level)
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          js_code.append(' ' * (indent_level + 4))
+          js_code.append('this.' + class_member_node.members[0].members[0] + ' = null;\n')
+    js_code.append(' ' * (indent_level + 2))
+    js_code.append('}\n')
+    js_code.append(' ' * indent_level)
+    js_code.append('}\n\n')
+
   def emit_code(self):
     js_code = []
     module_details = self.find_module_details()
@@ -1256,6 +1296,8 @@ class ConverterToJavaScript(HeadspaceConverter):
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_definition(module_level_member, js_code, 0)
+      elif module_level_member.node_type == 'CLASS_DECLARATION':
+        self.emit_class_definition(module_level_member, js_code, 0)
 
     main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
