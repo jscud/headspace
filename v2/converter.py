@@ -15,7 +15,7 @@ import os
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
 # - importing modules                    c  py  go  js  java  c#
-# - declaring classes                    c
+# - declaring classes                    c  py  go
 # - memory allocation                    c
 # - passing references
 # - raising exceptions/errors
@@ -103,7 +103,7 @@ class ModuleDetails:
       java_path_parts.extend(self.package_name_parts)
       return '.'.join(java_path_parts)
     elif target_language == 'dotnet':
-      capitalized_package_name_parts = [name.capitalize() for name in self.package_name_parts]
+      capitalized_package_name_parts = [capitalize_first_letter(name) for name in self.package_name_parts]
       return '.'.join(capitalized_package_name_parts)
     return ''
 
@@ -147,7 +147,7 @@ def convert_module_to_language_import(module_details, target_language):
   elif target_language == 'javascript':
     return module_details.module_name
   elif target_language == 'java':
-    return '.'.join(module_details.to_file_path('java').split('/')) + '.' + module_details.module_name.capitalize()
+    return '.'.join(module_details.to_file_path('java').split('/')) + '.' + capitalize_first_letter(module_details.module_name)
   elif target_language == 'dotnet':
     return module_details.to_namespace('dotnet')
   else:
@@ -639,8 +639,7 @@ class ConverterToPython(HeadspaceConverter):
 
   def emit_identifier_chain(self, identifier_chain_node, py_code, indent_level):
     for member in identifier_chain_node.members:
-      if member.node_type == 'IDENTIFIER':
-        py_code.append(member.members[0])
+      py_code.append(member.members[0])
 
   def emit_return_statement(self, return_statement_node, py_code, indent_level):
     if return_statement_node.members[0]:
@@ -677,6 +676,14 @@ class ConverterToPython(HeadspaceConverter):
     self.emit_code_statement(assignment_statement.members[2], py_code, 0)
     py_code.append('\n')
 
+  def emit_member_assignment_statement(self, member_assignment_statement, py_code, indent_level):
+    py_code.append(' ' * indent_level)
+    if member_assignment_statement.members[0].node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(member_assignment_statement.members[0], py_code, indent_level)
+    py_code.append(' = ')
+    self.emit_code_statement(member_assignment_statement.members[1].members[1], py_code, 0)
+    py_code.append('\n')
+
   def emit_if_statement(self, if_statement, py_code, indent_level):
     py_code.append(' ' * indent_level)
     py_code.append('if ')
@@ -697,6 +704,11 @@ class ConverterToPython(HeadspaceConverter):
     py_code.append(':\n')
     self.emit_code_block(while_statement.members[2], py_code, indent_level)
 
+  def emit_deletion(self, delete_statement, py_code, indent_level):
+    py_code.append(' ' * indent_level)
+    # TODO: handle the deletion of an identifier chain.
+    py_code.append('del ' + delete_statement.members[1].members[0].members[0] + '\n')
+
   def emit_code_block(self, code_block_node, py_code, indent_level):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
@@ -709,6 +721,8 @@ class ConverterToPython(HeadspaceConverter):
         self.emit_variable_declaration(member, py_code, indent_level + 2)
       elif member.node_type == 'ASSIGNMENT':
         self.emit_assignment_statement(member, py_code, indent_level + 2)
+      elif member.node_type == 'MEMBER_ASSIGNMENT':
+        self.emit_member_assignment_statement(member, py_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, py_code, indent_level + 2)
       elif member.node_type == 'WHILE_STATEMENT':
@@ -717,6 +731,8 @@ class ConverterToPython(HeadspaceConverter):
         py_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, py_code, 0)
         py_code.append('\n')
+      elif member.node_type == 'DELETE_STATEMENT':
+        self.emit_deletion(member, py_code, indent_level + 2)
 
   def emit_function_body(self, function_body_node, py_code, indent_level):
     self.emit_code_block(function_body_node, py_code, indent_level)
@@ -743,6 +759,30 @@ class ConverterToPython(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), py_code, indent_level)
     py_code.append('\n')
 
+  def emit_class_instantiation(self, class_name, py_code, indent_level):
+    if self.symbol_table.find_symbol(class_name) != 'CLASS':
+      print('Unable to instantiate unknown class:', class_name)
+      sys.exit(1)
+    # TODO: need to support imported classes.
+    py_code.append(class_name + '()')
+
+  def emit_class_definition(self, class_declaration_node, py_code, indent_level):
+    class_name = class_declaration_node.members[0].members[0]
+    py_code.append(' ' * indent_level)
+    py_code.append('class ' + class_name + ':\n\n')
+    py_code.append(' ' * indent_level)
+    py_code.append('  def __init__(self):\n')
+    py_code.append(' ' * indent_level)
+    member_count = 0
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          py_code.append('    self.' + class_member_node.members[0].members[0] + ' = None\n')
+          member_count += 1
+    if member_count == 0:
+      py_code.append('    pass\n')
+    py_code.append('\n\n')
+
   def emit_code(self):
     py_code = []
     module_details = self.find_module_details()
@@ -757,6 +797,8 @@ class ConverterToPython(HeadspaceConverter):
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_definition(module_level_member, py_code, 0)
+      elif module_level_member.node_type == 'CLASS_DECLARATION':
+        self.emit_class_definition(module_level_member, py_code, 0)
 
     main_function_declaration = find_main_function(self.tree)
     if main_function_declaration:
@@ -812,8 +854,7 @@ class ConverterToGo(HeadspaceConverter):
           go_code.append(function_call_node.members[1].members[1].members[0].members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-          for chain_entry in function_call_node.members[1].members[1].members[0].members:
-            go_code.append(chain_entry.members[0])
+          self.emit_identifier_chain(function_call_node.members[1].members[1].members[0], go_code, 0)
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], go_code, 0)
@@ -844,9 +885,14 @@ class ConverterToGo(HeadspaceConverter):
           sys.exit(1)
 
   def emit_identifier_chain(self, identifier_chain_node, go_code, indent_level):
+    first_member = True
     for member in identifier_chain_node.members:
-      if member.node_type == 'IDENTIFIER':
+      if first_member:
         go_code.append(member.members[0])
+        first_member = False
+      else:
+        # TODO: can we always assume that a member in Go will be capitalized? (Default public)
+        go_code.append(capitalize_first_letter(member.members[0]))
 
   def emit_return_statement(self, return_statement_node, go_code, indent_level):
     if return_statement_node.members[0]:
@@ -872,6 +918,14 @@ class ConverterToGo(HeadspaceConverter):
     self.emit_code_statement(assignment_statement.members[2], go_code, 0)
     go_code.append('\n')
 
+  def emit_member_assignment_statement(self, member_assignment_statement, go_code, indent_level):
+    go_code.append('\t' * indent_level)
+    if member_assignment_statement.members[0].node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(member_assignment_statement.members[0], go_code, indent_level)
+    go_code.append(' = ')
+    self.emit_code_statement(member_assignment_statement.members[1].members[1], go_code, 0)
+    go_code.append('\n')
+
   def emit_if_statement(self, if_statement, go_code, indent_level):
     go_code.append('\t' * indent_level)
     go_code.append('if ')
@@ -893,6 +947,13 @@ class ConverterToGo(HeadspaceConverter):
     self.emit_code_block(while_statement.members[2], go_code, indent_level)
     go_code.append('\n')
 
+  def emit_deletion(self, delete_statement, go_code, indent_level):
+    #go_code.append('\t' * indent_level)
+    # TODO: handle the deletion of an identifier chain.
+    #go_code.append(delete_statement.members[1].members[0].members[0] + ' = nil\n')
+    # TODO: if there is a pointer type, set it to nil.
+    pass
+
   def emit_code_block(self, code_block_node, go_code, indent_level):
     go_code.append('{\n')
     for member in code_block_node.members:
@@ -907,6 +968,8 @@ class ConverterToGo(HeadspaceConverter):
         self.emit_variable_declaration(member, go_code, indent_level + 1)
       elif member.node_type == 'ASSIGNMENT':
         self.emit_assignment_statement(member, go_code, indent_level + 1)
+      elif member.node_type == 'MEMBER_ASSIGNMENT':
+        self.emit_member_assignment_statement(member, go_code, indent_level + 1)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, go_code, indent_level + 1)
       elif member.node_type == 'WHILE_STATEMENT':
@@ -915,6 +978,8 @@ class ConverterToGo(HeadspaceConverter):
         go_code.append('\t' * (indent_level + 1))
         self.emit_code_statement(member, go_code, 0)
         go_code.append('\n')
+      elif member.node_type == 'DELETE_STATEMENT':
+        self.emit_deletion(member, go_code, indent_level + 1)
     if indent_level > 0:
       go_code.append('\t' * indent_level)
     go_code.append('}')
@@ -947,6 +1012,22 @@ class ConverterToGo(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), go_code, indent_level)
     go_code.append('\n')
 
+  def emit_class_instantiation(self, class_name, go_code, indent_level):
+    # TODO: need to support imported classes.
+    go_code.append(capitalize_first_letter(class_name) + '{}')
+
+  def emit_class_definition(self, class_declaration_node, go_code, indent_level):
+    class_name = capitalize_first_letter(class_declaration_node.members[0].members[0])
+    go_code.append('\t' * indent_level)
+    go_code.append('type ' + class_name + ' struct {\n')
+    go_code.append('\t' * indent_level)
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          go_code.append('\t' + capitalize_first_letter(class_member_node.members[0].members[0]) + ' ' + self.convert_data_type(class_member_node.members[2].members[0]) + '\n')
+    go_code.append('\t' * indent_level)
+    go_code.append('}\n\n')
+
   def emit_code(self):
     go_code = []
     module_details = self.find_module_details()
@@ -957,6 +1038,8 @@ class ConverterToGo(HeadspaceConverter):
     for module_level_member in self.tree.members:
       if module_level_member.node_type == 'FUNCTION_DECLARATION':
         self.emit_function_definition(module_level_member, go_body_code, 0)
+      elif module_level_member.node_type == 'CLASS_DECLARATION':
+        self.emit_class_definition(module_level_member, go_body_code, 0)
 
     if main_function_declaration:
       go_body_code.append('func main() ')
@@ -1228,7 +1311,7 @@ class ConverterToJava(HeadspaceConverter):
           symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
           if type(symbol_for_name) == ModuleDetails:
             # The first member in the chain is a module, use the class name to reference the static function.
-            java_code.append(chain_node.members[0].capitalize())
+            java_code.append(capitalize_first_letter(chain_node.members[0]))
           else:
             java_code.append(chain_node.members[0])
         # Emit the arguments for the function call.
@@ -1419,7 +1502,7 @@ class ConverterToDotNet(HeadspaceConverter):
           symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
           if type(symbol_for_name) == ModuleDetails:
             # The first member in the chain is a module, use the class name to reference the static function.
-            dotnet_code.append(chain_node.members[0].capitalize())
+            dotnet_code.append(capitalize_first_letter(chain_node.members[0]))
           else:
             dotnet_code.append(chain_node.members[0])
         # Emit the arguments for the function call.

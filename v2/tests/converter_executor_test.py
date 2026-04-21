@@ -208,7 +208,7 @@ class TestConvertToCAndExecute(unittest.TestCase):
     subprocess.run(['rm', executable_path], check=True)
 
   def test_converts_data_class(self):
-    """Example of while statements for C."""
+    """Example of simple class definition for C."""
     tree = parser.parse_source(DATA_CLASS_EXAMPLE)
     files = converter.convert(tree, 'c')
     self.assertEqual(2, len(files))
@@ -231,7 +231,6 @@ class TestConvertToCAndExecute(unittest.TestCase):
     subprocess.run(['rm', c_file_path], check=True)
     subprocess.run(['rm', h_file_path], check=True)
     subprocess.run(['rm', executable_path], check=True)
-
 
 
 class TestConvertToPythonAndExecute(unittest.TestCase):
@@ -261,6 +260,19 @@ class TestConvertToPythonAndExecute(unittest.TestCase):
     # Then execute the Python code.
     result = subprocess.run(['python3', file_path], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+
+  def test_converts_data_class(self):
+    """Example of simple class definition for Python."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertEqual(3, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    with open(file_path, 'w') as py_source:
+      py_source.write(files[0].content)
+    # Then execute the Python code.
+    result = subprocess.run(['python3', file_path], check=True, capture_output=True)
+    self.assertEqual(b'Class member x: 42\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
 
 
@@ -344,6 +356,22 @@ class TestConvertToGoAndExecute(unittest.TestCase):
     # Execute the Go code.
     result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
     self.assertEqual(b'Counting up to 5:\n1\n2\n3\n4\n5\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rmdir', package_path], check=True)
+
+  def test_converts_data_class(self):
+    """Example of simple class definition for Go."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    package_path = os.path.join('tests', 'test_output', 'dataclass')
+    subprocess.run(['mkdir', package_path], check=True)
+    with open(file_path, 'w') as go_source:
+      go_source.write(files[0].content)
+    # Execute the Go code.
+    result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
+    self.assertEqual(b'Class member x: 42\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rmdir', package_path], check=True)
 

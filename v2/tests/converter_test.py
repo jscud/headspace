@@ -242,6 +242,17 @@ class TestConvertToPython(unittest.TestCase):
     self.assertTrue('  while counter < 5:' in files[0].content)
     self.assertTrue('    counter += 1' in files[0].content)
 
+  def test_data_class(self):
+    """Example of declaring and using a class with Python."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertTrue('class DataClass:' in files[0].content)
+    self.assertTrue('  def __init__(self):' in files[0].content)
+    self.assertTrue('    self.x = None' in files[0].content)
+    self.assertTrue('  instance = DataClass()' in files[0].content)
+    self.assertTrue('  instance.x = 42' in files[0].content)
+    self.assertTrue('  del instance' in files[0].content)
+
 
 class TestConvertToGo(unittest.TestCase):
   """Convert the headspace code to Go."""
@@ -290,6 +301,17 @@ class TestConvertToGo(unittest.TestCase):
     files = converter.convert(tree, 'go')
     self.assertTrue('\tfor counter < 5' in files[0].content)
     self.assertTrue('\t\tcounter++' in files[0].content)
+
+  def test_data_class(self):
+    """Example of declaring and using a class with Go."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertTrue('type DataClass struct {' in files[0].content)
+    self.assertTrue('\tX int' in files[0].content)
+    self.assertTrue('\tvar instance DataClass' in files[0].content)
+    self.assertTrue('\tinstance = DataClass{}' in files[0].content)
+    self.assertTrue('\tinstance.X = 42' in files[0].content)
+    self.assertTrue('\tfmt.Printf("%d", instance.X)' in files[0].content)
 
 
 class TestConvertToJavaScript(unittest.TestCase):
