@@ -368,7 +368,6 @@ class TestConvertToJavaScript(unittest.TestCase):
     """Example of declaring and using a class with JavaScript."""
     tree = parser.parse_source(DATA_CLASS_EXAMPLE)
     files = converter.convert(tree, 'javascript')
-    print(files[0].content)
     self.assertTrue('class DataClass {' in files[0].content)
     self.assertTrue('  constructor() {' in files[0].content)
     self.assertTrue('    this.x = null;' in files[0].content)
