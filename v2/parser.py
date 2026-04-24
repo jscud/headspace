@@ -22,6 +22,7 @@ import lexer
 # importing modules - done
 # allocation memory
 # passing references
+# function references
 
 
 INFIX_OPERATORS = ['+', '==', '-', '<', '>']
@@ -84,6 +85,8 @@ class Parser:
         print('consumed@', debug_note)
         print(' ' * (self.debug_indent + 2), end='')
         self.current_token().print()
+      elif current_token.token_type == 'SPACE':
+        print('consumed@ current token is a space')
     self.index += 1
 
   def enter_method(self, debug_note):
@@ -267,7 +270,7 @@ class Parser:
     class_instantiation = Node('CLASS_INSTANTIATION')
     current_token = self.current_token()
     if not current_token or not current_token.matches('IDENTIFIER', 'new'):
-      print('Class instantiation must begin with new keyword')
+      print('Class instantiation must begin with the new keyword')
       sys.exit(1)
     class_instantiation.members.append(Node('NEW_KEYWORD', [current_token.content], True))
     self.consume_current_token('processed new keyowrd in class instantiation')
@@ -278,6 +281,23 @@ class Parser:
     self.process_function_call(class_instantiation)
     parent_node.members.append(class_instantiation)
     self.leave_method('process_class_instantiation')
+
+  def process_class_initialization(self, parent_node):
+    self.enter_method('process_class_initialization')
+    class_initialization = Node('CLASS_INITIALIZATION')
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('IDENTIFIER', 'init'):
+      print('Class initialization must begin with the init keyword')
+      sys.exit(1)
+    class_initialization.members.append(Node('INIT_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed init keyowrd in class initialization')
+    # The init keyword should be followed by what looks like a function call, executing the constructor.
+    self.process_whitespace(class_initialization)
+    self.process_identifier_chain(class_initialization)
+    self.process_whitespace(class_initialization)
+    self.process_function_call(class_initialization)
+    parent_node.members.append(class_initialization)
+    self.leave_method('process_class_initialization')
 
   def process_delete_statment(self, parent_node):
     self.enter_method('process_delete_statment')
@@ -315,6 +335,8 @@ class Parser:
     elif current_token and current_token.token_type == 'IDENTIFIER':
       if current_token.content == 'new':
         self.process_class_instantiation(parent_node)
+      elif current_token.content == 'init':
+        self.process_class_initialization(parent_node)
       else:
         sub_node = Node('temp')
         self.process_identifier_chain(sub_node)
@@ -539,7 +561,26 @@ class Parser:
         if current_token and current_token.matches('IDENTIFIER', 'function'):
           print('A function cannot be declared in a code block')
           sys.exit(1)
-        if not current_token or not current_token.token_type == 'IDENTIFIER':
+        elif current_token and current_token.matches('IDENTIFIER', 'reference'):
+          while current_token and current_token.matches('IDENTIFIER', 'reference'):
+            # Process the chain of references that come before the eventual variable type.
+            declaration_tree.members.append(Node('REFERENCE_MARKER', [current_token.content], True))
+            self.consume_current_token('processed reference keyword in variable declaration')
+            current_token = self.current_token()
+            if not current_token or not current_token.matches('SYMBOL', ':'):
+              print('When declaring a reference type, the : separator must appear after the reference keyword.')
+              sys.exit(1)
+            declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
+            self.consume_current_token('processed : after reference keyword in variable declaration')
+            current_token = self.current_token()
+          if current_token and current_token.token_type == 'IDENTIFIER':
+            declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+            self.consume_current_token('processed type identifier in reference variable declaration')
+            code_block.members.append(declaration_tree)
+          else:
+            print('The reference type declaration must end with an identfier for the type')
+            sys.exit(1)
+        elif not current_token or not current_token.token_type == 'IDENTIFIER':
           print('Variable declaration must end with a type for the variable')
           sys.exit(1)
         else:
@@ -610,6 +651,19 @@ class Parser:
         # Can't decalre a function in a parameters list.
         print('A function cannot be declared in a list of paramters.')
         sys.exit(1)
+      elif current_token and current_token.matches('IDENTIFIER', 'reference'):
+        # This is a reference (pointer) for another type.
+        declaration_tree.members.append(Node('REFERENCE_MARKER', [current_token.content], True))
+        self.consume_current_token('processed reference identifier in parameter declaration')
+        current_token = self.current_token()
+        self.process_whitespace(declaration_tree)
+        # TODO: handle a chain of references.
+        if not current_token or not current_token.matches('SYMBOL', ':'):
+          print('A reference marker must be followed by a variable type.')
+          sys.exit(1)
+        current_token = self.current_token()
+        declaration_tree.members.append(Node('REFERENCE_VARIABLE_TYPE', [current_token.content], True))
+        self.consume_current_token('processed type identifier in reference parameter declaration')
       else:
         # This is a variable declaration, use this identifier as the type.
         declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
@@ -735,6 +789,20 @@ class Parser:
       # This is a class declaration.
       declaration_tree.node_type = 'CLASS_DECLARATION'
       self.process_class_definition(declaration_tree)
+    elif current_token and current_token.matches('IDENTIFIER', 'reference'):
+      # TODO: combine this with parameter reference parsing.
+      # This is a reference (pointer) for another type.
+      declaration_tree.members.append(Node('REFERENCE_MARKER', [current_token.content], True))
+      self.consume_current_token('processed reference identifier in declaration')
+      current_token = self.current_token()
+      self.process_whitespace(declaration_tree)
+      # TODO: handle a chain of references.
+      if not current_token or not current_token.matches('SYMBOL', ':'):
+        print('A reference marker must be followed by a variable type.')
+        sys.exit(1)
+      # This is a reference variable declaration.
+      declaration_tree.members.append(Node('REFERENCE_VARIABLE_TYPE', [current_token.content], True))
+      self.consume_current_token('processed reference variable type identifier in declaration')
     else:
       # This is a variable declaration, use this identifier as the type.
       declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))

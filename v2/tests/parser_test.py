@@ -47,12 +47,29 @@ main:function:void[][
 """
 
 DATA_CLASS_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/dataclass"
+
 DataClass: class [
   x: int
 ]
 
 main: function: void[][
   instance:DataClass
+  instance = init DataClass[]
+  instance.x = 42
+  os.print["Class member x: "]
+  os.printInt[instance.x]
+  os.print["\\n"]
+]
+"""
+
+CLASS_REF_EXAMPLE = """
+DataClass: class [
+  x: int
+]
+
+main: function: void[][
+  instance:reference:DataClass
   instance = new DataClass[]
   instance.x = 42
   os.print["Class member x: "]
@@ -340,7 +357,7 @@ class TestParserParse(unittest.TestCase):
       example""", tree)
 
   def test_simple_class(self):
-    tree = parser.parse_source(DATA_CLASS_EXAMPLE) 
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
     self.assertTreeContains("""
     CLASS_DEFINITION:
       CLASS_KEYWORD:
@@ -357,9 +374,9 @@ class TestParserParse(unittest.TestCase):
       CLASS_MEMBERS_END:
         ]""", tree)
     self.assertTreeContains("""
-          CLASS_INSTANTIATION:
-            NEW_KEYWORD:
-              new
+          CLASS_INITIALIZATION:
+            INIT_KEYWORD:
+              init
             IDENTIFIER_CHAIN:
               IDENTIFIER:
                 DataClass
@@ -383,6 +400,34 @@ class TestParserParse(unittest.TestCase):
               =
             NUMBER_LITERAL:
               42""", tree)
+
+  def test_class_ref(self):
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    self.assertTreeContains("""
+        DECLARATION:
+          IDENTIFIER:
+            instance
+          DECLARATION_MARKER:
+            :
+          REFERENCE_MARKER:
+            reference
+          DECLARATION_MARKER:
+            :
+          VARIABLE_TYPE:
+            DataClass""", tree)
+    self.assertTreeContains("""
+          CLASS_INSTANTIATION:
+            NEW_KEYWORD:
+              new
+            IDENTIFIER_CHAIN:
+              IDENTIFIER:
+                DataClass
+            FUNCTION_CALL_ARGUMENTS:
+              ARG_LIST_START:
+                [
+              ARGUMENTS:
+              ARG_LIST_END:
+                ]""", tree)
     self.assertTreeContains("""
         DELETE_STATEMENT:
           DELETE_KEYWORD:
