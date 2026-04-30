@@ -55,7 +55,7 @@ DataClass: class [
 
 main: function: void[][
   instance:DataClass
-  instance = init DataClass[]
+  new[instance]
   instance.x = 42
   os.print["Class member x: "]
   os.printInt[instance.x]
@@ -70,12 +70,12 @@ DataClass: class [
 
 main: function: void[][
   instance:reference:DataClass
-  instance = new DataClass[]
+  allocate[instance]
   instance.x = 42
   os.print["Class member x: "]
   os.printInt[instance.x]
   os.print["\\n"]
-  delete instance
+  release[instance]
 ]
 """
 
@@ -374,18 +374,19 @@ class TestParserParse(unittest.TestCase):
       CLASS_MEMBERS_END:
         ]""", tree)
     self.assertTreeContains("""
-          CLASS_INITIALIZATION:
-            INIT_KEYWORD:
-              init
-            IDENTIFIER_CHAIN:
-              IDENTIFIER:
-                DataClass
-            FUNCTION_CALL_ARGUMENTS:
-              ARG_LIST_START:
-                [
-              ARGUMENTS:
-              ARG_LIST_END:
-                ]""", tree)
+        FUNCTION_CALL:
+          IDENTIFIER_CHAIN:
+            IDENTIFIER:
+              new
+          FUNCTION_CALL_ARGUMENTS:
+            ARG_LIST_START:
+              [
+            ARGUMENTS:
+              IDENTIFIER_CHAIN:
+                IDENTIFIER:
+                  instance
+            ARG_LIST_END:
+              ]""", tree)
     self.assertTreeContains("""
         MEMBER_ASSIGNMENT:
           IDENTIFIER_CHAIN:
@@ -416,25 +417,33 @@ class TestParserParse(unittest.TestCase):
           VARIABLE_TYPE:
             DataClass""", tree)
     self.assertTreeContains("""
-          CLASS_INSTANTIATION:
-            NEW_KEYWORD:
-              new
-            IDENTIFIER_CHAIN:
-              IDENTIFIER:
-                DataClass
-            FUNCTION_CALL_ARGUMENTS:
-              ARG_LIST_START:
-                [
-              ARGUMENTS:
-              ARG_LIST_END:
-                ]""", tree)
-    self.assertTreeContains("""
-        DELETE_STATEMENT:
-          DELETE_KEYWORD:
-            delete
+        FUNCTION_CALL:
           IDENTIFIER_CHAIN:
             IDENTIFIER:
-              instance""", tree)
+              allocate
+          FUNCTION_CALL_ARGUMENTS:
+            ARG_LIST_START:
+              [
+            ARGUMENTS:
+              IDENTIFIER_CHAIN:
+                IDENTIFIER:
+                  instance
+            ARG_LIST_END:
+              ]""", tree)
+    self.assertTreeContains("""
+        FUNCTION_CALL:
+          IDENTIFIER_CHAIN:
+            IDENTIFIER:
+              release
+          FUNCTION_CALL_ARGUMENTS:
+            ARG_LIST_START:
+              [
+            ARGUMENTS:
+              IDENTIFIER_CHAIN:
+                IDENTIFIER:
+                  instance
+            ARG_LIST_END:
+              ]""", tree)
 
 
 if __name__ == '__main__':
