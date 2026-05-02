@@ -102,6 +102,24 @@ main: function: void[][
 ]
 """
 
+CLASS_REF_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/classref"
+
+DataClass: class [
+  x: int
+]
+
+main: function: void[][
+  instance:reference:DataClass
+  allocate[instance]
+  instance.x = 99
+  os.print["Class member x: "]
+  os.printInt[instance.x]
+  os.print["\\n"]
+  release[instance]
+]
+"""
+
 
 class TestConvertToCAndExecute(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -373,6 +391,21 @@ class TestConvertToGoAndExecute(unittest.TestCase):
     self.assertEqual(b'Class member x: 42\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rmdir', package_path], check=True)
+
+  def test_converts_class_ref(self):
+    """Example of class references for Go."""
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    package_path = os.path.join('tests', 'test_output', 'classref')
+    subprocess.run(['mkdir', package_path], check=True)
+    with open(file_path, 'w') as go_source:
+      go_source.write(files[0].content)
+    # Execute the Go code.
+    result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
+    self.assertEqual(b'Class member x: 99\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
 
 
 class TestConvertToJavaScriptAndExecute(unittest.TestCase):

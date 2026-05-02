@@ -1161,7 +1161,7 @@ class ConverterToGo(HeadspaceConverter):
     if type(target_type) == str and 'REF:' in target_type:
       class_type = target_type.split(':')[-1]
       go_code.append('\t' * indent_level)
-      go_code.append(initialization_target + ' := new(' + class_type + ')')
+      go_code.append(initialization_target + ' = new(' + class_type + ')')
     else:
       print('The recipient of the allocate call must be a reference to a type.')
       sys.exit(1)

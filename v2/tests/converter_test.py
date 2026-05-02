@@ -365,7 +365,7 @@ class TestConvertToGo(unittest.TestCase):
     tree = parser.parse_source(CLASS_REF_EXAMPLE)
     files = converter.convert(tree, 'go')
     self.assertTrue('\tvar instance *DataClass' in files[0].content)
-    self.assertTrue('\tinstance := new(DataClass)' in files[0].content)
+    self.assertTrue('\tinstance = new(DataClass)' in files[0].content)
     self.assertTrue('\tinstance = nil' in files[0].content)
 
 
