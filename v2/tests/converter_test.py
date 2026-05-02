@@ -97,6 +97,7 @@ main:function:void[][
 ]
 """
 
+# Uses the data class as a local stack variable (struct in C and Go).
 DATA_CLASS_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/dataclass"
 
@@ -106,15 +107,32 @@ DataClass: class [
 
 main: function: void[][
   instance:DataClass
-  instance = new DataClass[]
+  new[instance]
   instance.x = 42
   os.print["Class member x: "]
   os.printInt[instance.x]
   os.print["\\n"]
-  delete instance
 ]
 """
 
+# Uses the data class as a refernce to a heap instance (pointer in C).
+CLASS_REF_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/classref"
+
+DataClass: class [
+  x: int
+]
+
+main: function: void[][
+  instance:reference:DataClass
+  allocate[instance]
+  instance.x = 42
+  os.print["Class member x: "]
+  os.printInt[instance.x]
+  os.print["\\n"]
+  release[instance]
+]
+"""
 
 class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -177,22 +195,43 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('#include"headspace/tests/moduleB.h"' in files[1].content)
 
   def test_data_class(self):
-    """Example of declaring and using a class with C."""
+    """Example of declaring and using a class reference with C."""
     tree = parser.parse_source(DATA_CLASS_EXAMPLE)
     files = converter.convert(tree, 'c')
     # Check .c file contents.
     self.assertTrue('dataclass_DataClass* dataclass_DataClass_constructor(void) {' in files[0].content)
     self.assertTrue('  return malloc(sizeof(dataclass_DataClass));' in files[0].content)
-    self.assertTrue('  dataclass_DataClass* instance;' in files[0].content)
-    self.assertTrue('  instance = dataclass_DataClass_constructor();' in files[0].content)
-    self.assertTrue('  instance->x = 42;' in files[0].content)
-    self.assertTrue('  printf("%d", instance->x);' in files[0].content)
-    self.assertTrue('  free(instance);' in files[0].content)
+    self.assertTrue('  dataclass_DataClass instance;' in files[0].content)
+    self.assertTrue('  dataclass_DataClass_init(&instance);' in files[0].content)
+    self.assertTrue('  instance.x = 42;' in files[0].content)
+    self.assertTrue('  printf("%d", instance.x);' in files[0].content)
+    self.assertFalse('  classref_DataClass* instance;' in files[0].content)
+    self.assertFalse('  instance->x = 42;' in files[0].content)
+    self.assertFalse('  printf("%d", instance->x);' in files[0].content)
+    self.assertFalse('  free(instance);' in files[0].content)
     # Check .h file contents.
     self.assertTrue('typedef struct {' in files[1].content)
     self.assertTrue('  int x;' in files[1].content)
     self.assertTrue('} dataclass_DataClass;' in files[1].content)
+    self.assertTrue('void dataclass_DataClass_init(dataclass_DataClass* this);' in files[1].content)
     self.assertTrue('dataclass_DataClass* dataclass_DataClass_constructor(void);' in files[1].content)
+
+  def test_class_ref(self):
+    """Example of declaring and using a class reference with C."""
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    # Check .c file contents.
+    self.assertTrue('  classref_DataClass* instance;' in files[0].content)
+    self.assertTrue('  instance = classref_DataClass_constructor();' in files[0].content)
+    self.assertTrue('  instance->x = 42;' in files[0].content)
+    self.assertTrue('  printf("%d", instance->x);' in files[0].content)
+    self.assertTrue('  free(instance);' in files[0].content)
+    self.assertFalse('  classref_DataClass instance;' in files[0].content)
+    self.assertFalse('  instance.x = 42;' in files[0].content)
+    self.assertFalse('  printf("%d", instance.x);' in files[0].content)
+    # Check .h file contents.
+    self.assertTrue('void classref_DataClass_init(classref_DataClass* this);' in files[1].content)
+    self.assertTrue('classref_DataClass* classref_DataClass_constructor(void);' in files[1].content)
 
 
 class TestConvertToPython(unittest.TestCase):
@@ -249,6 +288,14 @@ class TestConvertToPython(unittest.TestCase):
     self.assertTrue('class DataClass:' in files[0].content)
     self.assertTrue('  def __init__(self):' in files[0].content)
     self.assertTrue('    self.x = None' in files[0].content)
+    self.assertTrue('  instance = DataClass()' in files[0].content)
+    self.assertTrue('  instance.x = 42' in files[0].content)
+    self.assertFalse('  del instance' in files[0].content)
+
+  def test_class_ref(self):
+    """Example of declaring and using a class reference with Python."""
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    files = converter.convert(tree, 'python')
     self.assertTrue('  instance = DataClass()' in files[0].content)
     self.assertTrue('  instance.x = 42' in files[0].content)
     self.assertTrue('  del instance' in files[0].content)
@@ -313,6 +360,14 @@ class TestConvertToGo(unittest.TestCase):
     self.assertTrue('\tinstance.X = 42' in files[0].content)
     self.assertTrue('\tfmt.Printf("%d", instance.X)' in files[0].content)
 
+  def test_class_ref(self):
+    """Example of declaring and using a class reference with Go."""
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertTrue('\tvar instance *DataClass' in files[0].content)
+    self.assertTrue('\tinstance := new(DataClass)' in files[0].content)
+    self.assertTrue('\tinstance = nil' in files[0].content)
+
 
 class TestConvertToJavaScript(unittest.TestCase):
   """Convert the headspace code to JavaScript."""
@@ -374,6 +429,14 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertTrue('  instance = new DataClass();' in files[0].content)
     self.assertTrue('  instance.x = 42;' in files[0].content)
     self.assertTrue('  process.stdout.write("" + instance.x);' in files[0].content)
+    self.assertFalse('  instance = null;' in files[0].content)
+
+  def test_class_ref(self):
+    """Example of declaring and using a class reference with JavaScript."""
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertTrue('  instance = new DataClass();' in files[0].content)
+    self.assertTrue('  instance.x = 42;' in files[0].content)
     self.assertTrue('  instance = null;' in files[0].content)
 
 

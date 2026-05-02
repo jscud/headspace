@@ -94,12 +94,11 @@ DataClass: class [
 
 main: function: void[][
   instance:DataClass
-  instance = new DataClass[]
+  new[instance]
   instance.x = 42
   os.print["Class member x: "]
   os.printInt[instance.x]
   os.print["\\n"]
-  delete instance
 ]
 """
 
@@ -423,7 +422,7 @@ class TestConvertToJavaScriptAndExecute(unittest.TestCase):
     subprocess.run(['rm', package_file_path], check=True)
 
   def test_converts_data_class(self):
-    """Example of simple class definition for JavaScripty."""
+    """Example of simple class definition for JavaScript."""
     tree = parser.parse_source(DATA_CLASS_EXAMPLE)
     files = converter.convert(tree, 'javascript')
     self.assertEqual(2, len(files))

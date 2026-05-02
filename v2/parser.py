@@ -265,56 +265,6 @@ class Parser:
     parent_node.members.append(infix_operation)
     self.leave_method('process_infix_operation')
 
-  def process_class_instantiation(self, parent_node):
-    self.enter_method('process_class_instantiation')
-    class_instantiation = Node('CLASS_INSTANTIATION')
-    current_token = self.current_token()
-    if not current_token or not current_token.matches('IDENTIFIER', 'new'):
-      print('Class instantiation must begin with the new keyword')
-      sys.exit(1)
-    class_instantiation.members.append(Node('NEW_KEYWORD', [current_token.content], True))
-    self.consume_current_token('processed new keyowrd in class instantiation')
-    # The new keyword should be followed by what looks like a function call, executing the constructor.
-    self.process_whitespace(class_instantiation)
-    self.process_identifier_chain(class_instantiation)
-    self.process_whitespace(class_instantiation)
-    self.process_function_call(class_instantiation)
-    parent_node.members.append(class_instantiation)
-    self.leave_method('process_class_instantiation')
-
-  def process_class_initialization(self, parent_node):
-    self.enter_method('process_class_initialization')
-    class_initialization = Node('CLASS_INITIALIZATION')
-    current_token = self.current_token()
-    if not current_token or not current_token.matches('IDENTIFIER', 'init'):
-      print('Class initialization must begin with the init keyword')
-      sys.exit(1)
-    class_initialization.members.append(Node('INIT_KEYWORD', [current_token.content], True))
-    self.consume_current_token('processed init keyowrd in class initialization')
-    # The init keyword should be followed by what looks like a function call, executing the constructor.
-    self.process_whitespace(class_initialization)
-    self.process_identifier_chain(class_initialization)
-    self.process_whitespace(class_initialization)
-    self.process_function_call(class_initialization)
-    parent_node.members.append(class_initialization)
-    self.leave_method('process_class_initialization')
-
-  def process_delete_statment(self, parent_node):
-    self.enter_method('process_delete_statment')
-    delete_statement = Node('DELETE_STATEMENT')
-    current_token = self.current_token()
-    if not current_token or not current_token.matches('IDENTIFIER', 'delete'):
-      print('Delete statement must begin with delete keyword')
-      sys.exit(1)
-    delete_statement.members.append(Node('DELETE_KEYWORD', [current_token.content], True))
-    self.consume_current_token('processed delete keyowrd in delete statement')
-    # The delete keyword should be followed by an identifier.
-    self.process_whitespace(delete_statement)
-    self.process_identifier_chain(delete_statement)
-    self.process_whitespace(delete_statement)
-    parent_node.members.append(delete_statement)
-    self.leave_method('process_delete_statment')
-
   def process_rvalue(self, parent_node):
     self.enter_method('process_rvalue')
     current_token = self.current_token()
@@ -333,22 +283,17 @@ class Parser:
       parent_node.members.append(Node('NUMBER_LITERAL', [current_token.content], True))
       self.consume_current_token('processed number rvalue')
     elif current_token and current_token.token_type == 'IDENTIFIER':
-      if current_token.content == 'new':
-        self.process_class_instantiation(parent_node)
-      elif current_token.content == 'init':
-        self.process_class_initialization(parent_node)
+      sub_node = Node('temp')
+      self.process_identifier_chain(sub_node)
+      current_token = self.current_token()
+      if current_token and current_token.matches('SYMBOL', '['):
+        # This is a function/method call.
+        self.process_function_call(sub_node)
+        sub_node.node_type = 'FUNCTION_CALL'
+        parent_node.members.append(sub_node)
       else:
-        sub_node = Node('temp')
-        self.process_identifier_chain(sub_node)
-        current_token = self.current_token()
-        if current_token and current_token.matches('SYMBOL', '['):
-          # This is a function/method call.
-          self.process_function_call(sub_node)
-          sub_node.node_type = 'FUNCTION_CALL'
-          parent_node.members.append(sub_node)
-        else:
-          # This is just an identifier chain so add the chain directly.
-          parent_node.members.append(sub_node.members[0])
+        # This is just an identifier chain so add the chain directly.
+        parent_node.members.append(sub_node.members[0])
     self.process_whitespace(parent_node)
     self.leave_method('process_rvalue')
 
@@ -539,10 +484,6 @@ class Parser:
         current_token = self.current_token()
       elif current_token.content == 'while':
         self.process_while_statement(code_block)
-        self.process_whitespace(code_block)
-        current_token = self.current_token()
-      elif current_token.content == 'delete':
-        self.process_delete_statment(code_block)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       elif next_token and next_token.matches('SYMBOL', ':'):

@@ -46,6 +46,8 @@ class SourceCodeFile:
 
 class SymbolTable:
 
+  # TODO: add support for reference types and chained references.
+
   def __init__(self, parent_table=None):
     self.parent_table = parent_table
     self.symbols = {}
@@ -86,7 +88,6 @@ class ModuleDetails:
     print('  module_name:', self.module_name)
 
   def to_import(self, target_language):
-    #if target_language == 'c':
     return ''
 
   def to_namespace(self, target_language):
@@ -166,13 +167,27 @@ def find_class_identifier(class_declaration_node):
   return class_declaration_node.members[0].members[0]
 
 
+def extract_identifier_type(declaration_node):
+  if declaration_node.node_type == 'DECLARATION':
+    member_index = 0
+    identifier_name = declaration_node.members[member_index].members[0]
+    member_index += 2
+    identifier_type_parts = []
+    while member_index < len(declaration_node.members) and declaration_node.members[member_index].members[0] == 'reference':
+      identifier_type_parts.append('REF')
+      member_index += 2
+    identifier_type_parts.append(declaration_node.members[member_index].members[0])
+    identifier_type = ':'.join(identifier_type_parts)
+    return (identifier_name, identifier_type)
+  return None
+
+
 def find_function_parameters(function_declaration_node):
   params = []
   for node in function_declaration_node.members[2].members:
-    if node.node_type == 'DECLARATION':
-      param_name = node.members[0].members[0]
-      param_type = node.members[2].members[0]
-      params.append((param_name, param_type))
+    identifier = extract_identifier_type(node)
+    if identifier:
+      params.append(identifier)
   return params
 
 
@@ -190,7 +205,6 @@ def capitalize_first_letter(input_str):
 
 class HeadspaceConverter:
 
-  #TODO: add a symbol table
   # For the C converter, the module name needs to become a prefix
   # When a library method is called, it needs to be changed from lib.func to lib_func for C.
 
@@ -225,8 +239,6 @@ class HeadspaceConverter:
         source_code.append(' ' + self.convert_operator(statement_node.members[0]) + ' ')
     elif statement_node.node_type == 'NUMBER_LITERAL' or statement_node.node_type == 'STRING_LITERAL':
       source_code.append(statement_node.members[0])
-    elif statement_node.node_type == 'CLASS_INSTANTIATION':
-      self.emit_class_instantiation(find_class_identifier(statement_node.members[1]), source_code, indent_level)
 
   def emit_condition_expression(self, condition_expression, source_code, indent_level):
     self.emit_code_statement(condition_expression.members[1], source_code, 0)
@@ -250,7 +262,6 @@ class HeadspaceConverter:
           top_node.members[2].node_type == 'STRING_LITERAL' and
           top_node.members[2].members[0][0] == '"'):
         self.module_details = parse_module_id(top_node.members[2].members[0][1:-1])
-        #self.module_name = top_node.members[2].members[0][1:-1]
         return self.module_details
     # The module name is required, so we know what to name the output files.
     if not self.module_details:
@@ -271,10 +282,8 @@ class HeadspaceConverter:
       # TODO: also process variable declarations, but scoped to the code block level.
       elif member.node_type == 'DECLARATION':
         # Code blocks need their own scoped symbol table for things like local vars to be able to do -> access patterns for pointers in C.
-        variable_declaration_node = member
-        variable_name = variable_declaration_node.members[0].members[0]
-        variable_type = variable_declaration_node.members[2].members[0]
-        self.symbol_table.set_symbol(variable_name, variable_type)
+        identifier_with_type = extract_identifier_type(member)
+        self.symbol_table.set_symbol(identifier_with_type[0], identifier_with_type[1])
 
 
 class ConverterToC(HeadspaceConverter):
@@ -306,6 +315,12 @@ class ConverterToC(HeadspaceConverter):
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], c_code, 0)
         c_code.append(')')
+      elif function_call_node.members[0].members[0].members[0] == 'new':
+        self.emit_constructor_call(function_call_node.members[1].members[1], c_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'allocate':
+        self.emit_allocator_call(function_call_node.members[1].members[1], c_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'release':
+        self.emit_release_call(function_call_node.members[1].members[1], c_code, indent_level)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         c_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
@@ -333,6 +348,9 @@ class ConverterToC(HeadspaceConverter):
         # This is a local function it needs the module name as a prefix.
         c_code.append(self.module_details.module_name + '_' + chain_node.members[0])
       elif self.symbol_table.find_symbol(symbol_for_name) == 'CLASS':
+        c_code.append(chain_node.members[0])
+      elif type(symbol_for_name) == str and len(symbol_for_name.split(':')) > 1:
+        # This is a reference type, so use -> access instead of .
         c_code.append(chain_node.members[0] + '->')
         skip_next_dot = True
       elif type(symbol_for_name) == ModuleDetails:
@@ -357,13 +375,29 @@ class ConverterToC(HeadspaceConverter):
       return 'int32_t'
     elif self.symbol_table.find_symbol(provided_type) == 'CLASS':
       # This is a locally defined class, so use the reference type with the module prefix.
-      return self.module_details.module_name + '_' + provided_type + '*'
+      return self.module_details.module_name + '_' + provided_type
     else:
       return provided_type
 
   def emit_variable_declaration(self, variable_declaration, c_code, indent_level):
     c_code.append(' ' * indent_level)
-    c_code.append(self.convert_data_type(variable_declaration.members[2].members[0]) + ' ' + variable_declaration.members[0].members[0] + ';\n')
+    # Here, we need the type for the variable for real...
+    identifier_and_type = extract_identifier_type(variable_declaration)
+    type_parts = identifier_and_type[1].split(':')
+    variable_type = None
+    if len(type_parts) > 1:
+      # This is a reference type, count the depth of the references.
+      ref_levels = 0
+      final_data_type = None
+      for type_segment in type_parts:
+        if type_segment == 'REF':
+          ref_levels += 1
+        else:
+          final_data_type = self.convert_data_type(type_segment)
+      variable_type = final_data_type + ('*' * ref_levels)
+    else:
+      variable_type = identifier_and_type[1]
+    c_code.append(self.convert_data_type(variable_type) + ' ' + identifier_and_type[0] + ';\n')
 
   def emit_assignment_statement(self, assignment_statement, c_code, indent_level):
     c_code.append(' ' * indent_level)
@@ -402,11 +436,6 @@ class ConverterToC(HeadspaceConverter):
     c_code.append(')')
     self.emit_code_block(while_statement.members[2], c_code, indent_level)
 
-  def emit_deletion(self, delete_statement, c_code, indent_level):
-    c_code.append(' ' * indent_level)
-    # TODO: handle the deletion of an identifier chain.
-    c_code.append('free(' + delete_statement.members[1].members[0].members[0] + ');\n')
-
   def emit_code_block(self, code_block_node, c_code, indent_level):
     # Start by gathering symbols in the code block to get the correct types for local variables.
     block_symbol_table = SymbolTable(self.symbol_table)
@@ -439,8 +468,6 @@ class ConverterToC(HeadspaceConverter):
         c_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, c_code, 0)
         c_code.append(';\n')
-      elif member.node_type == 'DELETE_STATEMENT':
-        self.emit_deletion(member, c_code, indent_level + 2)
     c_code.append(' ' * indent_level)
     c_code.append('}\n')
 
@@ -494,12 +521,41 @@ class ConverterToC(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), c_code, indent_level)
     c_code.append('\n')
 
-  def emit_class_instantiation(self, class_name, c_code, indent_level):
-    if self.symbol_table.find_symbol(class_name) != 'CLASS':
-      print('Unable to instantiate unknown class:', class_name)
+  def emit_constructor_call(self, init_args_node, c_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling new, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # TODO: need to support imported classes.
+    c_code.append(' ' * indent_level)
+    c_code.append(self.module_details.module_name + '_' + target_type + '_init(&' + initialization_target + ')')
+
+  def emit_allocator_call(self, init_args_node, c_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling allocate, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # Since this is an allocate call, we assume the variable must be a reference type.
+    if type(target_type) == str and 'REF:' in target_type:
+      class_type = target_type.split(':')[-1]
+      c_code.append(' ' * indent_level)
+      c_code.append(initialization_target + ' = ' + self.module_details.module_name + '_' + class_type + '_constructor()')
+    else:
+      print('The recipient of the allocate call must be a reference to a type.')
       sys.exit(1)
     # TODO: need to support imported classes.
-    c_code.append(self.module_details.module_name + '_' + class_name + '_constructor()')
+
+  def emit_release_call(self, release_args_node, c_code, indent_level):
+    if len(release_args_node.members) < 1:
+      print('When calling release, an argument for the variable to be freed must be present.')
+      sys.exit(1)
+    release_target = release_args_node.members[0].members[0].members[0]
+    c_code.append(' ' * indent_level)
+    c_code.append('free(' + release_target + ')')
 
   def emit_class_signature(self, class_declaration_node, h_code, indent_level):
     class_name = self.module_details.module_name + '_' + class_declaration_node.members[0].members[0]
@@ -514,11 +570,17 @@ class ConverterToC(HeadspaceConverter):
     h_code.append('} ' + class_name + ';\n\n')
     # Add a constructor function that allocates memory.
     h_code.append(' ' * indent_level)
+    h_code.append('void ' + class_name + '_init(' + class_name + '* this);\n')
+    h_code.append(' ' * indent_level)
     h_code.append(class_name + '* ' + class_name + '_constructor(void);\n')
 
   def emit_class_definition(self, class_declaration_node, c_code, indent_level):
     # Note that the typedef was added to the .h file, this .c file should contain the constructor function definition.
     class_name = self.module_details.module_name + '_' + class_declaration_node.members[0].members[0]
+    c_code.append(' ' * indent_level)
+    c_code.append('void ' + class_name + '_init(' + class_name + '* this) {\n')
+    # TODO: populate member values.
+    c_code.append('}\n\n')
     c_code.append(' ' * indent_level)
     c_code.append(class_name + '* ' + class_name + '_constructor(void) {\n')
     c_code.append(' ' * (indent_level + 2))
@@ -617,6 +679,12 @@ class ConverterToPython(HeadspaceConverter):
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], py_code, 0)
         py_code.append(', end="")\n')
+      elif function_call_node.members[0].members[0].members[0] == 'new':
+        self.emit_constructor_call(function_call_node.members[1].members[1], py_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'allocate':
+        self.emit_allocator_call(function_call_node.members[1].members[1], py_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'release':
+        self.emit_release_call(function_call_node.members[1].members[1], py_code, indent_level)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         py_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
@@ -704,12 +772,13 @@ class ConverterToPython(HeadspaceConverter):
     py_code.append(':\n')
     self.emit_code_block(while_statement.members[2], py_code, indent_level)
 
-  def emit_deletion(self, delete_statement, py_code, indent_level):
-    py_code.append(' ' * indent_level)
-    # TODO: handle the deletion of an identifier chain.
-    py_code.append('del ' + delete_statement.members[1].members[0].members[0] + '\n')
-
   def emit_code_block(self, code_block_node, py_code, indent_level):
+    # Start by gathering symbols in the code block to get the correct types for local variables.
+    block_symbol_table = SymbolTable(self.symbol_table)
+    self.symbol_table = block_symbol_table
+    # Populate an inner symbol table.
+    self.populate_symbol_table_from_declarations(code_block_node)
+
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, py_code, indent_level + 2)
@@ -731,8 +800,12 @@ class ConverterToPython(HeadspaceConverter):
         py_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, py_code, 0)
         py_code.append('\n')
-      elif member.node_type == 'DELETE_STATEMENT':
-        self.emit_deletion(member, py_code, indent_level + 2)
+
+    # Restore the top level symbol table.
+    self.symbol_table = self.symbol_table.parent_table
+    if self.symbol_table is None:
+      print('Logic error restoring the parent symbol table.')
+      sys.exit(1)
 
   def emit_function_body(self, function_body_node, py_code, indent_level):
     self.emit_code_block(function_body_node, py_code, indent_level)
@@ -759,12 +832,41 @@ class ConverterToPython(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), py_code, indent_level)
     py_code.append('\n')
 
-  def emit_class_instantiation(self, class_name, py_code, indent_level):
-    if self.symbol_table.find_symbol(class_name) != 'CLASS':
-      print('Unable to instantiate unknown class:', class_name)
+  def emit_constructor_call(self, init_args_node, py_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling new, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # TODO: need to support imported classes.
+    py_code.append(' ' * indent_level)
+    py_code.append(initialization_target + ' = ' + target_type + '()\n')
+
+  def emit_allocator_call(self, init_args_node, py_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling allocate, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # Since this is an allocate call, we assume the variable must be a reference type.
+    if type(target_type) == str and 'REF:' in target_type:
+      class_type = target_type.split(':')[-1]
+      py_code.append(' ' * indent_level)
+      py_code.append(initialization_target + ' = ' + class_type + '()\n')
+    else:
+      print('The recipient of the allocate call must be a reference to a type.')
       sys.exit(1)
     # TODO: need to support imported classes.
-    py_code.append(class_name + '()')
+
+  def emit_release_call(self, release_args_node, py_code, indent_level):
+    if len(release_args_node.members) < 1:
+      print('When calling release, an argument for the variable to be cleared must be present.')
+      sys.exit(1)
+    release_target = release_args_node.members[0].members[0].members[0]
+    py_code.append(' ' * indent_level)
+    py_code.append('del ' + release_target + '\n')
 
   def emit_class_definition(self, class_declaration_node, py_code, indent_level):
     class_name = class_declaration_node.members[0].members[0]
@@ -859,6 +961,12 @@ class ConverterToGo(HeadspaceConverter):
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], go_code, 0)
         go_code.append(')')
+      elif function_call_node.members[0].members[0].members[0] == 'new':
+        self.emit_constructor_call(function_call_node.members[1].members[1], go_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'allocate':
+        self.emit_allocator_call(function_call_node.members[1].members[1], go_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'release':
+        self.emit_release_call(function_call_node.members[1].members[1], go_code, indent_level)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         go_code.append('\t' * indent_level)
         # Emit the chain of identifiers.
@@ -907,7 +1015,23 @@ class ConverterToGo(HeadspaceConverter):
 
   def emit_variable_declaration(self, variable_declaration, go_code, indent_level):
     go_code.append('\t' * indent_level)
-    go_code.append('var ' + variable_declaration.members[0].members[0] + ' ' + self.convert_data_type(variable_declaration.members[2].members[0]) + '\n')
+    # Here, we need the type for the variable.
+    identifier_and_type = extract_identifier_type(variable_declaration)
+    type_parts = identifier_and_type[1].split(':')
+    variable_type = None
+    if len(type_parts) > 1:
+      # This is a reference type, count the depth of the references.
+      ref_levels = 0
+      final_data_type = None
+      for type_segment in type_parts:
+        if type_segment == 'REF':
+          ref_levels += 1
+        else:
+          final_data_type = self.convert_data_type(type_segment)
+      variable_type = ('*' * ref_levels) + final_data_type
+    else:
+      variable_type = identifier_and_type[1]
+    go_code.append('var ' + identifier_and_type[0] + ' ' + self.convert_data_type(variable_type) + '\n')
 
   def emit_assignment_statement(self, assignment_statement, go_code, indent_level):
     go_code.append('\t' * indent_level)
@@ -947,14 +1071,13 @@ class ConverterToGo(HeadspaceConverter):
     self.emit_code_block(while_statement.members[2], go_code, indent_level)
     go_code.append('\n')
 
-  def emit_deletion(self, delete_statement, go_code, indent_level):
-    #go_code.append('\t' * indent_level)
-    # TODO: handle the deletion of an identifier chain.
-    #go_code.append(delete_statement.members[1].members[0].members[0] + ' = nil\n')
-    # TODO: if there is a pointer type, set it to nil.
-    pass
-
   def emit_code_block(self, code_block_node, go_code, indent_level):
+    # Start by gathering symbols in the code block to get the correct types for local variables.
+    block_symbol_table = SymbolTable(self.symbol_table)
+    self.symbol_table = block_symbol_table
+    # Populate an inner symbol table.
+    self.populate_symbol_table_from_declarations(code_block_node)
+
     go_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
@@ -978,11 +1101,15 @@ class ConverterToGo(HeadspaceConverter):
         go_code.append('\t' * (indent_level + 1))
         self.emit_code_statement(member, go_code, 0)
         go_code.append('\n')
-      elif member.node_type == 'DELETE_STATEMENT':
-        self.emit_deletion(member, go_code, indent_level + 1)
     if indent_level > 0:
       go_code.append('\t' * indent_level)
     go_code.append('}')
+
+    # Restore the top level symbol table.
+    self.symbol_table = self.symbol_table.parent_table
+    if self.symbol_table is None:
+      print('Logic error restoring the parent symbol table.')
+      sys.exit(1)
 
   def emit_function_body(self, function_body_node, go_code, indent_level):
     self.emit_code_block(function_body_node, go_code, indent_level)
@@ -1012,9 +1139,41 @@ class ConverterToGo(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), go_code, indent_level)
     go_code.append('\n')
 
-  def emit_class_instantiation(self, class_name, go_code, indent_level):
+  def emit_constructor_call(self, init_args_node, go_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling new, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
     # TODO: need to support imported classes.
-    go_code.append(capitalize_first_letter(class_name) + '{}')
+    go_code.append('\t' * indent_level)
+    go_code.append(initialization_target + ' = ' + capitalize_first_letter(target_type) + '{}\n')
+
+  def emit_allocator_call(self, init_args_node, go_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling allocate, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # Since this is an allocate call, we assume the variable must be a reference type.
+    if type(target_type) == str and 'REF:' in target_type:
+      class_type = target_type.split(':')[-1]
+      go_code.append('\t' * indent_level)
+      go_code.append(initialization_target + ' := new(' + class_type + ')')
+    else:
+      print('The recipient of the allocate call must be a reference to a type.')
+      sys.exit(1)
+    # TODO: need to support imported classes.
+
+  def emit_release_call(self, release_args_node, go_code, indent_level):
+    if len(release_args_node.members) < 1:
+      print('When calling release, an argument for the variable to be freed must be present.')
+      sys.exit(1)
+    release_target = release_args_node.members[0].members[0].members[0]
+    go_code.append('\t' * indent_level)
+    go_code.append(release_target + ' = nil\n')
 
   def emit_class_definition(self, class_declaration_node, go_code, indent_level):
     class_name = capitalize_first_letter(class_declaration_node.members[0].members[0])
@@ -1106,6 +1265,12 @@ class ConverterToJavaScript(HeadspaceConverter):
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], js_code, 0)
         js_code.append(')')
+      elif function_call_node.members[0].members[0].members[0] == 'new':
+        self.emit_constructor_call(function_call_node.members[1].members[1], js_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'allocate':
+        self.emit_allocator_call(function_call_node.members[1].members[1], js_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'release':
+        self.emit_release_call(function_call_node.members[1].members[1], js_code, indent_level)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         js_code.append(' ' * indent_level)
         # Emit the chain of identifiers.
@@ -1176,11 +1341,6 @@ class ConverterToJavaScript(HeadspaceConverter):
       self.emit_code_block(if_statement.members[4], js_code, indent_level)
     js_code.append('\n')
 
-  def emit_deletion(self, delete_statement, js_code, indent_level):
-    js_code.append(' ' * indent_level)
-    # TODO: handle the deletion of an identifier chain.
-    js_code.append(delete_statement.members[1].members[0].members[0] + ' = null;\n')
-
   def emit_while_statement(self, while_statement, js_code, indent_level):
     js_code.append(' ' * indent_level)
     js_code.append('while (')
@@ -1191,6 +1351,12 @@ class ConverterToJavaScript(HeadspaceConverter):
     js_code.append('\n')
 
   def emit_code_block(self, code_block_node, js_code, indent_level):
+    # Start by gathering symbols in the code block to get the correct types for local variables.
+    block_symbol_table = SymbolTable(self.symbol_table)
+    self.symbol_table = block_symbol_table
+    # Populate an inner symbol table.
+    self.populate_symbol_table_from_declarations(code_block_node)
+
     js_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
@@ -1214,12 +1380,15 @@ class ConverterToJavaScript(HeadspaceConverter):
         js_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, js_code, 0)
         js_code.append(';\n')
-      elif member.node_type == 'DELETE_STATEMENT':
-        self.emit_deletion(member, js_code, indent_level + 2)
     if indent_level > 0:
       js_code.append(' ' * indent_level)
-    #js_code.append('}\n')
     js_code.append('}')
+
+    # Restore the top level symbol table.
+    self.symbol_table = self.symbol_table.parent_table
+    if self.symbol_table is None:
+      print('Logic error restoring the parent symbol table.')
+      sys.exit(1)
 
   def emit_function_body(self, function_body_node, js_code, indent_level):
     self.emit_code_block(function_body_node, js_code, indent_level)
@@ -1256,12 +1425,41 @@ class ConverterToJavaScript(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), js_code, indent_level)
     js_code.append('\n')
 
-  def emit_class_instantiation(self, class_name, js_code, indent_level):
-    if self.symbol_table.find_symbol(class_name) != 'CLASS':
-      print('Unable to instantiate unknown class:', class_name)
+  def emit_constructor_call(self, init_args_node, js_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling new, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # TODO: need to support imported classes.
+    js_code.append(' ' * indent_level)
+    js_code.append(initialization_target + ' = new ' + target_type + '()')
+
+  def emit_allocator_call(self, init_args_node, js_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling allocate, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # Since this is an allocate call, we assume the variable must be a reference type.
+    if type(target_type) == str and 'REF:' in target_type:
+      class_type = target_type.split(':')[-1]
+      js_code.append(' ' * indent_level)
+      js_code.append(initialization_target + ' = new ' + class_type + '()')
+    else:
+      print('The recipient of the allocate call must be a reference to a type.')
       sys.exit(1)
     # TODO: need to support imported classes.
-    js_code.append('new ' + class_name + '()')
+
+  def emit_release_call(self, release_args_node, js_code, indent_level):
+    if len(release_args_node.members) < 1:
+      print('When calling release, an argument for the variable to be freed must be present.')
+      sys.exit(1)
+    release_target = release_args_node.members[0].members[0].members[0]
+    js_code.append(' ' * indent_level)
+    js_code.append(release_target + ' = null')
 
   def emit_class_definition(self, class_declaration_node, js_code, indent_level):
     class_name = class_declaration_node.members[0].members[0]
@@ -1309,7 +1507,6 @@ class ConverterToJavaScript(HeadspaceConverter):
               self.emit_code_block(def_member, js_code, 0)
       js_code.append('\nmain();\n')
 
-    #module_filename = module_name + '.js'
     module_filename = module_details.module_name + '.js'
 
     # Include a package.json to support exporting public functions in a module.
