@@ -579,7 +579,9 @@ class ConverterToC(HeadspaceConverter):
     class_name = self.module_details.module_name + '_' + class_declaration_node.members[0].members[0]
     c_code.append(' ' * indent_level)
     c_code.append('void ' + class_name + '_init(' + class_name + '* this) {\n')
-    # TODO: populate member values.
+    # TODO: populate member values. For now, suppress unused parameter on this.
+    c_code.append(' ' * (indent_level + 2))
+    c_code.append('(void)this;\n')
     c_code.append('}\n\n')
     c_code.append(' ' * indent_level)
     c_code.append(class_name + '* ' + class_name + '_constructor(void) {\n')
