@@ -15,8 +15,13 @@ import os
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
 # - importing modules                    c  py  go  js  java  c#
-# - declaring classes                    c  py  go  js
+# - declaring classes                    c  py  go  js  java
+# - defining constructors
 # - memory allocation                    c
+# - data types:
+#   - str
+#   - list
+#   - map
 # - passing references
 # - raising exceptions/errors
 #
@@ -1540,12 +1545,17 @@ class ConverterToJava(HeadspaceConverter):
           java_code.append(function_call_node.members[1].members[1].members[0].members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-          for chain_entry in function_call_node.members[1].members[1].members[0].members:
-            java_code.append(chain_entry.members[0])
+          self.emit_identifier_chain(function_call_node.members[1].members[1].members[0], java_code, 0)
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], java_code, 0)
         java_code.append(')')
+      elif function_call_node.members[0].members[0].members[0] == 'new':
+        self.emit_constructor_call(function_call_node.members[1].members[1], java_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'allocate':
+        self.emit_allocator_call(function_call_node.members[1].members[1], java_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'release':
+        self.emit_release_call(function_call_node.members[1].members[1], java_code, indent_level)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
@@ -1571,8 +1581,18 @@ class ConverterToJava(HeadspaceConverter):
           sys.exit(1)
 
   def emit_identifier_chain(self, identifier_chain_node, java_code, indent_level):
+    is_first_identifier = True
     for member in identifier_chain_node.members:
-      if member.node_type == 'IDENTIFIER':
+      symbol_for_name = self.symbol_table.find_symbol(member.members[0])
+      if member.node_type == 'IDENTIFIER' and is_first_identifier:
+        java_code.append(member.members[0])
+        is_first_identifier = False
+      elif member.node_type == 'IDENTIFIER' and not is_first_identifier:
+        # For member access, we use the getter syntax assuming this is a class member.
+        java_code.append('get' + capitalize_first_letter(member.members[0]) + '()')
+      elif self.symbol_table.find_symbol(symbol_for_name) == 'CLASS':
+        java_code.append(member.members[0])
+      else:
         java_code.append(member.members[0])
 
   def emit_return_statement(self, return_statement_node, java_code, indent_level):
@@ -1623,6 +1643,12 @@ class ConverterToJava(HeadspaceConverter):
     java_code.append('\n')
 
   def emit_code_block(self, code_block_node, java_code, indent_level):
+    # Start by gathering symbols in the code block to get the correct types for local variables.
+    block_symbol_table = SymbolTable(self.symbol_table)
+    self.symbol_table = block_symbol_table
+    # Populate an inner symbol table.
+    self.populate_symbol_table_from_declarations(code_block_node)
+
     java_code.append('{\n')
     java_code.append(' ' * (indent_level + 2))
     for member in code_block_node.members:
@@ -1648,6 +1674,11 @@ class ConverterToJava(HeadspaceConverter):
       java_code.append(' ' * indent_level)
     java_code.append('}')
 
+    # Restore the top level symbol table.
+    self.symbol_table = self.symbol_table.parent_table
+    if self.symbol_table is None:
+      print('Logic error restoring the parent symbol table.')
+      sys.exit(1)
   def emit_function_body(self, function_body_node, java_code, indent_level):
     self.emit_code_block(function_body_node, java_code, indent_level)
 
@@ -1670,7 +1701,93 @@ class ConverterToJava(HeadspaceConverter):
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), java_code, indent_level)
 
+  def emit_constructor_call(self, init_args_node, java_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling new, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # TODO: need to support imported classes.
+    java_code.append(' ' * indent_level)
+    java_code.append(initialization_target + ' = new ' + target_type + '()')
+
+  def emit_allocator_call(self, init_args_node, java_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling allocate, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # Since this is an allocate call, we assume the variable must be a reference type.
+    if type(target_type) == str and 'REF:' in target_type:
+      class_type = target_type.split(':')[-1]
+      java_code.append(' ' * indent_level)
+      java_code.append(initialization_target + ' = new ' + class_type + '()')
+    else:
+      print('The recipient of the allocate call must be a reference to a type.')
+      sys.exit(1)
+    # TODO: need to support imported classes.
+
+  def emit_release_call(self, release_args_node, java_code, indent_level):
+    if len(release_args_node.members) < 1:
+      print('When calling release, an argument for the variable to be freed must be present.')
+      sys.exit(1)
+    release_target = release_args_node.members[0].members[0].members[0]
+    java_code.append(' ' * indent_level)
+    java_code.append(release_target + ' = null')
+
+  def emit_class_definition(self, class_declaration_node, java_code, indent_level):
+    class_name = class_declaration_node.members[0].members[0]
+    java_code.append(' ' * indent_level)
+    java_code.append('class ' + class_name + ' {\n')
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          java_code.append(' ' * (indent_level + 2))
+          java_code.append('private ')
+          self.emit_variable_declaration(class_member_node, java_code, 0)
+    java_code.append('\n')
+    java_code.append(' ' * indent_level)
+    java_code.append('  ' + class_name + '() {\n')
+    java_code.append(' ' * indent_level)
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          java_code.append(' ' * (indent_level + 4))
+          member_data_type = self.convert_data_type(class_member_node.members[2].members[0])
+          if member_data_type == 'int':
+            java_code.append(class_member_node.members[0].members[0] + ' = 0;\n')
+          else:
+            java_code.append(class_member_node.members[0].members[0] + ' = null;\n')
+    java_code.append(' ' * (indent_level + 2))
+    java_code.append('}\n\n')
+    # Produce getters and setters for each member.
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          java_code.append(' ' * (indent_level + 2))
+          member_data_type = self.convert_data_type(class_member_node.members[2].members[0])
+          member_name = class_member_node.members[0].members[0]
+          # TODO: decide whether to use modern accessor style instead of a getX method - just x().
+          java_code.append(member_data_type + ' get' + capitalize_first_letter(member_name) + '() {\n')
+          java_code.append(' ' * (indent_level + 4))
+          java_code.append('return this.' + member_name + ';\n')
+          java_code.append(' ' * (indent_level + 2))
+          java_code.append('}\n\n')
+          java_code.append(' ' * (indent_level + 2))
+          java_code.append('void set' + capitalize_first_letter(member_name) + '(')
+          java_code.append(member_data_type + ' ' + member_name)
+          java_code.append(') {\n')
+          java_code.append(' ' * (indent_level + 4))
+          java_code.append('this.' + member_name + ' = ' + member_name + ';\n')
+          java_code.append(' ' * (indent_level + 2))
+          java_code.append('}\n\n')
+    java_code.append(' ' * indent_level)
+    java_code.append('}\n\n')
+
   def emit_code(self):
+    java_files = []
     java_code = []
     module_details = self.find_module_details()
 
@@ -1680,10 +1797,27 @@ class ConverterToJava(HeadspaceConverter):
     # Should be for example: com.jeffscudder.tests.projects;
     java_code.append('package ' + module_details.to_namespace('java') + ';\n\n')
 
+    # Convert imports.
     for module in self.find_imports():
       import_module_details = self.symbol_table.find_symbol(module)
       import_module_classpath = convert_module_to_language_import(import_module_details, 'java')
       java_code.append('import ' + import_module_classpath + ';\n')
+    # Add imports for classes that are declared in this headspace source file.
+    # TODO: check that these local classes are used, otherwise they don't need to be imported.
+
+    for module_level_member in self.tree.members:
+      # TODO: split these out into other files
+      if module_level_member.node_type == 'CLASS_DECLARATION':
+        class_java_code = []
+        class_java_code.append('package ' + module_details.to_namespace('java') + ';\n\n')
+        class_name = module_level_member.members[0].members[0]
+        # Add the Java class source code to a new source file.
+        self.emit_class_definition(module_level_member, class_java_code, 0)
+        class_file_name = os.path.join(module_details.to_file_path('java'), class_name + '.java')
+        java_files.append(SourceCodeFile(class_file_name, ''.join(class_java_code)))
+        # Add an import for this new class into the main source file.
+        java_code.append('import ' + module_details.to_file_path('java').replace('/', '.') + '.' + class_name + ';\n')
+
     java_code.append('\n')
 
     java_class_name = capitalize_first_letter(module_details.module_name)
@@ -1705,7 +1839,8 @@ class ConverterToJava(HeadspaceConverter):
     java_code.append('\n}\n')
     # Create file name with a .java class file.
     java_class_filename = os.path.join(module_details.to_file_path('java'), java_class_name + '.java')
-    return [SourceCodeFile(java_class_filename, ''.join(java_code))]
+    java_files.append(SourceCodeFile(java_class_filename, ''.join(java_code)))
+    return java_files
 
 
 class ConverterToDotNet(HeadspaceConverter):
@@ -1737,6 +1872,12 @@ class ConverterToDotNet(HeadspaceConverter):
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], dotnet_code, 0)
         dotnet_code.append(')')
+      elif function_call_node.members[0].members[0].members[0] == 'new':
+        self.emit_constructor_call(function_call_node.members[1].members[1], dotnet_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'allocate':
+        self.emit_allocator_call(function_call_node.members[1].members[1], dotnet_code, indent_level)
+      elif function_call_node.members[0].members[0].members[0] == 'release':
+        self.emit_release_call(function_call_node.members[1].members[1], dotnet_code, indent_level)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
@@ -1814,6 +1955,12 @@ class ConverterToDotNet(HeadspaceConverter):
     dotnet_code.append('\n')
 
   def emit_code_block(self, code_block_node, dotnet_code, indent_level):
+    # Start by gathering symbols in the code block to get the correct types for local variables.
+    block_symbol_table = SymbolTable(self.symbol_table)
+    self.symbol_table = block_symbol_table
+    # Populate an inner symbol table.
+    self.populate_symbol_table_from_declarations(code_block_node)
+
     dotnet_code.append('{\n')
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
@@ -1837,6 +1984,12 @@ class ConverterToDotNet(HeadspaceConverter):
     if indent_level > 0:
       dotnet_code.append(' ' * indent_level)
     dotnet_code.append('}')
+
+    # Restore the top level symbol table.
+    self.symbol_table = self.symbol_table.parent_table
+    if self.symbol_table is None:
+      print('Logic error restoring the parent symbol table.')
+      sys.exit(1)
 
   def emit_function_body(self, function_body_node, dotnet_code, indent_level):
     self.emit_code_block(function_body_node, dotnet_code, indent_level)

@@ -99,7 +99,7 @@ main:function:void[][
 
 # Uses the data class as a local stack variable (struct in C and Go).
 DATA_CLASS_EXAMPLE = """
-moduleName = "jeffscudder.com/headspace/tests/dataclass"
+moduleName = "jeffscudder.com/headspace/tests/dataclassdemo"
 
 DataClass: class [
   x: int
@@ -199,10 +199,10 @@ class TestConvertToC(unittest.TestCase):
     tree = parser.parse_source(DATA_CLASS_EXAMPLE)
     files = converter.convert(tree, 'c')
     # Check .c file contents.
-    self.assertTrue('dataclass_DataClass* dataclass_DataClass_constructor(void) {' in files[0].content)
-    self.assertTrue('  return malloc(sizeof(dataclass_DataClass));' in files[0].content)
-    self.assertTrue('  dataclass_DataClass instance;' in files[0].content)
-    self.assertTrue('  dataclass_DataClass_init(&instance);' in files[0].content)
+    self.assertTrue('dataclassdemo_DataClass* dataclassdemo_DataClass_constructor(void) {' in files[0].content)
+    self.assertTrue('  return malloc(sizeof(dataclassdemo_DataClass));' in files[0].content)
+    self.assertTrue('  dataclassdemo_DataClass instance;' in files[0].content)
+    self.assertTrue('  dataclassdemo_DataClass_init(&instance);' in files[0].content)
     self.assertTrue('  instance.x = 42;' in files[0].content)
     self.assertTrue('  printf("%d", instance.x);' in files[0].content)
     self.assertFalse('  classref_DataClass* instance;' in files[0].content)
@@ -212,9 +212,9 @@ class TestConvertToC(unittest.TestCase):
     # Check .h file contents.
     self.assertTrue('typedef struct {' in files[1].content)
     self.assertTrue('  int x;' in files[1].content)
-    self.assertTrue('} dataclass_DataClass;' in files[1].content)
-    self.assertTrue('void dataclass_DataClass_init(dataclass_DataClass* this);' in files[1].content)
-    self.assertTrue('dataclass_DataClass* dataclass_DataClass_constructor(void);' in files[1].content)
+    self.assertTrue('} dataclassdemo_DataClass;' in files[1].content)
+    self.assertTrue('void dataclassdemo_DataClass_init(dataclassdemo_DataClass* this);' in files[1].content)
+    self.assertTrue('dataclassdemo_DataClass* dataclassdemo_DataClass_constructor(void);' in files[1].content)
 
   def test_class_ref(self):
     """Example of declaring and using a class reference with C."""
@@ -487,6 +487,26 @@ class TestConvertToJava(unittest.TestCase):
     files = converter.convert(tree, 'java')
     self.assertTrue('while (counter < 5) {' in files[0].content)
     self.assertTrue('counter++;' in files[0].content)
+
+  def test_data_class(self):
+    """Example of declaring and using a class with Java."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertEqual(2, len(files))
+    # Checks for DataClass.java
+    self.assertTrue('class DataClass {' in files[0].content)
+    self.assertTrue('  private int x;' in files[0].content)
+    self.assertTrue('  DataClass() {' in files[0].content)
+    self.assertTrue('    x = 0;' in files[0].content)
+    self.assertTrue('  int getX() {' in files[0].content)
+    self.assertTrue('    return this.x;' in files[0].content)
+    self.assertTrue('  void setX(int x) {' in files[0].content)
+    self.assertTrue('    this.x = x;' in files[0].content)
+    # Checks for the class with main.
+    self.assertTrue('import com.jeffscudder.headspace.tests.DataClass;' in files[1].content)
+    self.assertTrue('DataClass instance;' in files[1].content)
+    self.assertTrue('instance = new DataClass();' in files[1].content)
+    self.assertTrue('System.out.print(instance.getX());' in files[1].content)
 
 
 class TestConvertToDotNet(unittest.TestCase):
