@@ -15,7 +15,7 @@ import os
 # - loops (while)                        c  py  go  js  java  c#
 # - pass through comments
 # - importing modules                    c  py  go  js  java  c#
-# - declaring classes                    c  py  go  js  java
+# - declaring classes                    c  py  go  js  java  c#
 # - defining constructors
 # - memory allocation                    c
 # - data types:
@@ -1530,6 +1530,7 @@ class ConverterToJava(HeadspaceConverter):
 
   def emit_function_call(self, function_call_node, java_code, indent_level):
     if function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
+      java_code.append(' ' * indent_level)
       # Handle a print function.
       if (function_call_node.members[0].members[0].node_type == 'IDENTIFIER' and
           function_call_node.members[0].members[0].members[0] == 'os' and
@@ -1551,11 +1552,11 @@ class ConverterToJava(HeadspaceConverter):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], java_code, 0)
         java_code.append(')')
       elif function_call_node.members[0].members[0].members[0] == 'new':
-        self.emit_constructor_call(function_call_node.members[1].members[1], java_code, indent_level)
+        self.emit_constructor_call(function_call_node.members[1].members[1], java_code, 0)
       elif function_call_node.members[0].members[0].members[0] == 'allocate':
-        self.emit_allocator_call(function_call_node.members[1].members[1], java_code, indent_level)
+        self.emit_allocator_call(function_call_node.members[1].members[1], java_code, 0)
       elif function_call_node.members[0].members[0].members[0] == 'release':
-        self.emit_release_call(function_call_node.members[1].members[1], java_code, indent_level)
+        self.emit_release_call(function_call_node.members[1].members[1], java_code, 0)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
@@ -1621,6 +1622,22 @@ class ConverterToJava(HeadspaceConverter):
     self.emit_code_statement(assignment_statement.members[2], java_code, 0)
     java_code.append(';\n')
 
+  def emit_member_assignment_statement(self, member_assignment_statement, java_code, indent_level):
+    java_code.append(' ' * indent_level)
+    if member_assignment_statement.members[0].node_type == 'IDENTIFIER_CHAIN':
+      identifier_index = 0
+      num_members = len(member_assignment_statement.members[0].members)
+      for i in range(num_members):
+        if i < num_members - 1:
+          java_code.append(member_assignment_statement.members[0].members[i].members[0])
+        elif member_assignment_statement.members[0].members[i].node_type == 'IDENTIFIER':
+          java_code.append('set' + capitalize_first_letter(member_assignment_statement.members[0].members[i].members[0]) + '(')
+        else:
+          print('The final member of an identifier chain in member assignment must be an identifier.')
+          sys.exit(1)
+    self.emit_code_statement(member_assignment_statement.members[1].members[1], java_code, 0)
+    java_code.append(');\n')
+
   def emit_if_statement(self, if_statement, java_code, indent_level):
     java_code.append(' ' * indent_level)
     java_code.append('if (')
@@ -1650,7 +1667,6 @@ class ConverterToJava(HeadspaceConverter):
     self.populate_symbol_table_from_declarations(code_block_node)
 
     java_code.append('{\n')
-    java_code.append(' ' * (indent_level + 2))
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, java_code, indent_level + 2)
@@ -1663,6 +1679,8 @@ class ConverterToJava(HeadspaceConverter):
         self.emit_variable_declaration(member, java_code, indent_level + 2)
       elif member.node_type == 'ASSIGNMENT':
         self.emit_assignment_statement(member, java_code, indent_level + 2)
+      elif member.node_type == 'MEMBER_ASSIGNMENT':
+        self.emit_member_assignment_statement(member, java_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, java_code, indent_level + 2)
       elif member.node_type == 'WHILE_STATEMENT':
@@ -1806,7 +1824,6 @@ class ConverterToJava(HeadspaceConverter):
     # TODO: check that these local classes are used, otherwise they don't need to be imported.
 
     for module_level_member in self.tree.members:
-      # TODO: split these out into other files
       if module_level_member.node_type == 'CLASS_DECLARATION':
         class_java_code = []
         class_java_code.append('package ' + module_details.to_namespace('java') + ';\n\n')
@@ -1839,8 +1856,9 @@ class ConverterToJava(HeadspaceConverter):
     java_code.append('\n}\n')
     # Create file name with a .java class file.
     java_class_filename = os.path.join(module_details.to_file_path('java'), java_class_name + '.java')
-    java_files.append(SourceCodeFile(java_class_filename, ''.join(java_code)))
-    return java_files
+    result_java_files = [SourceCodeFile(java_class_filename, ''.join(java_code))]
+    result_java_files.extend(java_files)
+    return result_java_files
 
 
 class ConverterToDotNet(HeadspaceConverter):
@@ -1873,11 +1891,11 @@ class ConverterToDotNet(HeadspaceConverter):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], dotnet_code, 0)
         dotnet_code.append(')')
       elif function_call_node.members[0].members[0].members[0] == 'new':
-        self.emit_constructor_call(function_call_node.members[1].members[1], dotnet_code, indent_level)
+        self.emit_constructor_call(function_call_node.members[1].members[1], dotnet_code, 0)
       elif function_call_node.members[0].members[0].members[0] == 'allocate':
-        self.emit_allocator_call(function_call_node.members[1].members[1], dotnet_code, indent_level)
+        self.emit_allocator_call(function_call_node.members[1].members[1], dotnet_code, 0)
       elif function_call_node.members[0].members[0].members[0] == 'release':
-        self.emit_release_call(function_call_node.members[1].members[1], dotnet_code, indent_level)
+        self.emit_release_call(function_call_node.members[1].members[1], dotnet_code, 0)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         # Emit the chain of identifiers.
         for chain_node in function_call_node.members[0].members:
@@ -1903,8 +1921,17 @@ class ConverterToDotNet(HeadspaceConverter):
           sys.exit(1)
 
   def emit_identifier_chain(self, identifier_chain_node, dotnet_code, indent_level):
+    is_first_identifier = True
     for member in identifier_chain_node.members:
-      if member.node_type == 'IDENTIFIER':
+      symbol_for_name = self.symbol_table.find_symbol(member.members[0])
+      if member.node_type == 'IDENTIFIER' and is_first_identifier:
+        dotnet_code.append(member.members[0])
+        #is_first_identifier = False
+        # For member access, we use the getter syntax assuming this is a class member.
+        #dotnet_code.append('get' + capitalize_first_letter(member.members[0]) + '()')
+      elif self.symbol_table.find_symbol(symbol_for_name) == 'CLASS':
+        dotnet_code.append(member.members[0])
+      else:
         dotnet_code.append(member.members[0])
 
   def emit_return_statement(self, return_statement_node, dotnet_code, indent_level):
@@ -1931,6 +1958,14 @@ class ConverterToDotNet(HeadspaceConverter):
       dotnet_code.append(assignment_statement.members[0].members[0])
     dotnet_code.append(' = ')
     self.emit_code_statement(assignment_statement.members[2], dotnet_code, 0)
+    dotnet_code.append(';\n')
+
+  def emit_member_assignment_statement(self, member_assignment_statement, dotnet_code, indent_level):
+    dotnet_code.append(' ' * indent_level)
+    if member_assignment_statement.members[0].node_type == 'IDENTIFIER_CHAIN':
+      self.emit_identifier_chain(member_assignment_statement.members[0], dotnet_code, indent_level)
+    dotnet_code.append(' = ')
+    self.emit_code_statement(member_assignment_statement.members[1].members[1], dotnet_code, 0)
     dotnet_code.append(';\n')
 
   def emit_if_statement(self, if_statement, dotnet_code, indent_level):
@@ -1974,6 +2009,8 @@ class ConverterToDotNet(HeadspaceConverter):
         self.emit_variable_declaration(member, dotnet_code, indent_level + 2)
       elif member.node_type == 'ASSIGNMENT':
         self.emit_assignment_statement(member, dotnet_code, indent_level + 2)
+      elif member.node_type == 'MEMBER_ASSIGNMENT':
+        self.emit_member_assignment_statement(member, dotnet_code, indent_level + 2)
       elif member.node_type == 'IF_STATEMENT':
         self.emit_if_statement(member, dotnet_code, indent_level + 2)
       elif member.node_type == 'WHILE_STATEMENT':
@@ -2014,7 +2051,73 @@ class ConverterToDotNet(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), dotnet_code, indent_level)
     dotnet_code.append('\n')
 
+  def emit_constructor_call(self, init_args_node, dotnet_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling new, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # TODO: need to support imported classes.
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append(initialization_target + ' = new ' + target_type + '()')
+
+  def emit_allocator_call(self, init_args_node, dotnet_code, indent_level):
+    if len(init_args_node.members) < 1:
+      print('When calling allocate, an argument for the variable to be initialized must be present.')
+      sys.exit(1)
+    initialization_target = init_args_node.members[0].members[0].members[0]
+    # Lookup the data type for the target.
+    target_type = self.symbol_table.find_symbol(initialization_target)
+    # Since this is an allocate call, we assume the variable must be a reference type.
+    if type(target_type) == str and 'REF:' in target_type:
+      class_type = target_type.split(':')[-1]
+      dotnet_code.append(' ' * indent_level)
+      dotnet_code.append(initialization_target + ' = new ' + class_type + '()')
+    else:
+      print('The recipient of the allocate call must be a reference to a type.')
+      sys.exit(1)
+    # TODO: need to support imported classes.
+
+  def emit_release_call(self, release_args_node, dotnet_code, indent_level):
+    if len(release_args_node.members) < 1:
+      print('When calling release, an argument for the variable to be freed must be present.')
+      sys.exit(1)
+    release_target = release_args_node.members[0].members[0].members[0]
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append(release_target + ' = null')
+
+  def emit_class_definition(self, class_declaration_node, dotnet_code, indent_level):
+    class_name = class_declaration_node.members[0].members[0]
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append('class ' + class_name + ' {\n')
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          dotnet_code.append(' ' * (indent_level + 2))
+          dotnet_code.append('public ')
+          dotnet_code.append(self.convert_data_type(class_member_node.members[2].members[0]) + ' ' + class_member_node.members[0].members[0])
+          dotnet_code.append(' { get; set; }\n')
+    dotnet_code.append('\n')
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append('  public ' + class_name + '() {\n')
+    dotnet_code.append(' ' * indent_level)
+    if class_declaration_node.members[2].members[1].node_type == 'CLASS_MEMBERS_START':
+      for class_member_node in class_declaration_node.members[2].members:
+        if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
+          dotnet_code.append(' ' * (indent_level + 4))
+          member_data_type = self.convert_data_type(class_member_node.members[2].members[0])
+          if member_data_type == 'int':
+            dotnet_code.append(class_member_node.members[0].members[0] + ' = 0;\n')
+          else:
+            dotnet_code.append(class_member_node.members[0].members[0] + ' = null;\n')
+    dotnet_code.append(' ' * (indent_level + 2))
+    dotnet_code.append('}\n\n')
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append('}\n\n')
+
   def emit_code(self):
+    dotnet_files = []
     dotnet_code = []
     module_details = self.find_module_details()
     main_function_declaration = find_main_function(self.tree)
@@ -2027,6 +2130,21 @@ class ConverterToDotNet(HeadspaceConverter):
       import_module_classpath = convert_module_to_language_import(import_module_details, 'dotnet')
       dotnet_code.append('using ' + import_module_classpath + ';\n')
     dotnet_code.append('\n')
+
+    for module_level_member in self.tree.members:
+      if module_level_member.node_type == 'CLASS_DECLARATION':
+        class_dotnet_code = []
+        #class_dotnet_code.append('package ' + module_details.to_namespace('dotnet') + ';\n\n')
+        class_dotnet_code.append('namespace ' + module_details.to_namespace('dotnet') + ' {\n')
+        class_name = module_level_member.members[0].members[0]
+        # Add the .NET class source code to a new source file.
+        self.emit_class_definition(module_level_member, class_dotnet_code, 2)
+        class_dotnet_code.append('}')
+        class_file_name = os.path.join(module_details.to_file_path('dotnet'), class_name + '.cs')
+        dotnet_files.append(SourceCodeFile(class_file_name, ''.join(class_dotnet_code)))
+        # Add an import for this new class into the main source file.
+        # TODO: decide if this is needed since its part of the same package.
+        #dotnet_code.append('using ' + module_details.to_file_path('dotnet').replace('/', '.') + ';\n')
 
     dotnet_code.append('\n')
     dotnet_code.append('namespace ' + module_details.to_namespace('dotnet') + ' {\n')
@@ -2063,6 +2181,7 @@ class ConverterToDotNet(HeadspaceConverter):
       # There is no main function, so create a library module.
       dotnet_class_filename = os.path.join(module_details.to_file_path('dotnet'), dotnet_class_name + '.cs')
       output_files.append(SourceCodeFile(dotnet_class_filename, ''.join(dotnet_code)))
+    output_files.extend(dotnet_files)
     return output_files
 
 

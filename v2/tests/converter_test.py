@@ -493,20 +493,21 @@ class TestConvertToJava(unittest.TestCase):
     tree = parser.parse_source(DATA_CLASS_EXAMPLE)
     files = converter.convert(tree, 'java')
     self.assertEqual(2, len(files))
-    # Checks for DataClass.java
-    self.assertTrue('class DataClass {' in files[0].content)
-    self.assertTrue('  private int x;' in files[0].content)
-    self.assertTrue('  DataClass() {' in files[0].content)
-    self.assertTrue('    x = 0;' in files[0].content)
-    self.assertTrue('  int getX() {' in files[0].content)
-    self.assertTrue('    return this.x;' in files[0].content)
-    self.assertTrue('  void setX(int x) {' in files[0].content)
-    self.assertTrue('    this.x = x;' in files[0].content)
     # Checks for the class with main.
-    self.assertTrue('import com.jeffscudder.headspace.tests.DataClass;' in files[1].content)
-    self.assertTrue('DataClass instance;' in files[1].content)
-    self.assertTrue('instance = new DataClass();' in files[1].content)
-    self.assertTrue('System.out.print(instance.getX());' in files[1].content)
+    self.assertTrue('import com.jeffscudder.headspace.tests.DataClass;' in files[0].content)
+    self.assertTrue('    DataClass instance;' in files[0].content)
+    self.assertTrue('    instance = new DataClass();' in files[0].content)
+    self.assertTrue('    instance.setX(42);' in files[0].content)
+    self.assertTrue('    System.out.print(instance.getX());' in files[0].content)
+    # Checks for DataClass.java
+    self.assertTrue('class DataClass {' in files[1].content)
+    self.assertTrue('  private int x;' in files[1].content)
+    self.assertTrue('  DataClass() {' in files[1].content)
+    self.assertTrue('    x = 0;' in files[1].content)
+    self.assertTrue('  int getX() {' in files[1].content)
+    self.assertTrue('    return this.x;' in files[1].content)
+    self.assertTrue('  void setX(int x) {' in files[1].content)
+    self.assertTrue('    this.x = x;' in files[1].content)
 
 
 class TestConvertToDotNet(unittest.TestCase):
@@ -556,6 +557,21 @@ class TestConvertToDotNet(unittest.TestCase):
     files = converter.convert(tree, 'dotnet')
     self.assertTrue('while (counter < 5) {' in files[0].content)
     self.assertTrue('counter++;' in files[0].content)
+
+  def test_data_class(self):
+    """Example of declaring and using a class with .NET (C#)."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertEqual(3, len(files))
+    # Checks for the class with main.
+    self.assertTrue('      DataClass instance;' in files[0].content)
+    self.assertTrue('      instance = new DataClass();' in files[0].content)
+    self.assertTrue('      instance.x = 42;' in files[0].content)
+    self.assertTrue('      Console.Write(instance.x);' in files[0].content)
+    # Checks for DataClass.cs
+    self.assertTrue('  class DataClass {' in files[2].content)
+    self.assertTrue('    public int x { get; set; }' in files[2].content)
+    self.assertTrue('    public DataClass() {' in files[2].content)
 
 
 if __name__ == '__main__':
