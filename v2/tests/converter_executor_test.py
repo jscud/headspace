@@ -86,7 +86,7 @@ main:function:void[][
 """
 
 DATA_CLASS_EXAMPLE = """
-moduleName = "jeffscudder.com/headspace/tests/dataclass"
+moduleName = "jeffscudder.com/headspace/tests/dataclassdemo"
 
 DataClass: class [
   x: int
@@ -406,7 +406,7 @@ class TestConvertToGoAndExecute(unittest.TestCase):
     files = converter.convert(tree, 'go')
     self.assertEqual(1, len(files))
     file_path = os.path.join('tests', 'test_output', files[0].filename)
-    package_path = os.path.join('tests', 'test_output', 'dataclass')
+    package_path = os.path.join('tests', 'test_output', 'dataclassdemo')
     subprocess.run(['mkdir', package_path], check=True)
     with open(file_path, 'w') as go_source:
       go_source.write(files[0].content)
@@ -547,6 +547,37 @@ class TestConvertToJavaAndExecute(unittest.TestCase):
     subprocess.run(['rm', java_file_path], check=True)
     subprocess.run(['rm', str(java_file_path)[:-5] + '.class'], check=True)
 
+  def test_data_class(self):
+    """Example of declaring and using a class with Java."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertEqual(2, len(files))
+    compilation_directory = os.path.join('tests', 'test_output')
+    os.chdir(os.path.join('tests', 'test_output'))
+    # Compile the class with the main function.
+    java_file_path = pathlib.Path(files[0].filename)
+    java_file_path.parent.mkdir(parents=True, exist_ok=True)
+    java_file_path.write_text(files[0].content)
+    # Compile the data class.
+    java_data_file_path = pathlib.Path(files[1].filename)
+    java_data_file_path.write_text(files[1].content)
+    # Compile the java files in order.
+    result = subprocess.run(['javac', java_data_file_path], check=True, capture_output=True)
+    result = subprocess.run(['javac', java_file_path], check=True, capture_output=True)
+    # Run the program as java com....Foreign (minus the .java)
+    java_class_path = '.'
+    class_file_name = '.'.join(str(java_file_path).split('/'))[:-5]
+    result = subprocess.run(['java', '-cp', java_class_path, class_file_name], check=True, capture_output=True)
+    self.assertEqual(b'Class member x: 42\n', result.stdout)
+    # Delete both the .java and .class file for the hello world program.
+    subprocess.run(['rm', str(java_file_path)], check=True)
+    subprocess.run(['rm', str(java_data_file_path)], check=True)
+    subprocess.run(['rm', str(java_file_path)[:-5] + '.class'], check=True)
+    subprocess.run(['rm', str(java_data_file_path)[:-5] + '.class'], check=True)
+    # Move back to the test running directory.
+    os.chdir(os.path.join('..', '..'))
+
+
 
 class TestConvertToDotNetAndExecute(unittest.TestCase):
   """Convert the headspace code to .NET (C#)."""
@@ -593,6 +624,25 @@ class TestConvertToDotNetAndExecute(unittest.TestCase):
     # Then execute the .NET code using dotnet run.
     result = subprocess.run(['dotnet', 'run', dotnet_file_path], check=True, capture_output=True)
     self.assertEqual(b'10\n', result.stdout)
+    # Delete the .cs file for the hello world program.
+    subprocess.run(['rm', dotnet_file_path], check=True)
+
+  def test_data_class(self):
+    """Example of declaring and using a class with .NET (C#)."""
+    tree = parser.parse_source(DATA_CLASS_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertEqual(3, len(files))
+    compilation_directory = os.path.join('tests', 'test_output')
+    dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dotnet_file_path.write_text(files[0].content)
+    project_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    project_file_path.write_text(files[1].content)
+    class_file_path = pathlib.Path(os.path.join(compilation_directory, files[2].filename))
+    class_file_path.write_text(files[2].content)
+    # Then execute the .NET code using dotnet run.
+    result = subprocess.run(['dotnet', 'run', '--project', os.path.join(compilation_directory, 'Headspace.Tests')], check=True, capture_output=True)
+    self.assertEqual(b'Class member x: 42\n', result.stdout)
     # Delete the .cs file for the hello world program.
     subprocess.run(['rm', dotnet_file_path], check=True)
 
