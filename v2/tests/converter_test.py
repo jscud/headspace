@@ -509,6 +509,14 @@ class TestConvertToJava(unittest.TestCase):
     self.assertTrue('  void setX(int x) {' in files[1].content)
     self.assertTrue('    this.x = x;' in files[1].content)
 
+  def test_class_ref(self):
+    """Example of declaring and using a class reference with Java."""
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertTrue('    DataClass instance;' in files[0].content)
+    self.assertTrue('    instance = new DataClass();' in files[0].content)
+    self.assertTrue('    instance.setX(42);' in files[0].content)
+
 
 class TestConvertToDotNet(unittest.TestCase):
   """Convert the headspace code to .NET (C#)."""
@@ -572,6 +580,17 @@ class TestConvertToDotNet(unittest.TestCase):
     self.assertTrue('  class DataClass {' in files[2].content)
     self.assertTrue('    public int x { get; set; }' in files[2].content)
     self.assertTrue('    public DataClass() {' in files[2].content)
+
+  def test_class_ref(self):
+    """Example of declaring and using a class reference with .NET (C#)."""
+    tree = parser.parse_source(CLASS_REF_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertEqual(3, len(files))
+    # Checks for the class with main.
+    self.assertTrue('      DataClass instance;' in files[0].content)
+    self.assertTrue('      instance = new DataClass();' in files[0].content)
+    self.assertTrue('      instance.x = 42;' in files[0].content)
+    self.assertTrue('      Console.Write(instance.x);' in files[0].content)
 
 
 if __name__ == '__main__':

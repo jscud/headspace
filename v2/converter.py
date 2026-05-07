@@ -1611,7 +1611,23 @@ class ConverterToJava(HeadspaceConverter):
 
   def emit_variable_declaration(self, variable_declaration, java_code, indent_level):
     java_code.append(' ' * indent_level)
-    java_code.append(self.convert_data_type(variable_declaration.members[2].members[0]) + ' ' + variable_declaration.members[0].members[0] + ';\n')
+    # Here, we need the type for the variable for real...
+    identifier_and_type = extract_identifier_type(variable_declaration)
+    type_parts = identifier_and_type[1].split(':')
+    variable_type = None
+    if len(type_parts) > 1:
+      # This is a reference type, count the depth of the references.
+      ref_levels = 0
+      final_data_type = None
+      for type_segment in type_parts:
+        if type_segment == 'REF':
+          ref_levels += 1
+        else:
+          final_data_type = self.convert_data_type(type_segment)
+      variable_type = final_data_type
+    else:
+      variable_type = identifier_and_type[1]
+    java_code.append(self.convert_data_type(variable_type) + ' ' + identifier_and_type[0] + ';\n')
 
   def emit_assignment_statement(self, assignment_statement, java_code, indent_level):
     java_code.append(' ' * indent_level)
@@ -1949,7 +1965,23 @@ class ConverterToDotNet(HeadspaceConverter):
 
   def emit_variable_declaration(self, variable_declaration, dotnet_code, indent_level):
     dotnet_code.append(' ' * indent_level)
-    dotnet_code.append(self.convert_data_type(variable_declaration.members[2].members[0]) + ' ' + variable_declaration.members[0].members[0] + ';\n')
+    # Here, we need the type for the variable for real...
+    identifier_and_type = extract_identifier_type(variable_declaration)
+    type_parts = identifier_and_type[1].split(':')
+    variable_type = None
+    if len(type_parts) > 1:
+      # This is a reference type, count the depth of the references.
+      ref_levels = 0
+      final_data_type = None
+      for type_segment in type_parts:
+        if type_segment == 'REF':
+          ref_levels += 1
+        else:
+          final_data_type = self.convert_data_type(type_segment)
+      variable_type = final_data_type
+    else:
+      variable_type = identifier_and_type[1]
+    dotnet_code.append(self.convert_data_type(variable_type) + ' ' + identifier_and_type[0] + ';\n')
 
   def emit_assignment_statement(self, assignment_statement, dotnet_code, indent_level):
     dotnet_code.append(' ' * indent_level)
