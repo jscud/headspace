@@ -516,6 +516,7 @@ class TestConvertToJava(unittest.TestCase):
     self.assertTrue('    DataClass instance;' in files[0].content)
     self.assertTrue('    instance = new DataClass();' in files[0].content)
     self.assertTrue('    instance.setX(42);' in files[0].content)
+    self.assertTrue('    instance = null;' in files[0].content)
 
 
 class TestConvertToDotNet(unittest.TestCase):
@@ -591,6 +592,7 @@ class TestConvertToDotNet(unittest.TestCase):
     self.assertTrue('      instance = new DataClass();' in files[0].content)
     self.assertTrue('      instance.x = 42;' in files[0].content)
     self.assertTrue('      Console.Write(instance.x);' in files[0].content)
+    self.assertTrue('      instance = null;' in files[0].content)
 
 
 if __name__ == '__main__':
