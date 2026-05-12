@@ -79,6 +79,18 @@ main: function: void[][
 ]
 """
 
+LIST_EXAMPLE = """
+main: function: void[][
+  myList:list:int
+  myList = [5, 6, 7]
+  os.print["list length: "]
+  os.printInt[myList.length]
+  os.print[", first item: "]
+  os.printInt[myList[0]]
+  os.print["\n"]
+]
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -444,6 +456,33 @@ class TestParserParse(unittest.TestCase):
                   instance
             ARG_LIST_END:
               ]""", tree)
+
+  def test_list(self):
+    tree = parser.parse_source(LIST_EXAMPLE)
+    self.assertTreeContains("""
+        DECLARATION:
+          IDENTIFIER:
+            myList
+          DECLARATION_MARKER:
+            :
+          LIST_MARKER:
+            list
+          DECLARATION_MARKER:
+            :
+          VARIABLE_TYPE:
+            int
+        ASSIGNMENT:
+          ASSIGNMENT_TARGET:
+            myList
+          ASSIGNMENT_SYMBOL:
+            =
+          COLLECTION_LITERAL:
+            NUMBER_LITERAL:
+              5
+            NUMBER_LITERAL:
+              6
+            NUMBER_LITERAL:
+              7""", tree)
 
 
 if __name__ == '__main__':

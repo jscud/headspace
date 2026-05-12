@@ -20,6 +20,8 @@ import lexer
 # pass through comments
 # class declaration - done
 # importing modules - done
+# list type
+# map type
 # allocation memory
 # passing references
 # function references
@@ -265,6 +267,29 @@ class Parser:
     parent_node.members.append(infix_operation)
     self.leave_method('process_infix_operation')
 
+  def process_collection_literal(self, parent_node):
+    self.enter_method('process_collection_literal')
+    collection_literal = Node('COLLECTION_LITERAL')
+    current_token = self.current_token()
+    if current_token and current_token.matches('SYMBOL', '['):
+      self.consume_current_token('processed opening [ of collection')
+      self.process_whitespace(collection_literal)
+    current_token = self.current_token()
+    while current_token and not current_token.matches('SYMBOL', ']'):
+      if current_token.matches('SYMBOL', ','):
+        self.consume_current_token('processed , seperator in collection')
+      else:
+        self.process_rvalue(collection_literal)
+      self.process_whitespace(collection_literal)
+      current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', ']'):
+      print('the collection must end with a closing ]')
+      sys.exit(1)
+    if current_token and current_token.matches('SYMBOL', ']'):
+      self.consume_current_token('processed closing ] of collection')
+    parent_node.members.append(collection_literal)
+    self.leave_method('process_collection_literal')
+
   def process_rvalue(self, parent_node):
     self.enter_method('process_rvalue')
     current_token = self.current_token()
@@ -276,6 +301,8 @@ class Parser:
     elif next_token and next_token.token_type == 'SYMBOL' and next_token.content in POSTFIX_OPERATORS:
       self.process_postfix_operation(parent_node)
       self.process_whitespace(parent_node)
+    elif current_token and current_token.matches('SYMBOL', '['):
+      self.process_collection_literal(parent_node)
     elif current_token and current_token.token_type == 'STRING':
       parent_node.members.append(Node('STRING_LITERAL', [current_token.content], True))
       self.consume_current_token('processed string rvalue')
@@ -521,6 +548,25 @@ class Parser:
           else:
             print('The reference type declaration must end with an identfier for the type')
             sys.exit(1)
+        elif current_token and current_token.matches('IDENTIFIER', 'list'):
+          while current_token and current_token.matches('IDENTIFIER', 'list'):
+            # Process the chain of list types that come before the eventual variable type.
+            declaration_tree.members.append(Node('LIST_MARKER', [current_token.content], True))
+            self.consume_current_token('processed list keyword in variable declaration')
+            current_token = self.current_token()
+            if not current_token or not current_token.matches('SYMBOL', ':'):
+              print('When declaring a list type, the : separator must appear after the list keyword.')
+              sys.exit(1)
+            declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
+            self.consume_current_token('processed : after list keyword in variable declaration')
+            current_token = self.current_token()
+          if current_token and current_token.token_type == 'IDENTIFIER':
+            declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+            self.consume_current_token('processed type identifier in list variable declaration')
+            code_block.members.append(declaration_tree)
+          else:
+            print('The reference type declaration must end with an identfier for the type')
+            sys.exit(1)
         elif not current_token or not current_token.token_type == 'IDENTIFIER':
           print('Variable declaration must end with a type for the variable')
           sys.exit(1)
@@ -605,6 +651,19 @@ class Parser:
         current_token = self.current_token()
         declaration_tree.members.append(Node('REFERENCE_VARIABLE_TYPE', [current_token.content], True))
         self.consume_current_token('processed type identifier in reference parameter declaration')
+      elif current_token and current_token.matches('IDENTIFIER', 'list'):
+        # This is a list containing another type.
+        declaration_tree.members.append(Node('LIST_MARKER', [current_token.content], True))
+        self.consume_current_token('processed list identifier in parameter declaration')
+        current_token = self.current_token()
+        self.process_whitespace(declaration_tree)
+        # TODO: handle a chain of list items.
+        if not current_token or not current_token.matches('SYMBOL', ':'):
+          print('A list marker must be followed by a variable type.')
+          sys.exit(1)
+        current_token = self.current_token()
+        declaration_tree.members.append(Node('LIST_VARIABLE_TYPE', [current_token.content], True))
+        self.consume_current_token('processed type identifier in list parameter declaration')
       else:
         # This is a variable declaration, use this identifier as the type.
         declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
@@ -744,6 +803,20 @@ class Parser:
       # This is a reference variable declaration.
       declaration_tree.members.append(Node('REFERENCE_VARIABLE_TYPE', [current_token.content], True))
       self.consume_current_token('processed reference variable type identifier in declaration')
+    elif current_token and current_token.matches('IDENTIFIER', 'list'):
+      # TODO: combine this with parameter list parsing.
+      # This is a list containing another type.
+      declaration_tree.members.append(Node('LIST_MARKER', [current_token.content], True))
+      self.consume_current_token('processed list identifier in declaration')
+      current_token = self.current_token()
+      self.process_whitespace(declaration_tree)
+      # TODO: handle a chain of list types.
+      if not current_token or not current_token.matches('SYMBOL', ':'):
+        print('A list marker must be followed by a variable type.')
+        sys.exit(1)
+      # This is a list variable declaration.
+      declaration_tree.members.append(Node('LIST_VARIABLE_TYPE', [current_token.content], True))
+      self.consume_current_token('processed list variable type identifier in declaration')
     else:
       # This is a variable declaration, use this identifier as the type.
       declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
