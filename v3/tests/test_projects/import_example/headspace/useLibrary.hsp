@@ -1,0 +1,7 @@
+import "jeffscudder.com/tests/projects/library" as library
+
+moduleName = "jeffscudder.com/tests/projects/useLibrary"
+
+main:function:void(){
+  library.sayHello()
+}

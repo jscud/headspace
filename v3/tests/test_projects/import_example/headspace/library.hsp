@@ -1,0 +1,5 @@
+moduleName = "jeffscudder.com/tests/projects/library"
+
+sayHello:function:void(){
+  os.print("Hello from the library\n")
+}

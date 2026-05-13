@@ -11,16 +11,16 @@ running of external programs."""
 HELLO_WORLD_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/hello"
 
-main: function: void[][
-  os.print["Hello World\\n"]
-]
+main: function: void(){
+  os.print("Hello World\\n")
+}
 """
 
 
 FOREIGN_CODE_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/foreign"
 
-main: function: void[][
+main: function: void(){
 BEGIN_FOREIGN_CODE_C
   char* hello_str = "hello\\n";
 END_FOREIGN_CODE_C
@@ -39,50 +39,50 @@ END_FOREIGN_CODE_JS
 BEGIN_FOREIGN_CODE_DOTNET
       string hello_str = "hello\\n";
 END_FOREIGN_CODE_DOTNET
-  os.print[hello_str]
-]
+  os.print(hello_str)
+}
 """
 
 FUNCTION_CALLING_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/functions"
 
-addNumbers: function: int32[a:int32, b:int32][
+addNumbers: function: int32(a:int32, b:int32){
   return a + b
-]
+}
 
-main: function: void[][
-  os.printInt[addNumbers[5, 5]]
-  os.print["\\n"]
-]
+main: function: void(){
+  os.printInt(addNumbers(5, 5))
+  os.print("\\n")
+}
 """
 
 IF_ELSE_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/ifelse"
 
-main:function:void[][
+main:function:void(){
   a:int32
   a = 5
-  if[a == 5][
-    os.print["Yes, a is 5.\\n"]
-  ] else [
-    os.print["No, a is not 5.\\n"]
-  ]
-]
+  if(a == 5){
+    os.print("Yes, a is 5.\\n")
+  } else {
+    os.print("No, a is not 5.\\n")
+  }
+}
 """
 
 WHILE_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/while"
 
-main:function:void[][
+main:function:void(){
   counter:int32
   counter = 0
-  os.print["Counting up to 5:\\n"]
-  while[counter < 5][
+  os.print("Counting up to 5:\\n")
+  while(counter < 5){
     counter++
-    os.printInt[counter]
-    os.print["\\n"]
-  ]
-]
+    os.printInt(counter)
+    os.print("\\n")
+  }
+}
 """
 
 IMPORTS_EXAMPLE = """
@@ -92,58 +92,58 @@ moduleName = "jeffscudder.com/headspace/tests/imports"
 
 import "jeffscudder.com/headspace/tests/moduleB" as moduleB
 
-main:function:void[][
-  os.print["I have imports.\\n"]
-]
+main:function:void(){
+  os.print("I have imports.\\n")
+}
 """
 
 # Uses the data class as a local stack variable (struct in C and Go).
 DATA_CLASS_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/dataclassdemo"
 
-DataClass: class [
+DataClass: class {
   x: int
-]
+}
 
-main: function: void[][
+main: function: void(){
   instance:DataClass
-  new[instance]
+  new(instance)
   instance.x = 42
-  os.print["Class member x: "]
-  os.printInt[instance.x]
-  os.print["\\n"]
-]
+  os.print("Class member x: ")
+  os.printInt(instance.x)
+  os.print("\\n")
+}
 """
 
 # Uses the data class as a refernce to a heap instance (pointer in C).
 CLASS_REF_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/classref"
 
-DataClass: class [
+DataClass: class {
   x: int
-]
+}
 
-main: function: void[][
+main: function: void(){
   instance:reference:DataClass
-  allocate[instance]
+  allocate(instance)
   instance.x = 42
-  os.print["Class member x: "]
-  os.printInt[instance.x]
-  os.print["\\n"]
-  release[instance]
-]
+  os.print("Class member x: ")
+  os.printInt(instance.x)
+  os.print("\\n")
+  release(instance)
+}
 """
 
 LIST_EXAMPLE = """
-main: function: void[][
+main: function: void()(
   myList:list:int
   myList = [5, 6, 7]
-  os.print["list length: "]
-  os.printInt[myList.length]
-  os.print[", first item: "]
-  os.printInt[myList[0]]
-  os.print["\n"]
-]
+  os.print("list length: ")
+  os.printInt(myList.length)
+  os.print(", first item: ")
+  os.printInt(myList[0])
+  os.print("\n")
+}
 """
 
 
