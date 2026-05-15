@@ -19,6 +19,7 @@ import lexer
 # postfix operators - done
 # pass through comments
 # class declaration - done
+# class methods - done
 # importing modules - done
 # list type
 # map type
@@ -308,7 +309,7 @@ class Parser:
     else:
       print('the collection must end with a closing ]')
       sys.exit(1)
-    
+
     parent_node.members.append(collection_index)
     self.leave_method('process_collection_member_access')
 
@@ -756,6 +757,54 @@ class Parser:
     parent_node.members.append(function_definition)
     self.leave_method('process_function_definition')
 
+  def process_method_definition(self, parent_node):
+    self.enter_method('process_method_definition')
+    current_token = self.current_token()
+    # The current token is the identifier 'method' to begin the declaration.
+    method_definition = Node('METHOD_DEFINITION')
+    if not current_token or not current_token.matches('IDENTIFIER', 'method'):
+      print('method definition did not begin with keyword method')
+      sys.exit(1)
+    method_definition.members.append(Node('METHOD_KEYWORD', [current_token.content], True))
+    self.consume_current_token('processed method keyword in method declaration')
+    self.process_whitespace(method_definition)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', ':'):
+      print('Expected a : to express the return type in method definition')
+      sys.exit(1)
+    self.consume_current_token('processed return type separator in method declaration')
+    self.process_whitespace(method_definition)
+    current_token = self.current_token()
+    # After the method keyword, we expect the return type.
+    if not current_token or not current_token.token_type == 'IDENTIFIER':
+      print('Expected a return type for the method after the method keyword in method definition')
+      sys.exit(1)
+    method_definition.members.append(Node('METHOD_RETURN_TYPE', [current_token.content], True))
+    self.consume_current_token('processed method return type in method declaration')
+    self.process_whitespace(method_definition)
+    current_token = self.current_token()
+    # Should be an opening ( for the parameter list.
+    if not current_token or not current_token.matches('SYMBOL', '('):
+      print('Expected a ( after the method\'s return type in method definition')
+      sys.exit(1)
+    method_definition.members.append(Node('METHOD_PARAMS_START', [current_token.content], True))
+    self.consume_current_token('processed opening ( in method parameters list')
+    self.process_whitespace(method_definition)
+    current_token = self.current_token()
+    # TODO: process the list of parameter declarations.
+    if current_token and current_token.token_type == 'IDENTIFIER':
+      self.process_parameters_list(method_definition)
+    current_token = self.current_token()
+    if not current_token or not current_token.matches('SYMBOL', ')'):
+      print('Expected a ) after the first ( in a method definition')
+      sys.exit(1)
+    method_definition.members.append(Node('METHOD_PARAMS_END', [current_token.content], True))
+    self.consume_current_token('processed closing ) in method parameter list')
+    self.process_whitespace(method_definition)
+    self.process_code_block(method_definition)
+    parent_node.members.append(method_definition)
+    self.leave_method('process_method_definition')
+
   def process_class_definition(self, parent_node):
     self.enter_method('process_class_definition')
     current_token = self.current_token()
@@ -811,6 +860,10 @@ class Parser:
       # This is a function declaration.
       declaration_tree.node_type = 'FUNCTION_DECLARATION'
       self.process_function_definition(declaration_tree)
+    elif current_token and current_token.matches('IDENTIFIER', 'method'):
+      # This is a class method declaration.
+      declaration_tree.node_type = 'METHOD_DECLARATION'
+      self.process_method_definition(declaration_tree)
     elif current_token and current_token.matches('IDENTIFIER', 'class'):
       # This is a class declaration.
       declaration_tree.node_type = 'CLASS_DECLARATION'

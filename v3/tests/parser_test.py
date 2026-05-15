@@ -91,6 +91,37 @@ main: function: void(){
 }
 """
 
+CLASS_METHOD_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/classmethod"
+
+ClassWithMethods: class {
+  x: int
+  s: str
+
+  printX: method: void() {
+    os.print("x: ")
+    os.printInt(this.x)
+    os.print("\\n")
+  }
+
+  printS: method: void() {
+    os.print("s: ")
+    os.printStr(this.s)
+    os.print("\\n")
+  }
+}
+
+main: function: void() {
+  instance:ClassWithMethods
+  new(instance)
+  instance.x = 17
+  instance.s = "hello"
+  os.print("From the methods:\\n")
+  instance.printX()
+  instance.printY()
+}
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -497,6 +528,46 @@ class TestParserParse(unittest.TestCase):
                     0
             ARG_LIST_END:
               )""", tree)
+
+  def test_class_method(self):
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    self.assertTreeContains("""
+      DECLARATION:
+        IDENTIFIER:
+          s
+        DECLARATION_MARKER:
+          :
+        VARIABLE_TYPE:
+          str
+      METHOD_DECLARATION:
+        IDENTIFIER:
+          printX
+        DECLARATION_MARKER:
+          :
+        METHOD_DEFINITION:
+          METHOD_KEYWORD:
+            method
+          METHOD_RETURN_TYPE:
+            void
+          METHOD_PARAMS_START:
+            (
+          METHOD_PARAMS_END:
+            )""", tree)
+    self.assertTreeContains("""
+      METHOD_DECLARATION:
+        IDENTIFIER:
+          printS
+        DECLARATION_MARKER:
+          :
+        METHOD_DEFINITION:
+          METHOD_KEYWORD:
+            method
+          METHOD_RETURN_TYPE:
+            void
+          METHOD_PARAMS_START:
+            (
+          METHOD_PARAMS_END:
+            )""", tree)
 
 
 if __name__ == '__main__':
