@@ -143,6 +143,37 @@ main: function: void()(
 }
 """
 
+CLASS_METHOD_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/classmethod"
+
+ClassWithMethods: class {
+  x: int
+  s: str
+
+  printX: method: void() {
+    os.print("x: ")
+    os.printInt(this.x)
+    os.print("\\n")
+  }
+
+  printS: method: void() {
+    os.print("s: ")
+    os.printStr(this.s)
+    os.print("\\n")
+  }
+}
+
+main: function: void() {
+  instance:ClassWithMethods
+  new(instance)
+  instance.x = 17
+  instance.s = "hello"
+  os.print("From the methods:\\n")
+  instance.printX()
+  instance.printS()
+}
+"""
+
 
 class TestConvertToCAndExecute(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -292,6 +323,30 @@ class TestConvertToCAndExecute(unittest.TestCase):
                     executable_path, c_file_path], check=True)
     result = subprocess.run([executable_path], check=True, capture_output=True)
     self.assertEqual(b'Class member x: 99\n', result.stdout)
+    subprocess.run(['rm', c_file_path], check=True)
+    subprocess.run(['rm', h_file_path], check=True)
+    subprocess.run(['rm', executable_path], check=True)
+
+  def test_converts_method_calls(self):
+    """Example of class methods for C."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    compilation_directory = os.path.join('tests', 'test_output')
+    executable_path = os.path.join(compilation_directory, 'classmethod')
+    c_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    c_file_path.parent.mkdir(parents=True, exist_ok=True)
+    c_file_path.write_text(files[0].content)
+    h_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    h_file_path.parent.mkdir(parents=True, exist_ok=True)
+    h_file_path.write_text(files[1].content)
+    # Then compile and run the C code.
+    include_path_arg = '-I' + compilation_directory
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
+                    '-Wmissing-prototypes', '-Wstrict-prototypes',
+                    '-Wold-style-definition', include_path_arg, '-o',
+                    executable_path, c_file_path], check=True)
+    result = subprocess.run([executable_path], check=True, capture_output=True)
+    self.assertEqual(b'From the methods:\nx: 17\ns: hello\n', result.stdout)
     subprocess.run(['rm', c_file_path], check=True)
     subprocess.run(['rm', h_file_path], check=True)
     subprocess.run(['rm', executable_path], check=True)

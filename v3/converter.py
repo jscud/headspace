@@ -18,6 +18,7 @@ import os
 # - declaring classes                    c  py  go  js  java  c#
 # - defining constructors
 # - memory allocation                    c
+# - method calls                         c
 # - data types:
 #   - str
 #   - list
@@ -47,6 +48,16 @@ class SourceCodeFile:
   def __init__(self, filename, content):
     self.filename = filename
     self.content = content
+
+
+# TODO: to use methods from imported classes, we may need to keep a reference to its module.
+class Symbol:
+
+  def __init__(self, identifier, headspace_type):
+    self.identifier
+    self.headspace_type = headspace_type
+    self.inner_symbols = {}
+    self.parent_module = None
 
 
 class SymbolTable:
@@ -303,10 +314,11 @@ class ConverterToC(HeadspaceConverter):
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           (function_call_node.members[0].members[2].members[0] == 'print' or
-           function_call_node.members[0].members[2].members[0] == 'printInt') and
+           function_call_node.members[0].members[2].members[0] == 'printInt' or
+           function_call_node.members[0].members[2].members[0] == 'printStr') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         c_code.append(' ' * indent_level)
-        if function_call_node.members[0].members[2].members[0] == 'print':
+        if (function_call_node.members[0].members[2].members[0] == 'print' or function_call_node.members[0].members[2].members[0] == 'printStr'):
           c_code.append('printf("%s", ')
         elif function_call_node.members[0].members[2].members[0] == 'printInt':
           c_code.append('printf("%d", ')
@@ -328,22 +340,61 @@ class ConverterToC(HeadspaceConverter):
         self.emit_release_call(function_call_node.members[1].members[1], c_code, indent_level)
       elif function_call_node.members[0].node_type == 'IDENTIFIER_CHAIN':
         c_code.append(' ' * indent_level)
-        # Emit the chain of identifiers.
-        self.emit_identifier_chain(function_call_node.members[0], c_code, indent_level)
-        # Emit the arguments for the function call.
-        if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
-          c_code.append('(')
-          first_arg = True
-          for argument_node in function_call_node.members[1].members[1].members:
-            if not first_arg:
-              c_code.append(' ,')
-            if argument_node.node_type == 'NUMBER_LITERAL':
-              c_code.append(argument_node.members[0])
-              first_arg = False
-          c_code.append(')')
+        symbol_for_name = self.symbol_table.find_symbol(function_call_node.members[0].members[0].members[0])
+        # Check to see if this is a method call.
+        if symbol_for_name == 'FUNCTION':
+          # Emit the chain of identifiers.
+          self.emit_identifier_chain(function_call_node.members[0], c_code, indent_level)
+          # Emit the arguments for the function call.
+          if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+            c_code.append('(')
+            first_arg = True
+            for argument_node in function_call_node.members[1].members[1].members:
+              if not first_arg:
+                c_code.append(' ,')
+              if argument_node.node_type == 'NUMBER_LITERAL':
+                c_code.append(argument_node.members[0])
+                first_arg = False
+            c_code.append(')')
+          else:
+            print('Function call was missing a list of arguments.')
+            sys.exit(1)
+        elif type(symbol_for_name) == str:
+          # This is a class so we convert this to a method call.
+          # TODO: handle additional constructions, not just an x.y() pattern.
+          class_name = self.module_details.module_name + '_' + symbol_for_name
+          class_instance_name = function_call_node.members[0].members[0].members[0]
+          function_name = function_call_node.members[0].members[2].members[0]
+          c_code.append(class_name + '_' + function_name)
+          if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+            # First parameter for a method call is always the instance's pointer.
+            c_code.append('(&' + class_instance_name)
+            for argument_node in function_call_node.members[1].members[1].members:
+              c_code.append(', ')
+              if argument_node.node_type == 'NUMBER_LITERAL':
+                c_code.append(argument_node.members[0])
+                first_arg = False
+            c_code.append(')')
+          else:
+            print('Function call was missing a list of arguments.')
+            sys.exit(1)
         else:
-          print('Function call was missing a list of arguments.')
-          sys.exit(1)
+          # Emit the chain of identifiers.
+          self.emit_identifier_chain(function_call_node.members[0], c_code, indent_level)
+          # Emit the arguments for the function call.
+          if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
+            c_code.append('(')
+            first_arg = True
+            for argument_node in function_call_node.members[1].members[1].members:
+              if not first_arg:
+                c_code.append(' ,')
+              if argument_node.node_type == 'NUMBER_LITERAL':
+                c_code.append(argument_node.members[0])
+                first_arg = False
+            c_code.append(')')
+          else:
+            print('Function call was missing a list of arguments.')
+            sys.exit(1)
 
   def emit_identifier_chain(self, identifier_chain_node, c_code, indent_level):
     skip_next_dot = False
@@ -365,6 +416,11 @@ class ConverterToC(HeadspaceConverter):
         skip_next_dot = True
       elif chain_node.members[0] == '.' and skip_next_dot:
         skip_next_dot = False
+      elif chain_node.members[0] == 'this':
+        # In a method, this is always a pointer to the class.
+        c_code.append(chain_node.members[0])
+        c_code.append('->')
+        skip_next_dot = True
       else:
         c_code.append(chain_node.members[0])
 
@@ -503,6 +559,21 @@ class ConverterToC(HeadspaceConverter):
       h_code.append('void')
     h_code.append(');\n')
 
+  def emit_method_signature(self, method_declaration_node, class_name, h_code, indent_level):
+    # Skip the main function since it is not included in a .h file.
+    return_type = find_function_return_type(method_declaration_node)
+    # For C functions, we use the module name as a prefix to make collisions less likely.
+    function_name = class_name + '_' + find_function_identifier(method_declaration_node)
+    function_params = find_function_parameters(method_declaration_node)
+    h_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
+    param_index = 0
+    # First parameter in a class method is the class instance.
+    h_code.append(class_name + '* this')
+    while param_index < len(function_params):
+      h_code.append(', ' + self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0])
+      param_index += 1
+    h_code.append(');\n')
+
   def emit_function_body(self, function_body_node, c_code, indent_level):
     self.emit_code_block(function_body_node, c_code, indent_level)
 
@@ -526,6 +597,24 @@ class ConverterToC(HeadspaceConverter):
     c_code.append(')')
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), c_code, indent_level)
+    c_code.append('\n')
+
+  def emit_method_definition(self, method_declaration_node, class_name, c_code, indent_level):
+    # Skip the main function because we have special case logic to place it at the end of the c_code.
+    return_type = find_function_return_type(method_declaration_node)
+    function_name = class_name + '_' + find_function_identifier(method_declaration_node)
+    function_params = find_function_parameters(method_declaration_node)
+    c_code.append(' ' * indent_level)
+    c_code.append(self.convert_data_type(return_type) + ' ' + function_name + '(')
+    param_index = 0
+    # First parameter in a class method is the class instance.
+    c_code.append(class_name + '* this')
+    while param_index < len(function_params):
+      c_code.append(', ' + self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0])
+      param_index += 1
+    c_code.append(')')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(method_declaration_node), c_code, indent_level)
     c_code.append('\n')
 
   def emit_constructor_call(self, init_args_node, c_code, indent_level):
@@ -580,6 +669,11 @@ class ConverterToC(HeadspaceConverter):
     h_code.append('void ' + class_name + '_init(' + class_name + '* this);\n')
     h_code.append(' ' * indent_level)
     h_code.append(class_name + '* ' + class_name + '_constructor(void);\n')
+    for member_node in class_declaration_node.members[2].members:
+      if member_node.node_type == 'METHOD_DECLARATION':
+        self.emit_method_signature(member_node, class_name, h_code, indent_level)
+        #print('will emit this method:')
+        #member_node.print()
 
   def emit_class_definition(self, class_declaration_node, c_code, indent_level):
     # Note that the typedef was added to the .h file, this .c file should contain the constructor function definition.
@@ -596,6 +690,9 @@ class ConverterToC(HeadspaceConverter):
     c_code.append('return malloc(sizeof(' + class_name + '));\n')
     c_code.append(' ' * indent_level)
     c_code.append('}\n\n')
+    for member_node in class_declaration_node.members[2].members:
+      if member_node.node_type == 'METHOD_DECLARATION':
+        self.emit_method_definition(member_node, class_name, c_code, indent_level)
 
   def emit_code(self):
     c_code = []

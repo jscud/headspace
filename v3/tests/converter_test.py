@@ -134,15 +134,49 @@ main: function: void(){
 }
 """
 
+# TODO: support lists, possibly as a headspace class.
 LIST_EXAMPLE = """
-main: function: void()(
+moduleName = "jeffscudder.com/headspace/tests/list"
+
+main: function: void(){
   myList:list:int
   myList = [5, 6, 7]
   os.print("list length: ")
   os.printInt(myList.length)
   os.print(", first item: ")
   os.printInt(myList[0])
-  os.print("\n")
+  os.print("\\n")
+}
+"""
+
+CLASS_METHOD_EXAMPLE = """
+moduleName = "jeffscudder.com/headspace/tests/classmethod"
+
+ClassWithMethods: class {
+  x: int
+  s: str
+
+  printX: method: void() {
+    os.print("x: ")
+    os.printInt(this.x)
+    os.print("\\n")
+  }
+
+  printS: method: void() {
+    os.print("s: ")
+    os.printStr(this.s)
+    os.print("\\n")
+  }
+}
+
+main: function: void() {
+  instance:ClassWithMethods
+  new(instance)
+  instance.x = 17
+  instance.s = "hello"
+  os.print("From the methods:\\n")
+  instance.printX()
+  instance.printS()
 }
 """
 
@@ -245,6 +279,22 @@ class TestConvertToC(unittest.TestCase):
     # Check .h file contents.
     self.assertTrue('void classref_DataClass_init(classref_DataClass* this);' in files[1].content)
     self.assertTrue('classref_DataClass* classref_DataClass_constructor(void);' in files[1].content)
+
+  def test_class_methods(self):
+    """Example of declaring and using a class reference with C."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    # Check .c file contents.
+    self.assertTrue('  printf("%d", this->x);' in files[0].content)
+    self.assertTrue('  printf("%s", this->s);' in files[0].content)
+    self.assertTrue('  instance.x = 17;' in files[0].content)
+    self.assertTrue('  instance.s = "hello";' in files[0].content)
+    self.assertTrue('  classmethod_ClassWithMethods_printX(&instance);' in files[0].content)
+    self.assertTrue('  classmethod_ClassWithMethods_printS(&instance);' in files[0].content)
+    # Check .h file contents.
+    self.assertTrue('  char* s;' in files[1].content)
+    self.assertTrue('void classmethod_ClassWithMethods_printX(classmethod_ClassWithMethods* this);' in files[1].content)
+    self.assertTrue('void classmethod_ClassWithMethods_printS(classmethod_ClassWithMethods* this);' in files[1].content)
 
 
 class TestConvertToPython(unittest.TestCase):
