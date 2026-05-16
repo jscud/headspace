@@ -442,6 +442,17 @@ class TestConvertToGo(unittest.TestCase):
     self.assertTrue('\tinstance = new(DataClass)' in files[0].content)
     self.assertTrue('\tinstance = nil' in files[0].content)
 
+  def test_class_methods(self):
+    """Example of using class methods with Go."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertTrue('func (this ClassWithMethods) PrintX() {' in files[0].content)
+    self.assertTrue('\tfmt.Printf("%d", this.X)' in files[0].content)
+    self.assertTrue('func (this ClassWithMethods) PrintS() {' in files[0].content)
+    self.assertTrue('\tfmt.Printf("%s", this.S)' in files[0].content)
+    self.assertTrue('\tinstance.PrintX()' in files[0].content)
+    self.assertTrue('\tinstance.PrintS()' in files[0].content)
+
 
 class TestConvertToJavaScript(unittest.TestCase):
   """Convert the headspace code to JavaScript."""

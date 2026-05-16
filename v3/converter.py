@@ -18,7 +18,7 @@ import os
 # - declaring classes                    c  py  go  js  java  c#
 # - defining constructors
 # - memory allocation                    c
-# - method calls                         c  py
+# - method calls                         c  py  go
 # - data types:
 #   - str
 #   - list
@@ -1072,7 +1072,8 @@ class ConverterToGo(HeadspaceConverter):
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           (function_call_node.members[0].members[2].members[0] == 'print' or
-           function_call_node.members[0].members[2].members[0] == 'printInt') and
+           function_call_node.members[0].members[2].members[0] == 'printInt' or
+           function_call_node.members[0].members[2].members[0] == 'printStr') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         go_code.append('\t' * indent_level)
         if function_call_node.members[0].members[2].members[0] == 'print':
@@ -1081,6 +1082,10 @@ class ConverterToGo(HeadspaceConverter):
             self.required_imports.append('"fmt"')
         elif function_call_node.members[0].members[2].members[0] == 'printInt':
           go_code.append('fmt.Printf("%d", ')
+          if '"fmt"' not in self.required_imports:
+            self.required_imports.append('"fmt"')
+        elif function_call_node.members[0].members[2].members[0] == 'printStr':
+          go_code.append('fmt.Printf("%s", ')
           if '"fmt"' not in self.required_imports:
             self.required_imports.append('"fmt"')
         if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
@@ -1273,6 +1278,28 @@ class ConverterToGo(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), go_code, indent_level)
     go_code.append('\n')
 
+  def emit_method_definition(self, method_declaration_node, class_name, go_code, indent_level):
+    return_type = find_function_return_type(method_declaration_node)
+    function_name = capitalize_first_letter(find_function_identifier(method_declaration_node))
+    function_params = find_function_parameters(method_declaration_node)
+    go_code.append('\t' * indent_level)
+    go_code.append('func (this ' + class_name + ') ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]) + ', ')
+      param_index += 1
+    if len(function_params) > 0:
+      go_code.append(function_params[param_index][0] + ' ' + self.convert_data_type(function_params[param_index][1]))
+    go_code.append(')')
+    # Include the return type of the function.
+    if return_type == 'void':
+      go_code.append(' ')
+    else:
+      go_code.append(' ' + self.convert_data_type(return_type) + ' ')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(method_declaration_node), go_code, indent_level)
+    go_code.append('\n')
+
   def emit_constructor_call(self, init_args_node, go_code, indent_level):
     if len(init_args_node.members) < 1:
       print('When calling new, an argument for the variable to be initialized must be present.')
@@ -1319,7 +1346,11 @@ class ConverterToGo(HeadspaceConverter):
         if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
           go_code.append('\t' + capitalize_first_letter(class_member_node.members[0].members[0]) + ' ' + self.convert_data_type(class_member_node.members[2].members[0]) + '\n')
     go_code.append('\t' * indent_level)
-    go_code.append('}\n\n')
+    go_code.append('}\n')
+    for member_node in class_declaration_node.members[2].members:
+      if member_node.node_type == 'METHOD_DECLARATION':
+        self.emit_method_definition(member_node, class_name, go_code, indent_level)
+    go_code.append('\n')
 
   def emit_code(self):
     go_code = []
@@ -1612,7 +1643,8 @@ class ConverterToJavaScript(HeadspaceConverter):
     js_code.append(' ' * (indent_level + 2))
     js_code.append('}\n')
     js_code.append(' ' * indent_level)
-    js_code.append('}\n\n')
+    js_code.append('}\n')
+    js_code.append('\n')
 
   def emit_code(self):
     js_code = []
