@@ -281,7 +281,7 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('classref_DataClass* classref_DataClass_constructor(void);' in files[1].content)
 
   def test_class_methods(self):
-    """Example of declaring and using a class reference with C."""
+    """Example of using class methods with C."""
     tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
     files = converter.convert(tree, 'c')
     # Check .c file contents.
@@ -362,6 +362,17 @@ class TestConvertToPython(unittest.TestCase):
     self.assertTrue('  instance = DataClass()' in files[0].content)
     self.assertTrue('  instance.x = 42' in files[0].content)
     self.assertTrue('  del instance' in files[0].content)
+
+  def test_class_methods(self):
+    """Example of using class methods with Python."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertTrue('  def printX(self) -> None:' in files[0].content)
+    self.assertTrue('    print(self.x, end="")' in files[0].content)
+    self.assertTrue('  def printS(self) -> None:' in files[0].content)
+    self.assertTrue('    print(self.s, end="")' in files[0].content)
+    self.assertTrue('  instance.printX()' in files[0].content)
+    self.assertTrue('  instance.printS()' in files[0].content)
 
 
 class TestConvertToGo(unittest.TestCase):

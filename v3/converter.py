@@ -18,7 +18,7 @@ import os
 # - declaring classes                    c  py  go  js  java  c#
 # - defining constructors
 # - memory allocation                    c
-# - method calls                         c
+# - method calls                         c  py
 # - data types:
 #   - str
 #   - list
@@ -672,8 +672,6 @@ class ConverterToC(HeadspaceConverter):
     for member_node in class_declaration_node.members[2].members:
       if member_node.node_type == 'METHOD_DECLARATION':
         self.emit_method_signature(member_node, class_name, h_code, indent_level)
-        #print('will emit this method:')
-        #member_node.print()
 
   def emit_class_definition(self, class_declaration_node, c_code, indent_level):
     # Note that the typedef was added to the .h file, this .c file should contain the constructor function definition.
@@ -769,22 +767,22 @@ class ConverterToPython(HeadspaceConverter):
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           (function_call_node.members[0].members[2].members[0] == 'print' or
+           function_call_node.members[0].members[2].members[0] == 'printStr' or
            function_call_node.members[0].members[2].members[0] == 'printInt') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         py_code.append(' ' * indent_level)
-        if function_call_node.members[0].members[2].members[0] == 'print' or function_call_node.members[0].members[2].members[0] == 'printInt':
+        if function_call_node.members[0].members[2].members[0] in ('print', 'printInt', 'printStr'):
           py_code.append('print(')
         if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
             function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
           py_code.append(function_call_node.members[1].members[1].members[0].members[0])
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'IDENTIFIER_CHAIN'):
-          for chain_entry in function_call_node.members[1].members[1].members[0].members:
-            py_code.append(chain_entry.members[0])
+          self.emit_identifier_chain(function_call_node.members[1].members[1].members[0], py_code, indent_level)
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], py_code, 0)
-        py_code.append(', end="")\n')
+        py_code.append(', end="")')
       elif function_call_node.members[0].members[0].members[0] == 'new':
         self.emit_constructor_call(function_call_node.members[1].members[1], py_code, indent_level)
       elif function_call_node.members[0].members[0].members[0] == 'allocate':
@@ -813,7 +811,11 @@ class ConverterToPython(HeadspaceConverter):
 
   def emit_identifier_chain(self, identifier_chain_node, py_code, indent_level):
     for member in identifier_chain_node.members:
-      py_code.append(member.members[0])
+      if member.members[0] == 'this':
+        # In a method, convert headspace's this to Python's self.
+        py_code.append('self')
+      else:
+        py_code.append(member.members[0])
 
   def emit_return_statement(self, return_statement_node, py_code, indent_level):
     if return_statement_node.members[0]:
@@ -888,6 +890,7 @@ class ConverterToPython(HeadspaceConverter):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, py_code, indent_level + 2)
+        py_code.append('\n')
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, py_code, 'PYTHON')
       elif member.node_type == 'RETURN_STATEMENT':
@@ -938,6 +941,25 @@ class ConverterToPython(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), py_code, indent_level)
     py_code.append('\n')
 
+  def emit_method_definition(self, method_declaration_node, class_name, py_code, indent_level):
+    return_type = find_function_return_type(method_declaration_node)
+    function_name = find_function_identifier(method_declaration_node)
+    function_params = find_function_parameters(method_declaration_node)
+    py_code.append(' ' * (indent_level + 2))
+    py_code.append('def ' + function_name + '(')
+    param_index = 0
+    # First parameter in method is always self.
+    py_code.append('self')
+    while param_index < len(function_params):
+      py_code.append(', ' + function_params[param_index][0] + ': ' + self.convert_data_type(function_params[param_index][1]))
+      param_index += 1
+    py_code.append(')')
+    # Include the return type of the function.
+    py_code.append(' -> ' + self.convert_data_type(return_type) + ':\n')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(method_declaration_node), py_code, indent_level + 2)
+    py_code.append('\n')
+
   def emit_constructor_call(self, init_args_node, py_code, indent_level):
     if len(init_args_node.members) < 1:
       print('When calling new, an argument for the variable to be initialized must be present.')
@@ -947,7 +969,7 @@ class ConverterToPython(HeadspaceConverter):
     target_type = self.symbol_table.find_symbol(initialization_target)
     # TODO: need to support imported classes.
     py_code.append(' ' * indent_level)
-    py_code.append(initialization_target + ' = ' + target_type + '()\n')
+    py_code.append(initialization_target + ' = ' + target_type + '()')
 
   def emit_allocator_call(self, init_args_node, py_code, indent_level):
     if len(init_args_node.members) < 1:
@@ -960,7 +982,7 @@ class ConverterToPython(HeadspaceConverter):
     if type(target_type) == str and 'REF:' in target_type:
       class_type = target_type.split(':')[-1]
       py_code.append(' ' * indent_level)
-      py_code.append(initialization_target + ' = ' + class_type + '()\n')
+      py_code.append(initialization_target + ' = ' + class_type + '()')
     else:
       print('The recipient of the allocate call must be a reference to a type.')
       sys.exit(1)
@@ -989,7 +1011,11 @@ class ConverterToPython(HeadspaceConverter):
           member_count += 1
     if member_count == 0:
       py_code.append('    pass\n')
-    py_code.append('\n\n')
+    py_code.append('\n')
+    for member_node in class_declaration_node.members[2].members:
+      if member_node.node_type == 'METHOD_DECLARATION':
+        self.emit_method_definition(member_node, class_name, py_code, indent_level)
+    py_code.append('\n')
 
   def emit_code(self):
     py_code = []
