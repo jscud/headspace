@@ -524,6 +524,17 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertTrue('  instance.x = 42;' in files[0].content)
     self.assertTrue('  instance = null;' in files[0].content)
 
+  def test_class_methods(self):
+    """Example of using class methods with JavaScript."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertTrue('  printX() {' in files[0].content)
+    self.assertTrue('    process.stdout.write("" + this.x);' in files[0].content)
+    self.assertTrue('  printS() {' in files[0].content)
+    self.assertTrue('    process.stdout.write(this.s);' in files[0].content)
+    self.assertTrue('  instance.printX();' in files[0].content)
+    self.assertTrue('  instance.printS();' in files[0].content)
+
 
 class TestConvertToJava(unittest.TestCase):
   """Convert the headspace code to Java."""
@@ -603,6 +614,19 @@ class TestConvertToJava(unittest.TestCase):
     self.assertTrue('    instance.setX(42);' in files[0].content)
     self.assertTrue('    instance = null;' in files[0].content)
 
+  def test_class_methods(self):
+    """Example of using class methods with Java."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    # Check contents of the static main function.
+    self.assertTrue('    instance.printX();' in files[0].content)
+    self.assertTrue('    instance.printS();' in files[0].content)
+    # Check contents of the class methods.
+    self.assertTrue('  public void printX() {' in files[1].content)
+    self.assertTrue('    System.out.print(this.getX());' in files[1].content)
+    self.assertTrue('  public void printS() {' in files[1].content)
+    self.assertTrue('    System.out.print(this.getS());' in files[1].content)
+
 
 class TestConvertToDotNet(unittest.TestCase):
   """Convert the headspace code to .NET (C#)."""
@@ -664,7 +688,7 @@ class TestConvertToDotNet(unittest.TestCase):
     self.assertTrue('      Console.Write(instance.x);' in files[0].content)
     # Checks for DataClass.cs
     self.assertTrue('  class DataClass {' in files[2].content)
-    self.assertTrue('    public int x { get; set; }' in files[2].content)
+    self.assertTrue('    public int? x { get; set; }' in files[2].content)
     self.assertTrue('    public DataClass() {' in files[2].content)
 
   def test_class_ref(self):
@@ -678,6 +702,20 @@ class TestConvertToDotNet(unittest.TestCase):
     self.assertTrue('      instance.x = 42;' in files[0].content)
     self.assertTrue('      Console.Write(instance.x);' in files[0].content)
     self.assertTrue('      instance = null;' in files[0].content)
+
+  def test_class_methods(self):
+    """Example of using class methods with Java."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    # Check contents of the static main function.
+    self.assertTrue('      instance.printX();' in files[0].content)
+    self.assertTrue('      instance.printS();' in files[0].content)
+    # Check contents of the class methods.
+    self.assertTrue('    public string? s { get; set; }' in files[2].content)
+    self.assertTrue('    public void printX() {' in files[2].content)
+    self.assertTrue('      Console.Write(this.x);' in files[2].content)
+    self.assertTrue('    public void printS() {' in files[2].content)
+    self.assertTrue('      Console.Write(this.s);' in files[2].content)
 
 
 if __name__ == '__main__':

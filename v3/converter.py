@@ -18,7 +18,7 @@ import os
 # - declaring classes                    c  py  go  js  java  c#
 # - defining constructors
 # - memory allocation                    c
-# - method calls                         c  py  go
+# - method calls                         c  py  go  js  java  c#
 # - data types:
 #   - str
 #   - list
@@ -1412,10 +1412,11 @@ class ConverterToJavaScript(HeadspaceConverter):
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           (function_call_node.members[0].members[2].members[0] == 'print' or
-           function_call_node.members[0].members[2].members[0] == 'printInt') and
+           function_call_node.members[0].members[2].members[0] == 'printInt' or
+           function_call_node.members[0].members[2].members[0] == 'printStr') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         js_code.append(' ' * indent_level)
-        if function_call_node.members[0].members[2].members[0] == 'print':
+        if function_call_node.members[0].members[2].members[0] == 'print' or function_call_node.members[0].members[2].members[0] == 'printStr':
           js_code.append('process.stdout.write(')
         elif function_call_node.members[0].members[2].members[0] == 'printInt':
           js_code.append('process.stdout.write("" + ')
@@ -1592,6 +1593,36 @@ class ConverterToJavaScript(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), js_code, indent_level)
     js_code.append('\n')
 
+  def emit_method_definition(self, method_declaration_node, js_code, indent_level):
+    return_type = find_function_return_type(method_declaration_node)
+    function_name = find_function_identifier(method_declaration_node)
+    function_params = find_function_parameters(method_declaration_node)
+    param_index = 0
+    js_code.append('\n')
+    js_code.append(' ' * indent_level)
+    js_code.append('/**\n')
+    while param_index < len(function_params):
+      js_code.append(' ' * indent_level)
+      js_code.append(' * @param {' + self.convert_data_type(function_params[param_index][1]) + '} ' + function_params[param_index][0] + '\n')
+      param_index += 1
+    js_code.append(' ' * indent_level)
+    js_code.append(' * @returns {' + self.convert_data_type(return_type) + '}\n')
+    js_code.append(' ' * indent_level)
+    js_code.append(' */\n')
+    js_code.append(' ' * indent_level)
+    js_code.append(function_name + '(')
+    param_index = 0
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      js_code.append(function_params[param_index][0] + ', ')
+      param_index += 1
+    if len(function_params) > 0:
+      js_code.append(function_params[param_index][0])
+    js_code.append(') ')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(method_declaration_node), js_code, indent_level)
+    js_code.append('\n')
+
   def emit_constructor_call(self, init_args_node, js_code, indent_level):
     if len(init_args_node.members) < 1:
       print('When calling new, an argument for the variable to be initialized must be present.')
@@ -1643,7 +1674,11 @@ class ConverterToJavaScript(HeadspaceConverter):
     js_code.append(' ' * (indent_level + 2))
     js_code.append('}\n')
     js_code.append(' ' * indent_level)
+    for member_node in class_declaration_node.members[2].members:
+      if member_node.node_type == 'METHOD_DECLARATION':
+        self.emit_method_definition(member_node, js_code, indent_level + 2)
     js_code.append('}\n')
+    js_code.append('\n')
     js_code.append('\n')
 
   def emit_code(self):
@@ -1697,10 +1732,12 @@ class ConverterToJava(HeadspaceConverter):
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           (function_call_node.members[0].members[2].members[0] == 'print' or
-           function_call_node.members[0].members[2].members[0] == 'printInt') and
+           function_call_node.members[0].members[2].members[0] == 'printInt' or
+           function_call_node.members[0].members[2].members[0] == 'printStr') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         if (function_call_node.members[0].members[2].members[0] == 'print' or
-            function_call_node.members[0].members[2].members[0] == 'printInt'):
+            function_call_node.members[0].members[2].members[0] == 'printInt' or
+            function_call_node.members[0].members[2].members[0] == 'printStr'):
           java_code.append('System.out.print(')
         if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
             function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
@@ -1898,6 +1935,23 @@ class ConverterToJava(HeadspaceConverter):
     # Now emit the code block body of the function.
     self.emit_function_body(find_function_body_code_block(function_declaration_node), java_code, indent_level)
 
+  def emit_method_definition(self, method_declaration_node, java_code, indent_level):
+    return_type = find_function_return_type(method_declaration_node)
+    function_name = find_function_identifier(method_declaration_node)
+    function_params = find_function_parameters(method_declaration_node)
+    java_code.append(' ' * indent_level)
+    java_code.append('public ' + return_type + ' ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      java_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
+      param_index += 1
+    if len(function_params) > 0:
+      java_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    java_code.append(') ')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(method_declaration_node), java_code, indent_level)
+    java_code.append('\n\n')
+
   def emit_constructor_call(self, init_args_node, java_code, indent_level):
     if len(init_args_node.members) < 1:
       print('When calling new, an argument for the variable to be initialized must be present.')
@@ -1980,6 +2034,10 @@ class ConverterToJava(HeadspaceConverter):
           java_code.append('this.' + member_name + ' = ' + member_name + ';\n')
           java_code.append(' ' * (indent_level + 2))
           java_code.append('}\n\n')
+    for member_node in class_declaration_node.members[2].members:
+      if member_node.node_type == 'METHOD_DECLARATION':
+        self.emit_method_definition(member_node, java_code, indent_level + 2)
+
     java_code.append(' ' * indent_level)
     java_code.append('}\n\n')
 
@@ -2053,10 +2111,12 @@ class ConverterToDotNet(HeadspaceConverter):
           function_call_node.members[0].members[0].members[0] == 'os' and
           function_call_node.members[0].members[2].node_type == 'IDENTIFIER' and
           (function_call_node.members[0].members[2].members[0] == 'print' or
-           function_call_node.members[0].members[2].members[0] == 'printInt') and
+           function_call_node.members[0].members[2].members[0] == 'printInt' or
+           function_call_node.members[0].members[2].members[0] == 'printStr') and
           function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS'):
         if (function_call_node.members[0].members[2].members[0] == 'print' or
-            function_call_node.members[0].members[2].members[0] == 'printInt'):
+            function_call_node.members[0].members[2].members[0] == 'printInt' or
+            function_call_node.members[0].members[2].members[0] == 'printStr'):
           dotnet_code.append('Console.Write(')
         if (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
             function_call_node.members[1].members[1].members[0].node_type == 'STRING_LITERAL'):
@@ -2248,6 +2308,23 @@ class ConverterToDotNet(HeadspaceConverter):
     self.emit_function_body(find_function_body_code_block(function_declaration_node), dotnet_code, indent_level)
     dotnet_code.append('\n')
 
+  def emit_method_definition(self, method_declaration_node, dotnet_code, indent_level):
+    return_type = find_function_return_type(method_declaration_node)
+    function_name = find_function_identifier(method_declaration_node)
+    function_params = find_function_parameters(method_declaration_node)
+    dotnet_code.append(' ' * indent_level)
+    dotnet_code.append('public ' + return_type + ' ' + function_name + '(')
+    param_index = 0
+    while param_index < len(function_params) - 1:
+      dotnet_code.append(self.convert_data_type(function_params[param_index][1]) + ' ' + function_params[param_index][0] + ', ')
+      param_index += 1
+    if len(function_params) > 0:
+      dotnet_code.append(self.convert_data_type(function_params[len(function_params) - 1][1]) + ' ' + function_params[len(function_params) - 1][0])
+    dotnet_code.append(') ')
+    # Now emit the code block body of the function.
+    self.emit_function_body(find_function_body_code_block(method_declaration_node), dotnet_code, indent_level)
+    dotnet_code.append('\n\n')
+
   def emit_constructor_call(self, init_args_node, dotnet_code, indent_level):
     if len(init_args_node.members) < 1:
       print('When calling new, an argument for the variable to be initialized must be present.')
@@ -2293,7 +2370,7 @@ class ConverterToDotNet(HeadspaceConverter):
         if class_member_node.node_type == 'DECLARATION' and class_member_node.members[0].node_type == 'IDENTIFIER':
           dotnet_code.append(' ' * (indent_level + 2))
           dotnet_code.append('public ')
-          dotnet_code.append(self.convert_data_type(class_member_node.members[2].members[0]) + ' ' + class_member_node.members[0].members[0])
+          dotnet_code.append(self.convert_data_type(class_member_node.members[2].members[0]) + '? ' + class_member_node.members[0].members[0])
           dotnet_code.append(' { get; set; }\n')
     dotnet_code.append('\n')
     dotnet_code.append(' ' * indent_level)
@@ -2310,6 +2387,9 @@ class ConverterToDotNet(HeadspaceConverter):
             dotnet_code.append(class_member_node.members[0].members[0] + ' = null;\n')
     dotnet_code.append(' ' * (indent_level + 2))
     dotnet_code.append('}\n\n')
+    for member_node in class_declaration_node.members[2].members:
+      if member_node.node_type == 'METHOD_DECLARATION':
+        self.emit_method_definition(member_node, dotnet_code, indent_level + 2)
     dotnet_code.append(' ' * indent_level)
     dotnet_code.append('}\n\n')
 

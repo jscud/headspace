@@ -671,6 +671,36 @@ class TestConvertToJavaAndExecute(unittest.TestCase):
     # Move back to the test running directory.
     os.chdir(os.path.join('..', '..'))
 
+  def test_converts_method_calls(self):
+    """Example of class methods for Java."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertEqual(2, len(files))
+    compilation_directory = os.path.join('tests', 'test_output')
+    #executable_path = os.path.join(compilation_directory, 'classmethod')
+    os.chdir(os.path.join('tests', 'test_output'))
+    # Compile the class with the main function.
+    java_file_path = pathlib.Path(files[0].filename)
+    java_file_path.parent.mkdir(parents=True, exist_ok=True)
+    java_file_path.write_text(files[0].content)
+    # Compile the data class.
+    java_data_file_path = pathlib.Path(files[1].filename)
+    java_data_file_path.write_text(files[1].content)
+    # Compile the java files in order.
+    result = subprocess.run(['javac', java_data_file_path], check=True, capture_output=True)
+    result = subprocess.run(['javac', java_file_path], check=True, capture_output=True)
+    # Run the program as java com.... (minus the .java)
+    java_class_path = '.'
+    class_file_name = '.'.join(str(java_file_path).split('/'))[:-5]
+    result = subprocess.run(['java', '-cp', java_class_path, class_file_name], check=True, capture_output=True)
+    self.assertEqual(b'From the methods:\nx: 17\ns: hello\n', result.stdout)
+    # Delete both the .java and .class file for the hello world program.
+    subprocess.run(['rm', str(java_file_path)], check=True)
+    subprocess.run(['rm', str(java_data_file_path)], check=True)
+    subprocess.run(['rm', str(java_file_path)[:-5] + '.class'], check=True)
+    subprocess.run(['rm', str(java_data_file_path)[:-5] + '.class'], check=True)
+    # Move back to the test running directory.
+    os.chdir(os.path.join('..', '..'))
 
 
 class TestConvertToDotNetAndExecute(unittest.TestCase):
@@ -737,6 +767,25 @@ class TestConvertToDotNetAndExecute(unittest.TestCase):
     # Then execute the .NET code using dotnet run.
     result = subprocess.run(['dotnet', 'run', '--project', os.path.join(compilation_directory, 'Headspace.Tests')], check=True, capture_output=True)
     self.assertEqual(b'Class member x: 42\n', result.stdout)
+    # Delete the .cs file for the hello world program.
+    subprocess.run(['rm', dotnet_file_path], check=True)
+
+  def test_converts_method_calls(self):
+    """Example of class methods for Java."""
+    tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
+    files = converter.convert(tree, 'dotnet')
+    self.assertEqual(3, len(files))
+    compilation_directory = os.path.join('tests', 'test_output')
+    dotnet_file_path = pathlib.Path(os.path.join(compilation_directory, files[0].filename))
+    dotnet_file_path.parent.mkdir(parents=True, exist_ok=True)
+    dotnet_file_path.write_text(files[0].content)
+    project_file_path = pathlib.Path(os.path.join(compilation_directory, files[1].filename))
+    project_file_path.write_text(files[1].content)
+    class_file_path = pathlib.Path(os.path.join(compilation_directory, files[2].filename))
+    class_file_path.write_text(files[2].content)
+    # Then execute the .NET code using dotnet run.
+    result = subprocess.run(['dotnet', 'run', '--project', os.path.join(compilation_directory, 'Headspace.Tests')], check=True, capture_output=True)
+    self.assertEqual(b'From the methods:\nx: 17\ns: hello\n', result.stdout)
     # Delete the .cs file for the hello world program.
     subprocess.run(['rm', dotnet_file_path], check=True)
 
