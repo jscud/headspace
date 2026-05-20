@@ -590,10 +590,23 @@ class Parser:
           if current_token and current_token.token_type == 'IDENTIFIER':
             declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
             self.consume_current_token('processed type identifier in list variable declaration')
-            code_block.members.append(declaration_tree)
           else:
             print('The reference type declaration must end with an identfier for the type')
             sys.exit(1)
+          self.process_whitespace(declaration_tree)
+          # Following the list type, we expect the size of the array.
+          # TODO: determine how to handle list references with an unknown size.
+          current_token = self.current_token()
+          if not current_token or not current_token.matches('SYMBOL', ':'):
+            print('When declaring a list type, the : separator must appear after the list data type.')
+            sys.exit(1)
+          self.consume_current_token('processed : after the variable type in the list declaration')
+          self.process_whitespace(declaration_tree)
+          current_token = self.current_token()
+          if current_token and current_token.token_type == 'NUMBER':
+            declaration_tree.members.append(Node('LIST_CAPACITY', [current_token.content], True))
+            self.consume_current_token('processed type identifier in list variable declaration')
+          code_block.members.append(declaration_tree)
         elif not current_token or not current_token.token_type == 'IDENTIFIER':
           print('Variable declaration must end with a type for the variable')
           sys.exit(1)

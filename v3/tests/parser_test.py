@@ -81,7 +81,7 @@ main: function: void(){
 
 LIST_EXAMPLE = """
 main: function: void(){
-  myList:list:int
+  myList:list:int:3
   myList = [5, 6, 7]
   os.print("list length: ")
   os.printInt(myList.length)
@@ -502,6 +502,8 @@ class TestParserParse(unittest.TestCase):
             :
           VARIABLE_TYPE:
             int
+          LIST_CAPACITY:
+            3
         ASSIGNMENT:
           ASSIGNMENT_TARGET:
             myList
