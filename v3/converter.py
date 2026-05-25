@@ -21,7 +21,7 @@ import os
 # - method calls                         c  py  go  js  java  c#
 # - data types:
 #   - str
-#   - list
+#   - list (sized array)                 c
 #   - map
 # - passing references
 # - raising exceptions/errors
@@ -41,7 +41,6 @@ DOTNET_CSPROJ_CONFIG = """<Project Sdk="Microsoft.NET.Sdk">
 
 </Project>
 """
-
 
 class SourceCodeFile:
 
@@ -189,8 +188,11 @@ def extract_identifier_type(declaration_node):
     identifier_name = declaration_node.members[member_index].members[0]
     member_index += 2
     identifier_type_parts = []
-    while member_index < len(declaration_node.members) and declaration_node.members[member_index].members[0] == 'reference':
-      identifier_type_parts.append('REF')
+    while member_index < len(declaration_node.members) and (declaration_node.members[member_index].members[0] == 'reference' or declaration_node.members[member_index].members[0] == 'list'):
+      if declaration_node.members[member_index].members[0] == 'reference':
+        identifier_type_parts.append('REF')
+      elif declaration_node.members[member_index].members[0] == 'list':
+        identifier_type_parts.append('LIST')
       member_index += 2
     identifier_type_parts.append(declaration_node.members[member_index].members[0])
     identifier_type = ':'.join(identifier_type_parts)
@@ -213,6 +215,13 @@ def find_function_body_code_block(function_declaration_node):
       return node
   print('Expected function definition to contain a code block for the body.')
   sys.exit(1)
+
+
+def find_list_size(variable_declaration_node):
+  for member in variable_declaration_node.members:
+    if member.node_type == 'LIST_CAPACITY':
+      return member.members[0]
+  return None
 
 
 def capitalize_first_letter(input_str):
@@ -255,6 +264,8 @@ class HeadspaceConverter:
         source_code.append(' ' + self.convert_operator(statement_node.members[0]) + ' ')
     elif statement_node.node_type == 'NUMBER_LITERAL' or statement_node.node_type == 'STRING_LITERAL':
       source_code.append(statement_node.members[0])
+    elif statement_node.node_type == 'COLLECTION_LITERAL':
+      self.emit_collection_literal(statement_node, source_code, indent_level)
 
   def emit_condition_expression(self, condition_expression, source_code, indent_level):
     self.emit_code_statement(condition_expression.members[1], source_code, 0)
@@ -331,6 +342,9 @@ class ConverterToC(HeadspaceConverter):
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], c_code, 0)
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'COLLECTION_MEMBER_ACCESS'):
+          self.emit_collection_member_access(function_call_node.members[1].members[1].members[0], c_code, 0)
         c_code.append(')')
       elif function_call_node.members[0].members[0].members[0] == 'new':
         self.emit_constructor_call(function_call_node.members[1].members[1], c_code, indent_level)
@@ -397,6 +411,7 @@ class ConverterToC(HeadspaceConverter):
             sys.exit(1)
 
   def emit_identifier_chain(self, identifier_chain_node, c_code, indent_level):
+    arrow_not_dot = False
     skip_next_dot = False
     for chain_node in identifier_chain_node.members:
       symbol_for_name = self.symbol_table.find_symbol(chain_node.members[0])
@@ -407,22 +422,41 @@ class ConverterToC(HeadspaceConverter):
         c_code.append(chain_node.members[0])
       elif type(symbol_for_name) == str and len(symbol_for_name.split(':')) > 1:
         # This is a reference type, so use -> access instead of .
-        c_code.append(chain_node.members[0] + '->')
-        skip_next_dot = True
+        c_code.append(chain_node.members[0])
+        arrow_not_dot = True
       elif type(symbol_for_name) == ModuleDetails:
         # The first member in the chain is a module, so switch to a module_function style call.
         c_code.append(chain_node.members[0] + '_')
         # We should use moduleName_functionName instead of parent.functionName since this is a module.
         skip_next_dot = True
+      elif chain_node.members[0] == '.' and arrow_not_dot:
+        c_code.append('->')
+        arrow_not_dot = False
       elif chain_node.members[0] == '.' and skip_next_dot:
         skip_next_dot = False
       elif chain_node.members[0] == 'this':
         # In a method, this is always a pointer to the class.
         c_code.append(chain_node.members[0])
-        c_code.append('->')
-        skip_next_dot = True
+        arrow_not_dot = True
       else:
         c_code.append(chain_node.members[0])
+
+  def emit_collection_literal(self, collection_node, c_code, indent_level):
+    c_code.append('{')
+    first_member = True
+    for collection_item in collection_node.members:
+      if not first_member:
+        c_code.append(', ')
+      self.emit_code_statement(collection_item, c_code, 0)
+      if first_member:
+        first_member = False
+    c_code.append('}')
+
+  def emit_collection_member_access(self, collection_access_node, c_code, indent_level):
+    self.emit_identifier_chain(collection_access_node.members[0], c_code, 0)
+    c_code.append('[')
+    c_code.append(collection_access_node.members[1].members[0].members[0])
+    c_code.append(']')
 
   def emit_return_statement(self, return_statement_node, c_code, indent_level):
     if return_statement_node.members[0]:
@@ -448,19 +482,33 @@ class ConverterToC(HeadspaceConverter):
     identifier_and_type = extract_identifier_type(variable_declaration)
     type_parts = identifier_and_type[1].split(':')
     variable_type = None
+    array_parts = []
     if len(type_parts) > 1:
       # This is a reference type, count the depth of the references.
       ref_levels = 0
       final_data_type = None
+      suffix_parts = []
       for type_segment in type_parts:
         if type_segment == 'REF':
-          ref_levels += 1
+          suffix_parts.append('*')
+        elif type_segment == 'LIST':
+          list_size = find_list_size(variable_declaration)
+          if list_size:
+            array_parts.append('[' + list_size + ']')
         else:
           final_data_type = self.convert_data_type(type_segment)
-      variable_type = final_data_type + ('*' * ref_levels)
+      variable_type = final_data_type + ''.join(suffix_parts)
     else:
       variable_type = identifier_and_type[1]
-    c_code.append(self.convert_data_type(variable_type) + ' ' + identifier_and_type[0] + ';\n')
+    c_code.append(self.convert_data_type(variable_type) + ' ' + identifier_and_type[0])
+    if len(array_parts) > 0:
+      c_code.append(''.join(array_parts))
+      # If there is an array literal, inline it here.
+      for member in variable_declaration.members:
+        if member.node_type == 'COLLECTION_LITERAL':
+          c_code.append(' = ')
+          self.emit_collection_literal(member, c_code, 0)
+    c_code.append(';\n')
 
   def emit_assignment_statement(self, assignment_statement, c_code, indent_level):
     c_code.append(' ' * indent_level)
@@ -531,6 +579,7 @@ class ConverterToC(HeadspaceConverter):
         c_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, c_code, 0)
         c_code.append(';\n')
+
     c_code.append(' ' * indent_level)
     c_code.append('}\n')
 

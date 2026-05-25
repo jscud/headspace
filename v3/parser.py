@@ -606,6 +606,17 @@ class Parser:
           if current_token and current_token.token_type == 'NUMBER':
             declaration_tree.members.append(Node('LIST_CAPACITY', [current_token.content], True))
             self.consume_current_token('processed type identifier in list variable declaration')
+          self.process_whitespace(declaration_tree)
+          current_token = self.current_token()
+          if current_token and current_token.matches('SYMBOL', '='):
+            self.consume_current_token('processed = to begin assigning list members')
+            self.process_whitespace(declaration_tree)
+            current_token = self.current_token()
+            if not current_token or not current_token.matches('SYMBOL', '['):
+              print('Expected an opening [ when declaring list members')
+              sys.exit(1)
+            self.process_collection_literal(declaration_tree)
+          self.process_whitespace(declaration_tree)
           code_block.members.append(declaration_tree)
         elif not current_token or not current_token.token_type == 'IDENTIFIER':
           print('Variable declaration must end with a type for the variable')

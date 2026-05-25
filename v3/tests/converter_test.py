@@ -134,16 +134,12 @@ main: function: void(){
 }
 """
 
-# TODO: support lists, possibly as a headspace class.
 LIST_EXAMPLE = """
 moduleName = "jeffscudder.com/headspace/tests/list"
 
 main: function: void(){
-  myList:list:int
-  myList = [5, 6, 7]
-  os.print("list length: ")
-  os.printInt(myList.length)
-  os.print(", first item: ")
+  myList:list:int:3 = [5, 6, 7]
+  os.print("first item: ")
   os.printInt(myList[0])
   os.print("\\n")
 }
@@ -279,6 +275,13 @@ class TestConvertToC(unittest.TestCase):
     # Check .h file contents.
     self.assertTrue('void classref_DataClass_init(classref_DataClass* this);' in files[1].content)
     self.assertTrue('classref_DataClass* classref_DataClass_constructor(void);' in files[1].content)
+
+  def test_list(self):
+    """Example of using a list with C."""
+    tree = parser.parse_source(LIST_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    self.assertTrue('  int myList[3] = {5, 6, 7};' in files[0].content)
+    self.assertTrue('  printf("%d", myList[0]);' in files[0].content)
 
   def test_class_methods(self):
     """Example of using class methods with C."""

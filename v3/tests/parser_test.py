@@ -81,11 +81,8 @@ main: function: void(){
 
 LIST_EXAMPLE = """
 main: function: void(){
-  myList:list:int:3
-  myList = [5, 6, 7]
-  os.print("list length: ")
-  os.printInt(myList.length)
-  os.print(", first item: ")
+  myList:list:int:3 = [5, 6, 7]
+  os.print("first item: ")
   os.printInt(myList[0])
   os.print("\n")
 }
@@ -504,11 +501,6 @@ class TestParserParse(unittest.TestCase):
             int
           LIST_CAPACITY:
             3
-        ASSIGNMENT:
-          ASSIGNMENT_TARGET:
-            myList
-          ASSIGNMENT_SYMBOL:
-            =
           COLLECTION_LITERAL:
             NUMBER_LITERAL:
               5
