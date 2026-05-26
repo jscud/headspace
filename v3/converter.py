@@ -21,7 +21,7 @@ import os
 # - method calls                         c  py  go  js  java  c#
 # - data types:
 #   - str
-#   - list (sized array)                 c
+#   - list (sized array)                 c  py
 #   - map
 # - passing references
 # - raising exceptions/errors
@@ -831,6 +831,9 @@ class ConverterToPython(HeadspaceConverter):
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], py_code, 0)
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'COLLECTION_MEMBER_ACCESS'):
+          self.emit_collection_member_access(function_call_node.members[1].members[1].members[0], py_code, 0)
         py_code.append(', end="")')
       elif function_call_node.members[0].members[0].members[0] == 'new':
         self.emit_constructor_call(function_call_node.members[1].members[1], py_code, indent_level)
@@ -866,6 +869,23 @@ class ConverterToPython(HeadspaceConverter):
       else:
         py_code.append(member.members[0])
 
+  def emit_collection_literal(self, collection_node, py_code, indent_level):
+    py_code.append('[')
+    first_member = True
+    for collection_item in collection_node.members:
+      if not first_member:
+        py_code.append(', ')
+      self.emit_code_statement(collection_item, py_code, 0)
+      if first_member:
+        first_member = False
+    py_code.append(']')
+
+  def emit_collection_member_access(self, collection_access_node, py_code, indent_level):
+    self.emit_identifier_chain(collection_access_node.members[0], py_code, 0)
+    py_code.append('[')
+    py_code.append(collection_access_node.members[1].members[0].members[0])
+    py_code.append(']')
+
   def emit_return_statement(self, return_statement_node, py_code, indent_level):
     if return_statement_node.members[0]:
       py_code.append(' ' * indent_level)
@@ -889,8 +909,14 @@ class ConverterToPython(HeadspaceConverter):
       return provided_type
 
   def emit_variable_declaration(self, variable_declaration, py_code, indent_level):
-    # In python, variables do not need to be forward declared.
-    pass
+    # In python, most variables do not need to be forward declared.
+    # Since list literals include initial values, emit them.
+    identifier_and_type = extract_identifier_type(variable_declaration)
+    for member in variable_declaration.members:
+      if member.node_type == 'COLLECTION_LITERAL':
+        py_code.append(' ' * indent_level)
+        py_code.append(identifier_and_type[0] + ' = ')
+        self.emit_collection_literal(member, py_code, 0)
 
   def emit_assignment_statement(self, assignment_statement, py_code, indent_level):
     py_code.append(' ' * indent_level)
@@ -939,7 +965,6 @@ class ConverterToPython(HeadspaceConverter):
     for member in code_block_node.members:
       if member.node_type == 'FUNCTION_CALL':
         self.emit_function_call(member, py_code, indent_level + 2)
-        py_code.append('\n')
       elif member.node_type == 'FOREIGN_CODE_BLOCK':
         self.emit_foreign_code_block(member, py_code, 'PYTHON')
       elif member.node_type == 'RETURN_STATEMENT':
@@ -957,7 +982,7 @@ class ConverterToPython(HeadspaceConverter):
       elif member.node_type == 'POSTFIX_OPERATION':
         py_code.append(' ' * (indent_level + 2))
         self.emit_code_statement(member, py_code, 0)
-        py_code.append('\n')
+      py_code.append('\n')
 
     # Restore the top level symbol table.
     self.symbol_table = self.symbol_table.parent_table

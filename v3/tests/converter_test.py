@@ -366,6 +366,13 @@ class TestConvertToPython(unittest.TestCase):
     self.assertTrue('  instance.x = 42' in files[0].content)
     self.assertTrue('  del instance' in files[0].content)
 
+  def test_list(self):
+    """Example of using a list with Python."""
+    tree = parser.parse_source(LIST_EXAMPLE)
+    files = converter.convert(tree, 'python')
+    self.assertTrue('  myList = [5, 6, 7]' in files[0].content)
+    self.assertTrue('  print(myList[0], end="")' in files[0].content)
+
   def test_class_methods(self):
     """Example of using class methods with Python."""
     tree = parser.parse_source(CLASS_METHOD_EXAMPLE)
