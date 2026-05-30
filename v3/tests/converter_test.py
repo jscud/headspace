@@ -541,6 +541,13 @@ class TestConvertToJavaScript(unittest.TestCase):
     self.assertTrue('  instance.x = 42;' in files[0].content)
     self.assertTrue('  instance = null;' in files[0].content)
 
+  def test_list(self):
+    """Example of using a list with JavaScript."""
+    tree = parser.parse_source(LIST_EXAMPLE)
+    files = converter.convert(tree, 'javascript')
+    self.assertTrue('  let myList = [5, 6, 7];' in files[0].content)
+    self.assertTrue('  process.stdout.write("" + myList[0]);' in files[0].content)
+
   def test_class_methods(self):
     """Example of using class methods with JavaScript."""
     tree = parser.parse_source(CLASS_METHOD_EXAMPLE)

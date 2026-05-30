@@ -21,9 +21,11 @@ import os
 # - method calls                         c  py  go  js  java  c#
 # - data types:
 #   - str
-#   - list (sized array)                 c  py  go
+#   - list (sized array)                 c  py  go  js
+#   - variable sized array
 #   - map
 # - passing references
+# - importing classes
 # - raising exceptions/errors
 #
 # Future languages to support:
@@ -1535,6 +1537,9 @@ class ConverterToJavaScript(HeadspaceConverter):
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], js_code, 0)
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'COLLECTION_MEMBER_ACCESS'):
+          self.emit_collection_member_access(function_call_node.members[1].members[1].members[0], js_code, 0)
         js_code.append(')')
       elif function_call_node.members[0].members[0].members[0] == 'new':
         self.emit_constructor_call(function_call_node.members[1].members[1], js_code, indent_level)
@@ -1566,6 +1571,23 @@ class ConverterToJavaScript(HeadspaceConverter):
     for member in identifier_chain_node.members:
       js_code.append(member.members[0])
 
+  def emit_collection_literal(self, collection_node, js_code, indent_level):
+    js_code.append('[')
+    first_member = True
+    for collection_item in collection_node.members:
+      if not first_member:
+        js_code.append(', ')
+      self.emit_code_statement(collection_item, js_code, 0)
+      if first_member:
+        first_member = False
+    js_code.append(']')
+
+  def emit_collection_member_access(self, collection_access_node, js_code, indent_level):
+    self.emit_identifier_chain(collection_access_node.members[0], js_code, 0)
+    js_code.append('[')
+    js_code.append(collection_access_node.members[1].members[0].members[0])
+    js_code.append(']')
+
   def emit_return_statement(self, return_statement_node, js_code, indent_level):
     if return_statement_node.members[0]:
       js_code.append(' ' * indent_level)
@@ -1583,7 +1605,13 @@ class ConverterToJavaScript(HeadspaceConverter):
   def emit_variable_declaration(self, variable_declaration, js_code, indent_level):
     js_code.append(' ' * indent_level)
     # Note that JS variables aren't declared with a data type.
-    js_code.append('let ' + variable_declaration.members[0].members[0] + ';\n')
+    identifier_and_type = extract_identifier_type(variable_declaration)
+    array_parts = []
+    for member in variable_declaration.members:
+      if member.node_type == 'COLLECTION_LITERAL':
+        array_parts.append(' = ')
+        self.emit_collection_literal(member, array_parts, 0)
+    js_code.append('let ' + variable_declaration.members[0].members[0] + ''.join(array_parts) + ';\n')
 
   def emit_assignment_statement(self, assignment_statement, js_code, indent_level):
     js_code.append(' ' * indent_level)
