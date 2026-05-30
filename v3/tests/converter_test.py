@@ -638,6 +638,13 @@ class TestConvertToJava(unittest.TestCase):
     self.assertTrue('    instance.setX(42);' in files[0].content)
     self.assertTrue('    instance = null;' in files[0].content)
 
+  def test_list(self):
+    """Example of using a list with Java."""
+    tree = parser.parse_source(LIST_EXAMPLE)
+    files = converter.convert(tree, 'java')
+    self.assertTrue('    int[] myList = {5, 6, 7};' in files[0].content)
+    self.assertTrue('    System.out.print(myList[0]);' in files[0].content)
+
   def test_class_methods(self):
     """Example of using class methods with Java."""
     tree = parser.parse_source(CLASS_METHOD_EXAMPLE)

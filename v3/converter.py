@@ -21,7 +21,7 @@ import os
 # - method calls                         c  py  go  js  java  c#
 # - data types:
 #   - str
-#   - list (sized array)                 c  py  go  js
+#   - list (sized array)                 c  py  go  js  java
 #   - variable sized array
 #   - map
 # - passing references
@@ -1881,6 +1881,9 @@ class ConverterToJava(HeadspaceConverter):
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], java_code, 0)
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'COLLECTION_MEMBER_ACCESS'):
+          self.emit_collection_member_access(function_call_node.members[1].members[1].members[0], java_code, 0)
         java_code.append(')')
       elif function_call_node.members[0].members[0].members[0] == 'new':
         self.emit_constructor_call(function_call_node.members[1].members[1], java_code, 0)
@@ -1927,6 +1930,23 @@ class ConverterToJava(HeadspaceConverter):
       else:
         java_code.append(member.members[0])
 
+  def emit_collection_literal(self, collection_node, java_code, indent_level):
+    java_code.append('{')
+    first_member = True
+    for collection_item in collection_node.members:
+      if not first_member:
+        java_code.append(', ')
+      self.emit_code_statement(collection_item, java_code, 0)
+      if first_member:
+        first_member = False
+    java_code.append('}')
+
+  def emit_collection_member_access(self, collection_access_node, java_code, indent_level):
+    self.emit_identifier_chain(collection_access_node.members[0], java_code, 0)
+    java_code.append('[')
+    java_code.append(collection_access_node.members[1].members[0].members[0])
+    java_code.append(']')
+
   def emit_return_statement(self, return_statement_node, java_code, indent_level):
     if return_statement_node.members[0]:
       java_code.append(' ' * indent_level)
@@ -1948,6 +1968,7 @@ class ConverterToJava(HeadspaceConverter):
     identifier_and_type = extract_identifier_type(variable_declaration)
     type_parts = identifier_and_type[1].split(':')
     variable_type = None
+    array_parts = []
     if len(type_parts) > 1:
       # This is a reference type, count the depth of the references.
       ref_levels = 0
@@ -1955,12 +1976,24 @@ class ConverterToJava(HeadspaceConverter):
       for type_segment in type_parts:
         if type_segment == 'REF':
           ref_levels += 1
+        elif type_segment == 'LIST':
+          list_size = find_list_size(variable_declaration)
+          if list_size:
+            array_parts.append('[]')
         else:
           final_data_type = self.convert_data_type(type_segment)
       variable_type = final_data_type
     else:
       variable_type = identifier_and_type[1]
-    java_code.append(self.convert_data_type(variable_type) + ' ' + identifier_and_type[0] + ';\n')
+    java_code.append(self.convert_data_type(variable_type) + ''.join(array_parts) + ' ' + identifier_and_type[0])
+    if len(array_parts) > 0:
+      # If there is an array literal, inline it here.
+      for member in variable_declaration.members:
+        if member.node_type == 'COLLECTION_LITERAL':
+          java_code.append(' = ')
+          self.emit_collection_literal(member, java_code, 0)
+        # TODO: if there was no collection literal, set the array to a new[list_size]
+    java_code.append(';\n')
 
   def emit_assignment_statement(self, assignment_statement, java_code, indent_level):
     java_code.append(' ' * indent_level)
