@@ -21,7 +21,7 @@ import os
 # - method calls                         c  py  go  js  java  c#
 # - data types:
 #   - str
-#   - list (sized array)                 c  py
+#   - list (sized array)                 c  py  go
 #   - map
 # - passing references
 # - raising exceptions/errors
@@ -1171,6 +1171,9 @@ class ConverterToGo(HeadspaceConverter):
         elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
               function_call_node.members[1].members[1].members[0].node_type == 'FUNCTION_CALL'):
           self.emit_function_call(function_call_node.members[1].members[1].members[0], go_code, 0)
+        elif (function_call_node.members[1].members[1].node_type == 'ARGUMENTS' and
+              function_call_node.members[1].members[1].members[0].node_type == 'COLLECTION_MEMBER_ACCESS'):
+          self.emit_collection_member_access(function_call_node.members[1].members[1].members[0], go_code, 0)
         go_code.append(')')
       elif function_call_node.members[0].members[0].members[0] == 'new':
         self.emit_constructor_call(function_call_node.members[1].members[1], go_code, indent_level)
@@ -1213,6 +1216,23 @@ class ConverterToGo(HeadspaceConverter):
         # TODO: can we always assume that a member in Go will be capitalized? (Default public)
         go_code.append(capitalize_first_letter(member.members[0]))
 
+  def emit_collection_literal(self, collection_node, go_code, indent_level):
+    go_code.append('{')
+    first_member = True
+    for collection_item in collection_node.members:
+      if not first_member:
+        go_code.append(', ')
+      self.emit_code_statement(collection_item, go_code, 0)
+      if first_member:
+        first_member = False
+    go_code.append('}')
+
+  def emit_collection_member_access(self, collection_access_node, go_code, indent_level):
+    self.emit_identifier_chain(collection_access_node.members[0], go_code, 0)
+    go_code.append('[')
+    go_code.append(collection_access_node.members[1].members[0].members[0])
+    go_code.append(']')
+
   def emit_return_statement(self, return_statement_node, go_code, indent_level):
     if return_statement_node.members[0]:
       go_code.append('\t' * indent_level)
@@ -1232,6 +1252,7 @@ class ConverterToGo(HeadspaceConverter):
     identifier_and_type = extract_identifier_type(variable_declaration)
     type_parts = identifier_and_type[1].split(':')
     variable_type = None
+    array_parts = []
     if len(type_parts) > 1:
       # This is a reference type, count the depth of the references.
       ref_levels = 0
@@ -1239,12 +1260,22 @@ class ConverterToGo(HeadspaceConverter):
       for type_segment in type_parts:
         if type_segment == 'REF':
           ref_levels += 1
+        elif type_segment == 'LIST':
+          list_size = find_list_size(variable_declaration)
+          if list_size:
+            array_parts.append('= [' + list_size + ']')
         else:
           final_data_type = self.convert_data_type(type_segment)
       variable_type = ('*' * ref_levels) + final_data_type
     else:
       variable_type = identifier_and_type[1]
-    go_code.append('var ' + identifier_and_type[0] + ' ' + self.convert_data_type(variable_type) + '\n')
+    go_code.append('var ' + identifier_and_type[0] + ' ' + ''.join(array_parts) + self.convert_data_type(variable_type))
+    if len(array_parts) > 0:
+      # If there is an array literal, inline it here.
+      for member in variable_declaration.members:
+        if member.node_type == 'COLLECTION_LITERAL':
+          self.emit_collection_literal(member, go_code, 0)
+    go_code.append('\n')
 
   def emit_assignment_statement(self, assignment_statement, go_code, indent_level):
     go_code.append('\t' * indent_level)

@@ -132,14 +132,13 @@ main: function: void(){
 """
 
 LIST_EXAMPLE = """
-main: function: void()(
-  myList:list:int
-  myList = [5, 6, 7]
-  os.print("list length: ")
-  os.printInt(myList.length)
-  os.print(", first item: ")
+moduleName = "jeffscudder.com/headspace/tests/list"
+
+main: function: void(){
+  myList:list:int:3 = [5, 6, 7]
+  os.print("first item: ")
   os.printInt(myList[0])
-  os.print("\n")
+  os.print("\\n")
 }
 """
 
@@ -523,6 +522,22 @@ class TestConvertToGoAndExecute(unittest.TestCase):
     # Execute the Go code.
     result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
     self.assertEqual(b'From the methods:\nx: 17\ns: hello\n', result.stdout)
+    subprocess.run(['rm', file_path], check=True)
+    subprocess.run(['rmdir', package_path], check=True)
+
+  def test_converts_method_calls(self):
+    """Example of fixed sized lists for Go."""
+    tree = parser.parse_source(LIST_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertEqual(1, len(files))
+    file_path = os.path.join('tests', 'test_output', files[0].filename)
+    package_path = os.path.join('tests', 'test_output', 'list')
+    subprocess.run(['mkdir', package_path], check=True)
+    with open(file_path, 'w') as go_source:
+      go_source.write(files[0].content)
+    # Execute the Go code.
+    result = subprocess.run(['go', 'run', file_path], check=True, capture_output=True)
+    self.assertEqual(b'first item: 5\n', result.stdout)
     subprocess.run(['rm', file_path], check=True)
     subprocess.run(['rmdir', package_path], check=True)
 

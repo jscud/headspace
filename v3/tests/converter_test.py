@@ -444,6 +444,13 @@ class TestConvertToGo(unittest.TestCase):
     self.assertTrue('\tinstance.X = 42' in files[0].content)
     self.assertTrue('\tfmt.Printf("%d", instance.X)' in files[0].content)
 
+  def test_list(self):
+    """Example of using a list with Go."""
+    tree = parser.parse_source(LIST_EXAMPLE)
+    files = converter.convert(tree, 'go')
+    self.assertTrue('\tvar myList = [3]int{5, 6, 7}' in files[0].content)
+    self.assertTrue('\tfmt.Printf("%d", myList[0])' in files[0].content)
+
   def test_class_ref(self):
     """Example of declaring and using a class reference with Go."""
     tree = parser.parse_source(CLASS_REF_EXAMPLE)
