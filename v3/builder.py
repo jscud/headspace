@@ -49,7 +49,7 @@ def convert_project(project_directory, target_language, print_log_messages=False
   for source_location in headspace_directory.iterdir():
     if source_location.is_file():
       with open(source_location, 'r') as source_file:
-        tree = parser.parse_source(source_file.read())
+        tree = parser.parse_source(source_file.read(), print_log_messages)
         results_files = converter.convert(tree, target_language)
         # Write out the results files to the output directory.
         for result_file in results_files:

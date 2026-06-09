@@ -43,6 +43,20 @@ class TestBuildCAndExecute(unittest.TestCase):
       subprocess.run(['rm', binary_header_path], check=True)
       subprocess.run(['rm', executable_path], check=True)
 
+  def test_modules_and_classes(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'modules_classes'), 'c', True)
+    compilation_directory = os.path.join('tests', 'test_projects', 'modules_classes', 'c')
+    include_path_arg = '-I' + compilation_directory
+    # Compile module_a
+    module_a_source_path = os.path.join(compilation_directory, 'tests', 'modules_classes', 'module_a.c')
+    module_a_header_path = os.path.join(compilation_directory, 'tests', 'modules_classes', 'module_a.h')
+    module_a_obj_path = os.path.join(compilation_directory, 'tests', 'modules_classes', 'module_a.o')
+    subprocess.run(['gcc', '-Wall', '-Wextra', '-std=c89', '-pedantic',
+                    '-Wmissing-prototypes', '-Wstrict-prototypes',
+                    '-Wold-style-definition', include_path_arg, '-c',
+                    module_a_source_path, '-o', module_a_obj_path], check=True)
+
+
 
 class TestBuildPythonAndExecute(unittest.TestCase):
   """Build a headspace project, converting to Python."""

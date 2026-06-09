@@ -1,0 +1,27 @@
+moduleName = "jeffscudder.com/tests/modules_classes/module_a"
+
+Greeter: class {
+  yourName: str
+
+  greetMe: method: void() {
+    os.print("hello, ")
+    os.printStr(this.yourName)
+    os.print("\\n")
+  }
+}
+
+Counter: class {
+  num: int
+
+  incrementNum: method: void() {
+    this.num++
+  }
+
+  sayNumber: method: void() {
+    os.print("number: ")
+    os.printInt(this.num)
+    os.print("\\n")
+  }
+}
+
+

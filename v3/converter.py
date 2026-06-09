@@ -196,7 +196,14 @@ def extract_identifier_type(declaration_node):
       elif declaration_node.members[member_index].members[0] == 'list':
         identifier_type_parts.append('LIST')
       member_index += 2
-    identifier_type_parts.append(declaration_node.members[member_index].members[0])
+    type_node = declaration_node.members[member_index].members[0]
+    if type(type_node) != str and type_node.node_type == 'TYPE_MODULE':
+      if len(declaration_node.members[member_index].members) < 2 or not declaration_node.members[member_index].members[1]:
+        print('invalid type, the type should come from an imported module')
+        sys.exit(1)
+      identifier_type_parts.append(type_node.members[0] + '.' + declaration_node.members[member_index].members[1].members[0])
+    else:
+      identifier_type_parts.append(type_node)
     identifier_type = ':'.join(identifier_type_parts)
     return (identifier_name, identifier_type)
   return None
@@ -308,7 +315,14 @@ class HeadspaceConverter:
         class_declaration_node = member
         if class_declaration_node.members[0].node_type == 'IDENTIFIER':
           self.symbol_table.set_symbol(find_class_identifier(class_declaration_node), 'CLASS')
-      # TODO: also process variable declarations, but scoped to the code block level.
+        # We need to process member declarations to add them to the symbol table as well.
+        for class_node_member in class_declaration_node.members:
+          if class_node_member.node_type == 'CLASS_DEFINITION':
+            # check for the class members and add their identifiersa
+            for class_def_member in class_node_member.members:
+              if class_def_member.node_type == 'DECLARATION':
+                identifier_with_type = extract_identifier_type(class_def_member)
+                self.symbol_table.set_symbol(identifier_with_type[0], identifier_with_type[1])
       elif member.node_type == 'DECLARATION':
         # Code blocks need their own scoped symbol table for things like local vars to be able to do -> access patterns for pointers in C.
         identifier_with_type = extract_identifier_type(member)
@@ -376,12 +390,17 @@ class ConverterToC(HeadspaceConverter):
             print('Function call was missing a list of arguments.')
             sys.exit(1)
         elif type(symbol_for_name) == str:
-          # This is a class so we convert this to a method call.
-          # TODO: handle additional constructions, not just an x.y() pattern.
-          class_name = self.module_details.module_name + '_' + symbol_for_name
           class_instance_name = function_call_node.members[0].members[0].members[0]
-          function_name = function_call_node.members[0].members[2].members[0]
-          c_code.append(class_name + '_' + function_name)
+          if '.' in symbol_for_name:
+            c_code.append(symbol_for_name.replace('.', '_'))
+            function_name = function_call_node.members[0].members[2].members[0]
+            c_code.append('_' + function_name)
+          else:
+            # This is a class so we convert this to a method call.
+            # TODO: handle additional constructions, not just an x.y() pattern.
+            class_name = self.module_details.module_name + '_' + symbol_for_name
+            function_name = function_call_node.members[0].members[2].members[0]
+            c_code.append(class_name + '_' + function_name)
           if function_call_node.members[1].node_type == 'FUNCTION_CALL_ARGUMENTS':
             # First parameter for a method call is always the instance's pointer.
             c_code.append('(&' + class_instance_name)

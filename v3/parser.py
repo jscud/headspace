@@ -541,90 +541,92 @@ class Parser:
         self.process_whitespace(code_block)
         current_token = self.current_token()
       elif next_token and next_token.matches('SYMBOL', ':'):
-        declaration_tree = Node('DECLARATION')
-        declaration_tree.members.append(Node('IDENTIFIER', [current_token.content], True))
-        self.consume_current_token('processed declared identifier in code block')
-        self.process_whitespace(declaration_tree)
-        current_token = self.current_token()
-        if current_token and current_token.matches('SYMBOL', ':'):
-          declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
-        else:
-          print('Expected : following variable identifer was missing from declaration')
-          sys.exit(1)
-        self.consume_current_token('processed declaration marker in code block')
-        current_token = self.current_token()
-        if current_token and current_token.matches('IDENTIFIER', 'function'):
-          print('A function cannot be declared in a code block')
-          sys.exit(1)
-        elif current_token and current_token.matches('IDENTIFIER', 'reference'):
-          while current_token and current_token.matches('IDENTIFIER', 'reference'):
-            # Process the chain of references that come before the eventual variable type.
-            declaration_tree.members.append(Node('REFERENCE_MARKER', [current_token.content], True))
-            self.consume_current_token('processed reference keyword in variable declaration')
-            current_token = self.current_token()
-            if not current_token or not current_token.matches('SYMBOL', ':'):
-              print('When declaring a reference type, the : separator must appear after the reference keyword.')
-              sys.exit(1)
-            declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
-            self.consume_current_token('processed : after reference keyword in variable declaration')
-            current_token = self.current_token()
-          if current_token and current_token.token_type == 'IDENTIFIER':
-            declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
-            self.consume_current_token('processed type identifier in reference variable declaration')
-            code_block.members.append(declaration_tree)
-          else:
-            print('The reference type declaration must end with an identfier for the type')
-            sys.exit(1)
-        elif current_token and current_token.matches('IDENTIFIER', 'list'):
-          while current_token and current_token.matches('IDENTIFIER', 'list'):
-            # Process the chain of list types that come before the eventual variable type.
-            declaration_tree.members.append(Node('LIST_MARKER', [current_token.content], True))
-            self.consume_current_token('processed list keyword in variable declaration')
-            current_token = self.current_token()
-            if not current_token or not current_token.matches('SYMBOL', ':'):
-              print('When declaring a list type, the : separator must appear after the list keyword.')
-              sys.exit(1)
-            declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
-            self.consume_current_token('processed : after list keyword in variable declaration')
-            current_token = self.current_token()
-          if current_token and current_token.token_type == 'IDENTIFIER':
-            declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
-            self.consume_current_token('processed type identifier in list variable declaration')
-          else:
-            print('The reference type declaration must end with an identfier for the type')
-            sys.exit(1)
-          self.process_whitespace(declaration_tree)
-          # Following the list type, we expect the size of the array.
-          # TODO: determine how to handle list references with an unknown size.
-          current_token = self.current_token()
-          if not current_token or not current_token.matches('SYMBOL', ':'):
-            print('When declaring a list type, the : separator must appear after the list data type.')
-            sys.exit(1)
-          self.consume_current_token('processed : after the variable type in the list declaration')
-          self.process_whitespace(declaration_tree)
-          current_token = self.current_token()
-          if current_token and current_token.token_type == 'NUMBER':
-            declaration_tree.members.append(Node('LIST_CAPACITY', [current_token.content], True))
-            self.consume_current_token('processed type identifier in list variable declaration')
-          self.process_whitespace(declaration_tree)
-          current_token = self.current_token()
-          if current_token and current_token.matches('SYMBOL', '='):
-            self.consume_current_token('processed = to begin assigning list members')
-            self.process_whitespace(declaration_tree)
-            current_token = self.current_token()
-            if not current_token or not current_token.matches('SYMBOL', '['):
-              print('Expected an opening [ when declaring list members')
-              sys.exit(1)
-            self.process_collection_literal(declaration_tree)
-          self.process_whitespace(declaration_tree)
-          code_block.members.append(declaration_tree)
-        elif not current_token or not current_token.token_type == 'IDENTIFIER':
-          print('Variable declaration must end with a type for the variable')
-          sys.exit(1)
-        else:
-          declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
-          self.consume_current_token('processed type identifier in variable declaration')
-          code_block.members.append(declaration_tree)
+        self.process_declaration(code_block)
+        # TODO: check that the below logic is mirrored in process_declaration.
+#        declaration_tree = Node('DECLARATION')
+#        declaration_tree.members.append(Node('IDENTIFIER', [current_token.content], True))
+#        self.consume_current_token('processed declared identifier in code block')
+#        self.process_whitespace(declaration_tree)
+#        current_token = self.current_token()
+#        if current_token and current_token.matches('SYMBOL', ':'):
+#          declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
+#        else:
+#          print('Expected : following variable identifer was missing from declaration')
+#          sys.exit(1)
+#        self.consume_current_token('processed declaration marker in code block')
+#        current_token = self.current_token()
+#        if current_token and current_token.matches('IDENTIFIER', 'function'):
+#          print('A function cannot be declared in a code block')
+#          sys.exit(1)
+#        elif current_token and current_token.matches('IDENTIFIER', 'reference'):
+#          while current_token and current_token.matches('IDENTIFIER', 'reference'):
+#            # Process the chain of references that come before the eventual variable type.
+#            declaration_tree.members.append(Node('REFERENCE_MARKER', [current_token.content], True))
+#            self.consume_current_token('processed reference keyword in variable declaration')
+#            current_token = self.current_token()
+#            if not current_token or not current_token.matches('SYMBOL', ':'):
+#              print('When declaring a reference type, the : separator must appear after the reference keyword.')
+#              sys.exit(1)
+#            declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
+#            self.consume_current_token('processed : after reference keyword in variable declaration')
+#            current_token = self.current_token()
+#          if current_token and current_token.token_type == 'IDENTIFIER':
+#            declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+#            self.consume_current_token('processed type identifier in reference variable declaration')
+#            code_block.members.append(declaration_tree)
+#          else:
+#            print('The reference type declaration must end with an identfier for the type')
+#            sys.exit(1)
+#        elif current_token and current_token.matches('IDENTIFIER', 'list'):
+#          while current_token and current_token.matches('IDENTIFIER', 'list'):
+#            # Process the chain of list types that come before the eventual variable type.
+#            declaration_tree.members.append(Node('LIST_MARKER', [current_token.content], True))
+#            self.consume_current_token('processed list keyword in variable declaration')
+#            current_token = self.current_token()
+#            if not current_token or not current_token.matches('SYMBOL', ':'):
+#              print('When declaring a list type, the : separator must appear after the list keyword.')
+#              sys.exit(1)
+#            declaration_tree.members.append(Node('DECLARATION_MARKER', [':'], True))
+#            self.consume_current_token('processed : after list keyword in variable declaration')
+#            current_token = self.current_token()
+#          if current_token and current_token.token_type == 'IDENTIFIER':
+#            declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+#            self.consume_current_token('processed type identifier in list variable declaration')
+#          else:
+#            print('The reference type declaration must end with an identfier for the type')
+#            sys.exit(1)
+#          self.process_whitespace(declaration_tree)
+#          # Following the list type, we expect the size of the array.
+#          # TODO: determine how to handle list references with an unknown size.
+#          current_token = self.current_token()
+#          if not current_token or not current_token.matches('SYMBOL', ':'):
+#            print('When declaring a list type, the : separator must appear after the list data type.')
+#            sys.exit(1)
+#          self.consume_current_token('processed : after the variable type in the list declaration')
+#          self.process_whitespace(declaration_tree)
+#          current_token = self.current_token()
+#          if current_token and current_token.token_type == 'NUMBER':
+#            declaration_tree.members.append(Node('LIST_CAPACITY', [current_token.content], True))
+#            self.consume_current_token('processed type identifier in list variable declaration')
+#          self.process_whitespace(declaration_tree)
+#          current_token = self.current_token()
+#          if current_token and current_token.matches('SYMBOL', '='):
+#            self.consume_current_token('processed = to begin assigning list members')
+#            self.process_whitespace(declaration_tree)
+#            current_token = self.current_token()
+#            if not current_token or not current_token.matches('SYMBOL', '['):
+#              print('Expected an opening [ when declaring list members')
+#              sys.exit(1)
+#            self.process_collection_literal(declaration_tree)
+#          self.process_whitespace(declaration_tree)
+#          code_block.members.append(declaration_tree)
+#        elif not current_token or not current_token.token_type == 'IDENTIFIER':
+#          print('Variable declaration must end with a type for the variable')
+#          sys.exit(1)
+#        else:
+#          declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+#          self.consume_current_token('processed type identifier in variable declaration')
+#          code_block.members.append(declaration_tree)
         self.process_whitespace(code_block)
         current_token = self.current_token()
       elif next_token and next_token.matches('SYMBOL', '='):
@@ -712,6 +714,8 @@ class Parser:
         if not current_token or not current_token.matches('SYMBOL', ':'):
           print('A list marker must be followed by a variable type.')
           sys.exit(1)
+        current_token = self.current_token()
+        self.consume_current_token('processed : following list keyword')
         current_token = self.current_token()
         declaration_tree.members.append(Node('LIST_VARIABLE_TYPE', [current_token.content], True))
         self.consume_current_token('processed type identifier in list parameter declaration')
@@ -864,6 +868,7 @@ class Parser:
     self.leave_method('process_class_definition')
 
   def process_declaration(self, parent_node):
+    # TODO: need to support a . in a type identifier like variable: model.Class
     self.enter_method('process_declaration')
     current_token = self.current_token()
     declaration_tree = Node('DECLARATION')
@@ -904,6 +909,9 @@ class Parser:
         print('A reference marker must be followed by a variable type.')
         sys.exit(1)
       # This is a reference variable declaration.
+      declaration_tree.members.append(Node('DECLARATION_MARKER', [current_token.content], True))
+      self.consume_current_token('processed : seperator after reference keyword')
+      current_token = self.current_token()
       declaration_tree.members.append(Node('REFERENCE_VARIABLE_TYPE', [current_token.content], True))
       self.consume_current_token('processed reference variable type identifier in declaration')
     elif current_token and current_token.matches('IDENTIFIER', 'list'):
@@ -917,13 +925,65 @@ class Parser:
       if not current_token or not current_token.matches('SYMBOL', ':'):
         print('A list marker must be followed by a variable type.')
         sys.exit(1)
+      declaration_tree.members.append(Node('DECLARATION_MARKER', [current_token.content], True))
+      self.consume_current_token('processed : seperator after list keyword')
+      current_token = self.current_token()
       # This is a list variable declaration.
-      declaration_tree.members.append(Node('LIST_VARIABLE_TYPE', [current_token.content], True))
-      self.consume_current_token('processed list variable type identifier in declaration')
+      if current_token and current_token.token_type == 'IDENTIFIER':
+        declaration_tree.members.append(Node('LIST_VARIABLE_TYPE', [current_token.content], True))
+        self.consume_current_token('processed type identifier in list variable declaration')
+      else:
+        print('The reference type declaration must end with an identfier for the type')
+        sys.exit(1)
+      self.process_whitespace(declaration_tree)
+      # Following the list type, we expect the size of the array.
+      # TODO: determine how to handle list references with an unknown size.
+      current_token = self.current_token()
+      if not current_token or not current_token.matches('SYMBOL', ':'):
+        print('When declaring a list type, the : separator must appear after the list data type.')
+        sys.exit(1)
+      self.consume_current_token('processed : after the variable type in the list declaration')
+      self.process_whitespace(declaration_tree)
+      current_token = self.current_token()
+      if current_token and current_token.token_type == 'NUMBER':
+        declaration_tree.members.append(Node('LIST_CAPACITY', [current_token.content], True))
+        self.consume_current_token('processed type identifier in list variable declaration')
+      self.process_whitespace(declaration_tree)
+      current_token = self.current_token()
+      if current_token and current_token.matches('SYMBOL', '='):
+        self.consume_current_token('processed = to begin assigning list members')
+        self.process_whitespace(declaration_tree)
+        current_token = self.current_token()
+        if not current_token or not current_token.matches('SYMBOL', '['):
+          print('Expected an opening [ when declaring list members')
+          sys.exit(1)
+        self.process_collection_literal(declaration_tree)
+      self.process_whitespace(declaration_tree)
+      #code_block.members.append(declaration_tree)
     else:
       # This is a variable declaration, use this identifier as the type.
-      declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
-      self.consume_current_token('processed variable type identifier in declaration')
+      # TODO: parse multiple chained types if there's a module definition and the type is a subclass
+      # Check to see if the type is from a module.
+      next_token = self.next_token()
+      if current_token.token_type == 'IDENTIFIER' and next_token and next_token.matches('SYMBOL', '.'):
+        var_type_node = Node('VARIABLE_TYPE_IMPORTED')
+        var_type_node.members.append(Node('TYPE_MODULE', [current_token.content], True))
+        self.consume_current_token('processed module identifier in variable type identifier in declaration')
+        current_token = self.current_token()
+        if not current_token or not current_token.matches('SYMBOL', '.'):
+          print('in identifier type, module identifier must be followed by dot')
+          sys.exit(1)
+        self.consume_current_token('processed dot seperator between module identifier and type identifier in variable type identifier declaration')
+        current_token = self.current_token()
+        if not current_token or not current_token.token_type == 'IDENTIFIER':
+          print('in identifier type, module identifier must be followed by a type identifier')
+          sys.exit(1)
+        var_type_node.members.append(Node('IMPORTED_TYPE_IDENTIFIER', [current_token.content], True))
+        self.consume_current_token('processed imported type identifier in variable type identifier declaration')
+        declaration_tree.members.append(var_type_node)
+      else:
+        declaration_tree.members.append(Node('VARIABLE_TYPE', [current_token.content], True))
+        self.consume_current_token('processed variable type identifier in declaration')
     parent_node.members.append(declaration_tree)
     self.leave_method('process_declaration')
 

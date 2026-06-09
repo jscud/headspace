@@ -119,6 +119,60 @@ main: function: void() {
 }
 """
 
+USE_MODULES_EXAMPLE = """
+moduleName = "jeffscudder.com/tests/modules_classes/use_modules"
+
+import "jeffscudder.com/tests/modules_classes/module_a" as module_a
+import "jeffscudder.com/tests/modules_classes/module_b" as module_b
+
+main: function: void() {
+  greeterInstance:module_a.Greeter
+  new(greeterInstance)
+  greeterInstance.name = "Integration Tester"
+  greeterInstance.greetMe()
+
+  myCounter:module_a.Counter
+  new(myCounter)
+  myCounter.num = 1
+  myCounter.sayNumber()
+  myCounter.incrementNum()
+  myCounter.sayNumber()
+
+  myWrapper:module_b.Wrapper
+  new(myWrapper)
+  myWrapper.myGreeter = greeterInstance
+  myWrapper.callGreetMe()
+}
+"""
+
+MEMBER_USAGE_EXAMPLE = """
+moduleName = "jeffscudder.com/tests/modules_classes/module_a"
+
+Greeter: class {
+  yourName: str
+
+  greetMe: method: void() {
+    os.print("hello, ")
+    os.printStr(this.yourName)
+    os.print("\\n")
+  }
+}
+
+Counter: class {
+  num: int
+
+  incrementNum: method: void() {
+    this.num++
+  }
+
+  sayNumber: method: void() {
+    os.print("number: ")
+    os.printInt(this.num)
+    os.print("\\n")
+  }
+}
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -280,8 +334,7 @@ class TestParserParse(unittest.TestCase):
       FUNCTION_KEYWORD:
         function
       FUNCTION_RETURN_TYPE:
-        void
-""", tree)
+        void""", tree)
 
   def test_function_declaration_with_multiple_parameters(self):
     tree = parser.parse_source('addThreeNumbers:function:int32(first:int32, second:int32, third:int32){return first+second}')
@@ -454,7 +507,7 @@ class TestParserParse(unittest.TestCase):
             reference
           DECLARATION_MARKER:
             :
-          VARIABLE_TYPE:
+          REFERENCE_VARIABLE_TYPE:
             DataClass""", tree)
     self.assertTreeContains("""
         FUNCTION_CALL:
@@ -497,7 +550,7 @@ class TestParserParse(unittest.TestCase):
             list
           DECLARATION_MARKER:
             :
-          VARIABLE_TYPE:
+          LIST_VARIABLE_TYPE:
             int
           LIST_CAPACITY:
             3
@@ -562,6 +615,47 @@ class TestParserParse(unittest.TestCase):
             (
           METHOD_PARAMS_END:
             )""", tree)
+
+  def test_declare_with_imported_type(self):
+    tree = parser.parse_source('someVar:module.Class')
+    self.assertTreeContains("""
+  DECLARATION:
+    IDENTIFIER:
+      someVar
+    DECLARATION_MARKER:
+      :
+    VARIABLE_TYPE_IMPORTED:
+      TYPE_MODULE:
+        module
+      IMPORTED_TYPE_IDENTIFIER:
+        Class""", tree)
+
+  def test_use_modules(self):
+    tree = parser.parse_source(USE_MODULES_EXAMPLE)
+    self.assertTreeContains("""
+        DECLARATION:
+          IDENTIFIER:
+            myWrapper
+          DECLARATION_MARKER:
+            :
+          VARIABLE_TYPE_IMPORTED:
+            TYPE_MODULE:
+              module_b
+            IMPORTED_TYPE_IDENTIFIER:
+              Wrapper""", tree)
+    self.assertTreeContains("""
+        FUNCTION_CALL:
+          IDENTIFIER_CHAIN:
+            IDENTIFIER:
+              greeterInstance
+            MEMBER_DOT_ACCESS:
+              .
+            IDENTIFIER:
+              greetMe""", tree)
+
+  def test_multiple_classes_and_methods(self):
+    tree = parser.parse_source(MEMBER_USAGE_EXAMPLE, True)
+    tree.print()
 
 
 if __name__ == '__main__':

@@ -176,6 +176,48 @@ main: function: void() {
 }
 """
 
+IMPORTED_TYPE_EXAMPLE = """
+moduleName = "jeffscudder.com/tests/imported_type_example"
+
+import "jeffscudder.com/tests/examples/some_module" as some_module
+
+MyClass: class {
+  instance: some_module.ExternalClass
+
+  callInstance: method: void() {
+    instance.theMethod()
+  }
+}
+"""
+
+MEMBER_USAGE_EXAMPLE = """
+moduleName = "jeffscudder.com/tests/modules_classes/module_a"
+
+Greeter: class {
+  yourName: str
+
+  greetMe: method: void() {
+    os.print("hello, ")
+    os.printStr(this.yourName)
+    os.print("\\n")
+  }
+}
+
+Counter: class {
+  num: int
+
+  incrementNum: method: void() {
+    this.num++
+  }
+
+  sayNumber: method: void() {
+    os.print("number: ")
+    os.printInt(this.num)
+    os.print("\\n")
+  }
+}
+"""
+
 
 class TestConvertToC(unittest.TestCase):
   """Convert the headspace code to C."""
@@ -298,6 +340,27 @@ class TestConvertToC(unittest.TestCase):
     self.assertTrue('  char* s;' in files[1].content)
     self.assertTrue('void classmethod_ClassWithMethods_printX(classmethod_ClassWithMethods* this);' in files[1].content)
     self.assertTrue('void classmethod_ClassWithMethods_printS(classmethod_ClassWithMethods* this);' in files[1].content)
+
+  def test_imported_type(self):
+    """Example of using an imported type with C."""
+    tree = parser.parse_source(IMPORTED_TYPE_EXAMPLE)
+    files = converter.convert(tree, 'c')
+    # Check .c file contents.
+    self.assertTrue('  some_module_ExternalClass_theMethod(&instance);' in files[0].content)
+
+  def test_member_usage(self):
+    """Example of using an member in a method with C."""
+    tree = parser.parse_source(MEMBER_USAGE_EXAMPLE)
+    tree.print()
+    files = converter.convert(tree, 'c')
+    print(files[0].content)
+    # Check .c file contents.
+    self.assertTrue('  printf("%s", this->yourName);' in files[0].content)
+    self.assertTrue('' in files[0].content)
+    self.assertTrue('' in files[0].content)
+    self.assertTrue('' in files[0].content)
+    self.assertTrue('' in files[0].content)
+    self.assertTrue('' in files[0].content)
 
 
 class TestConvertToPython(unittest.TestCase):

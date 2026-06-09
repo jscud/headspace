@@ -1,0 +1,14 @@
+moduleName = "jeffscudder.com/tests/modules_classes/module_b"
+
+import "jeffscudder.com/tests/modules_classes/module_a" as module_a
+
+Wrapper: class {
+  myGreeter: module_a.Greeter
+
+  callGreetMe: method: void() {
+    os.print("The greeter says: ")
+    myGreeter.greetMe()
+  }
+}
+
+
