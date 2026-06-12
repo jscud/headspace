@@ -1,4 +1,5 @@
 import lexer
+import sys
 
 
 class Node:
@@ -92,7 +93,7 @@ class Parser:
   def enter_method(self, debug_note):
     if self.debug_print:
       print(' ' * self.debug_indent, end='')
-      print('/ entering ', debug_note)
+      print('/ parser entering ', debug_note)
       self.debug_indent += 4
 
   def leave_method(self, debug_note):
@@ -102,7 +103,7 @@ class Parser:
         print('error, enter and leave mismatch')
         sys.exit(1)
       print(' ' * self.debug_indent, end='')
-      print('\\  leaving ', debug_note)
+      print('\\ parser  leaving ', debug_note)
 
   # Tricky question, I need to process identifier chain, it includes things like list access []
   def process_access_chain(self):
@@ -129,6 +130,34 @@ class Parser:
         # The chain has ended.
         check_for_next_item = False
     self.leave_method('process_access_chain')
+    return chain
+
+  def process_type_chain(self):
+    self.enter_method('process_type_chain')
+    chain = build_node('TYPE_CHAIN')
+    if not self.current_token_matches('IDENTIFIER', 'type'):
+      sys.exit('Expected type chain to start with the type keyword')
+    self.consume_current_token('type keyword')
+    if not self.current_token_matches('SYMBOL', '.'):
+      sys.exit('Expected type chain to have a dot following the type keyword')
+    self.consume_current_token('dot following type keyword')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected type chain to start with an identifier after the type keyword')
+    chain.members.append(build_leaf('INITIAL_TYPE', self.current_token().content))
+    self.consume_current_token('initial type identifier')
+    check_for_next_item = True
+    while check_for_next_item:
+      if self.current_token_matches('SYMBOL', '.'):
+        # This has a sub type.
+        self.consume_current_token('dot in type chain')
+        if not self.current_token_is('IDENTIFIER'):
+          sys.exit('Expected type chain to have an identifier following . operator')
+        chain.members.append(build_leaf('CHAINED_IDENTIFIER', self.current_token().content))
+        self.consume_current_token('additional identifier in type chain')
+      else:
+        # The chain has ended.
+        check_for_next_item = False
+    self.leave_method('process_type_chain')
     return chain
 
   def process_module_declaration(self):
@@ -223,6 +252,9 @@ class Parser:
       sys.exit('Expected module declaration to have a string literal following the module keyword')
     function_declaration.members.append(build_leaf('FUNCTION_NAME', self.current_token().content))
     self.consume_current_token('function name')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected function return type to be present after the function name')
+    function_declaration.members.append(self.process_type_chain())
     function_declaration.members.append(self.process_parameter_declarations())
     function_declaration.members.append(self.process_code_block())
     self.leave_method('process_function_declaration')

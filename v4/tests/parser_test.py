@@ -45,11 +45,14 @@ class TestParserParse(unittest.TestCase):
           "my_module_id" """, tree)
 
   def test_parses_simple_function(self):
-    tree = parser.parse_source('function simple() {os.print("hello\\n")}')
+    tree = parser.parse_source('function simple type.void () {os.print("hello\\n")}')
     self.assertTreeContains("""
       FUNCTION_DECLARATION:
         FUNCTION_NAME:
           simple
+        TYPE_CHAIN:
+          INITIAL_TYPE:
+            void
         PARAMETER_DECLARATIONS:
         CODE_BLOCK:
           FUNCTION_CALL:
