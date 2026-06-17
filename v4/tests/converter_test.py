@@ -18,6 +18,8 @@ class TestConverter(unittest.TestCase):
     local_converter = converter.Converter(tree, 'c')
     local_converter.emit_code()
     self.assertEqual('jeffscudder.com/headspace/tests/hello', local_converter.module_symbol_table.symbols['module'].module_id)
+    self.assertEqual(converter.FunctionDef, type(local_converter.module_symbol_table.symbols['main']))
+    self.assertEqual('void', local_converter.module_symbol_table.symbols['main'].return_type)
 
 
 if __name__ == '__main__':

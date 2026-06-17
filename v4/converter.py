@@ -87,11 +87,23 @@ class Converter:
     self.debug_print = debug_print
     self.debug_indent = 0
 
-
   def emit_code(self):
     # Start by populating symbols in the module.
     self.populate_symbols()
     return []
+
+  def extract_type(self, type_chain_node):
+    type_parts = []
+    if type_chain_node.node_type != 'TYPE_CHAIN':
+      sys.exit('Expected to extract the type from a type chain node')
+    for type_member in type_chain_node.members:
+      if type_member.node_type == 'INITIAL_TYPE':
+        type_parts.append(type_member.members[0])
+      else:
+        # TODO: handle follow on members in the chain.
+        print('member node:')
+        type_member.print()
+    return ''.join(type_parts)
 
   def populate_symbols(self):
     """Analyzes the parse tree to find all definitions to populate nested symbol tables."""
@@ -100,6 +112,21 @@ class Converter:
       if node.node_type == 'MODULE_ID':
         module_info = ModuleInfo(node.members[0].strip('"'))
         self.module_symbol_table.symbols['module'] = module_info
+      elif node.node_type == 'FUNCTION_DECLARATION':
+        function_def = FunctionDef()
+        for func_def_node in node.members:
+          if func_def_node.node_type == 'FUNCTION_NAME':
+            function_def.function_name = func_def_node.members[0]
+          elif func_def_node.node_type == 'TYPE_CHAIN':
+            function_def.return_type = self.extract_type(func_def_node)
+          # TODO: process the parameters for the function and add them to the
+          # function's symbol table since they will be in scope within the
+          # function body's code block.
+        self.module_symbol_table.symbols[function_def.function_name] = function_def
+      else:
+        # TODO: handle remaining node types.
+        print('checking node:')
+        node.print()
 
   def debug_node(self, debug_note, node=None):
     if self.debug_print:
