@@ -21,6 +21,13 @@ class TestConverter(unittest.TestCase):
     self.assertEqual(converter.FunctionDef, type(local_converter.module_symbol_table.symbols['main']))
     self.assertEqual('void', local_converter.module_symbol_table.symbols['main'].return_type)
 
+  def test_convert_hello_world_to_c(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    c_converter = converter.Converter(tree, 'c')
+    files = c_converter.emit_code()
+    self.assertEqual(2, len(files))
+    self.assertEqual('headspace/tests/hello.c', files[0].file_path)
+    self.assertEqual('headspace/tests/hello.h', files[1].file_path)
 
 if __name__ == '__main__':
   unittest.main()

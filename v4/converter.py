@@ -7,7 +7,17 @@ class SourceFile:
 
   def __init__(self):
     self.file_path = ''
-    self.content = ''
+    self.parts = []
+
+  def content(self):
+    return ''.join(self.parts)
+
+  def print(self):
+    print('-------------------')
+    print('File name:', self.file_path)
+    print('Content:')
+    print(self.content())
+    print('-------------------')
 
 
 class SymbolTable:
@@ -31,8 +41,45 @@ class ModuleInfo:
   def __init__(self, module_id):
     self.module_id = module_id
     self.symbol_table = SymbolTable()
+    segments = module_id.strip('"').split('/')
+    if len(segments) < 3:
+      sys.exit('A moduleName must be in the form "domainName.tld/package/module".')
+    self.domain_full = segments[0]
+    self.domain_prefix = self.domain_full.split('.')[0]
+    self.package_name_parts = segments[1:-1]
+    self.module_name = segments[-1]
+
+  def to_namespace(self, target_language):
+    if target_language == 'c':
+      namespace_segments = self.package_name_parts.copy()
+      namespace_segments.append(self.module_name)
+      return '_'.join(namespace_segments)
+    elif target_language == 'go':
+      # This is used for the go package name.
+      return (''.join(self.package_name_parts)).lower()
+    elif target_language == 'java':
+      java_path_parts = self.domain_full.split('.')
+      java_path_parts.reverse()
+      java_path_parts.extend(self.package_name_parts)
+      return '.'.join(java_path_parts)
+    elif target_language == 'dotnet':
+      capitalized_package_name_parts = [capitalize_first_letter(name) for name in self.package_name_parts]
+      return '.'.join(capitalized_package_name_parts)
+    return ''
 
   # Note that when a module is imported, it should be parsed and its symbol table populated.
+  def to_file_path(self, target_language):
+    # Note for C that we avoid adding the .c or .h suffix.
+    if target_language == 'c' or target_language == 'python':
+      return os.path.join(*self.package_name_parts, self.module_name)
+    elif target_language == 'java':
+      java_path_parts = self.domain_full.split('.')
+      java_path_parts.reverse()
+      java_path_parts.extend(self.package_name_parts)
+      return os.path.join(*java_path_parts)
+    elif target_language == 'dotnet':
+      return self.to_namespace(target_language)
+    return ''
 
 
 class ClassDef:
@@ -86,11 +133,21 @@ class Converter:
     self.target_language = target_language
     self.debug_print = debug_print
     self.debug_indent = 0
+    # Language specific source files to append to as the parse tree is
+    # converted.
+    self.c_src = None
+    self.h_src = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
     self.populate_symbols()
-    return []
+    self.populate_source_files()
+    if self.has_main_function():
+      pass
+    if self.target_language == 'c':
+      return [self.c_src, self.h_src]
+    else:
+      return []
 
   def extract_type(self, type_chain_node):
     type_parts = []
@@ -127,6 +184,27 @@ class Converter:
         # TODO: handle remaining node types.
         print('checking node:')
         node.print()
+
+  def has_main_function(self):
+    main_function = self.module_symbol_table.find_symbol('main')
+    return main_function and type(main_function) == FunctionDef
+
+  def populate_source_files(self):
+    # Based on target language, create source file containers.
+    if not 'module' in self.module_symbol_table.symbols or not self.module_symbol_table.symbols['module']:
+      sys.exit('Unable to populate source files without a module ID.')
+    module = self.module_symbol_table.symbols['module']
+    if self.target_language == 'c':
+      self.c_src = SourceFile()
+      self.c_src.file_path = module.to_file_path(self.target_language) + '.c'
+      self.h_src = SourceFile()
+      self.h_src.file_path = module.to_file_path(self.target_language) + '.h'
+
+  def convert_module_name(self):
+    module_details = self.module_symbol_table.find_symbol('module')
+    if not module_details:
+      sys.exit('Unable to find a module ID.')
+    # Different languages produce different filenames for a module.
 
   def debug_node(self, debug_note, node=None):
     if self.debug_print:
