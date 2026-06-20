@@ -19,6 +19,8 @@ class SourceFile:
     print(self.content())
     print('-------------------')
 
+  def add_code(self, code):
+    self.parts.append(code)
 
 class SymbolTable:
 
@@ -142,8 +144,12 @@ class Converter:
     # Start by populating symbols in the module.
     self.populate_symbols()
     self.populate_source_files()
-    if self.has_main_function():
+    for top_node in self.tree.members:
       pass
+    # We place main at the end or in a seperate module if required by the
+    # language.
+    if self.has_main_function():
+      self.emit_main()
     if self.target_language == 'c':
       return [self.c_src, self.h_src]
     else:
@@ -152,7 +158,7 @@ class Converter:
   def extract_type(self, type_chain_node):
     type_parts = []
     if type_chain_node.node_type != 'TYPE_CHAIN':
-      sys.exit('Expected to extract the type from a type chain node')
+      sys.exit('Expected to extract the type from a type chain node.')
     for type_member in type_chain_node.members:
       if type_member.node_type == 'INITIAL_TYPE':
         type_parts.append(type_member.members[0])
@@ -189,6 +195,12 @@ class Converter:
     main_function = self.module_symbol_table.find_symbol('main')
     return main_function and type(main_function) == FunctionDef
 
+  def find_main_function_node(self):
+    for top_node in self.tree.members:
+      if top_node.node_type == 'FUNCTION_DECLARATION' and top_node.members[0].node_type == 'FUNCTION_NAME' and top_node.members[0].members[0] == 'main':
+        return top_node
+    return None
+
   def populate_source_files(self):
     # Based on target language, create source file containers.
     if not 'module' in self.module_symbol_table.symbols or not self.module_symbol_table.symbols['module']:
@@ -205,6 +217,61 @@ class Converter:
     if not module_details:
       sys.exit('Unable to find a module ID.')
     # Different languages produce different filenames for a module.
+
+  def indent(self, src, indent_level):
+    if self.target_language == 'go':
+      src.add_code('\t' * indent_level)
+    else:
+      src.add_code('  ' * indent_level)
+
+  def emit_function_call(self, src, function_call_node, indent_level):
+    function_identifier = function_call_node.members[0]
+    if not function_identifier.node_type == 'ACCESS_CHAIN':
+      sys.exit('Function call did not begin with an identifier chain.')
+    if function_identifier.members[0].members[0] == 'os':
+      if function_identifier.members[1].members[0] == 'print':
+        if self.target_language == 'c':
+          src.add_code('printf')
+    function_args = function_call_node.members[1]
+    if self.target_language == 'c':
+      src.add_code('(')
+    for arg in function_args.members:
+      if arg.node_type == 'STRING_LITERAL':
+        if self.target_language == 'c':
+          src.add_code(arg.members[0])
+    if self.target_language == 'c':
+      src.add_code(')')
+
+  def emit_statement(self, src, statement_node, indent_level):
+    self.indent(src, indent_level)
+    if statement_node.node_type == 'FUNCTION_CALL':
+      self.emit_function_call(src, statement_node, indent_level)
+      src.add_code(';\n')
+    else:
+      print('Unexpected statement node:')
+      statement_node.print()
+
+  def emit_code_block(self, src, code_block, indent_level):
+    if self.target_language == 'c':
+      self.indent(src, indent_level)
+      src.add_code('{\n')
+    for statement_node in code_block.members:
+      self.emit_statement(src, statement_node, indent_level + 1)
+    if self.target_language == 'c':
+      self.indent(src, indent_level)
+      src.add_code('}\n')
+
+  def emit_main(self):
+    # The function signature for main can be found in the symbol table.
+    if self.target_language == 'c':
+      # TODO: support reading command line arguments.
+      self.c_src.add_code('int main(void) ')
+    # Find the main method's code block in the parse tree.
+    main_node = self.find_main_function_node()
+    if not main_node:
+      sys.exit('Main function node not found.')
+    main_code_block = main_node.members[3]
+    self.emit_code_block(self.c_src, main_code_block, 0)
 
   def debug_node(self, debug_note, node=None):
     if self.debug_print:
@@ -223,8 +290,7 @@ class Converter:
     if self.debug_print:
       self.debug_indent -= 4
       if self.debug_indent < 0:
-        print('error, enter and leave mismatch')
-        sys.exit(1)
+        sys.exit('Enter and leave mismatch.')
       print(' ' * self.debug_indent, end='')
       print('\\ converter  leaving ', debug_note)
 
