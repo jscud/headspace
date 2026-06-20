@@ -144,6 +144,7 @@ class Converter:
     # Start by populating symbols in the module.
     self.populate_symbols()
     self.populate_source_files()
+    self.emit_imports()
     for top_node in self.tree.members:
       pass
     # We place main at the end or in a seperate module if required by the
@@ -218,6 +219,15 @@ class Converter:
       sys.exit('Unable to find a module ID.')
     # Different languages produce different filenames for a module.
 
+  def emit_imports(self):
+    if self.target_language == 'c':
+      self.c_src.add_code('#include<stdlib.h>\n')
+      self.c_src.add_code('#include<stdint.h>\n')
+      self.c_src.add_code('#include<stdio.h>\n')
+      self.c_src.add_code('\n')
+      self.h_src.add_code('#include<stdlib.h>\n')
+      self.h_src.add_code('\n')
+
   def indent(self, src, indent_level):
     if self.target_language == 'go':
       src.add_code('\t' * indent_level)
@@ -272,6 +282,9 @@ class Converter:
       sys.exit('Main function node not found.')
     main_code_block = main_node.members[3]
     self.emit_code_block(self.c_src, main_code_block, 0)
+    if self.target_language == 'c':
+      # In C, a return statement must be injected for the main function.
+      self.c_src.parts.insert(-1, '  return 0;\n')
 
   def debug_node(self, debug_note, node=None):
     if self.debug_print:
@@ -298,8 +311,8 @@ class Converter:
 def convert(parse_tree, target_language, debug_print=False):
   converter = Converter(parse_tree, target_language, debug_print)
   return converter.emit_code()
-    
-    
+
+
 def convert_filename(filename, target_language):
   with open(filename, 'r') as source_file:
     source_code = source_file.read()

@@ -29,8 +29,11 @@ class TestConverter(unittest.TestCase):
     self.assertEqual('headspace/tests/hello.c', files[0].file_path)
     self.assertEqual('headspace/tests/hello.h', files[1].file_path)
     c_content = files[0].content()
+    self.assertTrue('#include<stdlib.h>\n' in c_content)
+    self.assertTrue('#include<stdint.h>\n' in c_content)
     self.assertTrue('int main(void) {\n' in c_content)
     self.assertTrue('  printf("hello\\n");\n' in c_content)
+    self.assertTrue('  return 0;\n' in c_content)
     self.assertTrue('}\n' in c_content)
 
 
