@@ -44,6 +44,13 @@ class TestBuilder(unittest.TestCase):
     os.chdir(os.path.join('..', '..', '..', '..'))
     self.assertEqual(b'hello\n', result.stdout)
 
+  def test_build_and_execute_hello_world_in_javascript(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'js')
+    compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'js')
+    executable_source_path = os.path.join('tests', 'test_projects', 'hello_world', 'js', 'hello.js')
+    result = subprocess.run(['node', executable_source_path], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
+
 
 if __name__ == '__main__':
   unittest.main()
