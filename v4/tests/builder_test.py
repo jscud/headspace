@@ -31,6 +31,19 @@ class TestBuilder(unittest.TestCase):
     result = subprocess.run(['python3', executable_source_path], env=test_env, check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
 
+  def test_build_and_execute_hello_world_in_go(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'go')
+    compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'go')
+    executable_source_path = os.path.join('tests', 'test_projects', 'import_example', 'go', 'hello', 'main.go')
+    # Generate the go module.
+    os.chdir(compilation_directory)
+    subprocess.run(['go', 'mod', 'init', 'hello'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Run the program that includes the import.
+    result = subprocess.run(['go', 'run', os.path.join('hello', 'main.go')], check=True, capture_output=True)
+    # Cleanup compiled files.
+    os.chdir(os.path.join('..', '..', '..', '..'))
+    self.assertEqual(b'hello\n', result.stdout)
+
 
 if __name__ == '__main__':
   unittest.main()
