@@ -57,6 +57,18 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('func main() {' in go_main_content)
     self.assertTrue('\tfmt.Print("hello\\n")' in go_main_content)
 
+  def test_convert_hello_world_to_javascript(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    js_converter = converter.Converter(tree, 'js')
+    files = js_converter.emit_code()
+    self.assertEqual(2, len(files))
+    js_content = files[0].content()
+    self.assertEqual('hello.js', files[0].file_path)
+    self.assertEqual('package.json', files[1].file_path)
+    self.assertTrue('function main() {' in js_content)
+    self.assertTrue('  process.stdout.write("hello\\n");' in js_content)
+    self.assertTrue('main();' in js_content)
+
 
 if __name__ == '__main__':
   unittest.main()
