@@ -36,6 +36,17 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  return 0;\n' in c_content)
     self.assertTrue('}\n' in c_content)
 
+  def test_convert_hello_world_to_python(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    py_converter = converter.Converter(tree, 'py')
+    files = py_converter.emit_code()
+    self.assertEqual(1, len(files))
+    py_content = files[0].content()
+    self.assertTrue('def main():' in py_content)
+    self.assertTrue('  print("hello\\n", end="")' in py_content)
+    self.assertTrue('if __name__ == "__main__":' in py_content)
+    self.assertTrue('  main()' in py_content)
+
 
 if __name__ == '__main__':
   unittest.main()

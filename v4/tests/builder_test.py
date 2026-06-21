@@ -6,7 +6,7 @@ import subprocess
 class TestBuilder(unittest.TestCase):
   """Exercises the builder for all languages."""
 
-  def test_build_and_execute_hello_world(self):
+  def test_build_and_execute_hello_world_in_c(self):
     builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'c')
     compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'c')
     # Compile the main function.
@@ -19,6 +19,16 @@ class TestBuilder(unittest.TestCase):
     # Run the compiled program.
     result = subprocess.run([executable_path], check=True, capture_output=True)
     subprocess.run(['rm', executable_path], check=True)
+    self.assertEqual(b'hello\n', result.stdout)
+
+  def test_build_and_execute_hello_world_in_python(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'py')
+    compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'py')
+    executable_source_path = os.path.join(compilation_directory, 'headspace', 'tests', 'hello.py')
+    test_env = os.environ.copy()
+    test_env['PYTHONPATH'] = compilation_directory
+    # Run the program.
+    result = subprocess.run(['python3', executable_source_path], env=test_env, check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
 
 

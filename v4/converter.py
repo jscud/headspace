@@ -2,6 +2,11 @@ import parser
 import sys
 import os
 
+# Checklist for converting headspace parse trees to target languages:
+#   FEATURE NAME                         SUPPORTED LANGUAGES
+# - creating main function               c  py
+# - print statement                      c  py
+
 
 class SourceFile:
 
@@ -72,7 +77,7 @@ class ModuleInfo:
   # Note that when a module is imported, it should be parsed and its symbol table populated.
   def to_file_path(self, target_language):
     # Note for C that we avoid adding the .c or .h suffix.
-    if target_language == 'c' or target_language == 'python':
+    if target_language == 'c' or target_language == 'py':
       return os.path.join(*self.package_name_parts, self.module_name)
     elif target_language == 'java':
       java_path_parts = self.domain_full.split('.')
@@ -139,6 +144,7 @@ class Converter:
     # converted.
     self.c_src = None
     self.h_src = None
+    self.py_src = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
@@ -153,6 +159,8 @@ class Converter:
       self.emit_main()
     if self.target_language == 'c':
       return [self.c_src, self.h_src]
+    elif self.target_language == 'py':
+      return [self.py_src]
     else:
       return []
 
@@ -212,6 +220,9 @@ class Converter:
       self.c_src.file_path = module.to_file_path(self.target_language) + '.c'
       self.h_src = SourceFile()
       self.h_src.file_path = module.to_file_path(self.target_language) + '.h'
+    elif self.target_language == 'py':
+      self.py_src = SourceFile()
+      self.py_src.file_path = module.to_file_path(self.target_language) + '.py'
 
   def convert_module_name(self):
     module_details = self.module_symbol_table.find_symbol('module')
@@ -226,6 +237,7 @@ class Converter:
       self.c_src.add_code('#include<stdio.h>\n')
       self.c_src.add_code('\n')
       self.h_src.add_code('#include<stdlib.h>\n')
+      self.c_src.add_code('#include<stdint.h>\n')
       self.h_src.add_code('\n')
 
   def indent(self, src, indent_level):
@@ -238,25 +250,34 @@ class Converter:
     function_identifier = function_call_node.members[0]
     if not function_identifier.node_type == 'ACCESS_CHAIN':
       sys.exit('Function call did not begin with an identifier chain.')
+    is_print_function = False
     if function_identifier.members[0].members[0] == 'os':
       if function_identifier.members[1].members[0] == 'print':
         if self.target_language == 'c':
           src.add_code('printf')
+        elif self.target_language == 'py':
+          is_print_function = True
+          src.add_code('print')
     function_args = function_call_node.members[1]
-    if self.target_language == 'c':
+    if self.target_language == 'c' or self.target_language == 'py':
       src.add_code('(')
     for arg in function_args.members:
       if arg.node_type == 'STRING_LITERAL':
-        if self.target_language == 'c':
+        if self.target_language == 'c' or self.target_language == 'py':
           src.add_code(arg.members[0])
-    if self.target_language == 'c':
+    if is_print_function and self.target_language == 'py':
+      src.add_code(', end=""')
+    if self.target_language == 'c' or self.target_language == 'py':
       src.add_code(')')
 
   def emit_statement(self, src, statement_node, indent_level):
     self.indent(src, indent_level)
     if statement_node.node_type == 'FUNCTION_CALL':
       self.emit_function_call(src, statement_node, indent_level)
-      src.add_code(';\n')
+      if self.target_language == 'c':
+        src.add_code(';\n')
+      if self.target_language == 'py':
+        src.add_code('\n')
     else:
       print('Unexpected statement node:')
       statement_node.print()
@@ -265,26 +286,39 @@ class Converter:
     if self.target_language == 'c':
       self.indent(src, indent_level)
       src.add_code('{\n')
+    elif self.target_language == 'py':
+      self.indent(src, indent_level)
+      src.add_code(':\n')
     for statement_node in code_block.members:
       self.emit_statement(src, statement_node, indent_level + 1)
     if self.target_language == 'c':
       self.indent(src, indent_level)
       src.add_code('}\n')
+    elif self.target_language == 'py':
+      src.add_code('\n')
 
   def emit_main(self):
     # The function signature for main can be found in the symbol table.
     if self.target_language == 'c':
       # TODO: support reading command line arguments.
       self.c_src.add_code('int main(void) ')
+    elif self.target_language == 'py':
+      self.py_src.add_code('def main()')
     # Find the main method's code block in the parse tree.
     main_node = self.find_main_function_node()
     if not main_node:
       sys.exit('Main function node not found.')
     main_code_block = main_node.members[3]
-    self.emit_code_block(self.c_src, main_code_block, 0)
+    if self.target_language == 'c':
+      self.emit_code_block(self.c_src, main_code_block, 0)
+    elif self.target_language == 'py':
+      self.emit_code_block(self.py_src, main_code_block, 0)
     if self.target_language == 'c':
       # In C, a return statement must be injected for the main function.
       self.c_src.parts.insert(-1, '  return 0;\n')
+    elif self.target_language == 'py':
+      self.py_src.add_code('if __name__ == "__main__":\n')
+      self.py_src.add_code('  main()\n')
 
   def debug_node(self, debug_note, node=None):
     if self.debug_print:
