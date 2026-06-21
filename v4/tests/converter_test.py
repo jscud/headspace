@@ -47,6 +47,16 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('if __name__ == "__main__":' in py_content)
     self.assertTrue('  main()' in py_content)
 
+  def test_convert_hello_world_to_go(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    go_converter = converter.Converter(tree, 'go')
+    files = go_converter.emit_code()
+    go_main_content = files[0].content()
+    self.assertTrue('package main' in go_main_content)
+    self.assertTrue('import "fmt"' in go_main_content)
+    self.assertTrue('func main() {' in go_main_content)
+    self.assertTrue('\tfmt.Print("hello\\n")' in go_main_content)
+
 
 if __name__ == '__main__':
   unittest.main()

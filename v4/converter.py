@@ -4,8 +4,8 @@ import os
 
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
-# - creating main function               c  py
-# - print statement                      c  py
+# - creating main function               c  py  go
+# - print statement                      c  py  go
 
 
 class SourceFile:
@@ -140,11 +140,13 @@ class Converter:
     self.target_language = target_language
     self.debug_print = debug_print
     self.debug_indent = 0
+    self.required_imports = []
     # Language specific source files to append to as the parse tree is
     # converted.
     self.c_src = None
     self.h_src = None
     self.py_src = None
+    self.go_main_src = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
@@ -161,6 +163,9 @@ class Converter:
       return [self.c_src, self.h_src]
     elif self.target_language == 'py':
       return [self.py_src]
+    elif self.target_language == 'go':
+      if self.has_main_function():
+        return [self.go_main_src]
     else:
       return []
 
@@ -223,6 +228,9 @@ class Converter:
     elif self.target_language == 'py':
       self.py_src = SourceFile()
       self.py_src.file_path = module.to_file_path(self.target_language) + '.py'
+    elif self.target_language == 'go':
+      self.go_main_src = SourceFile()
+      self.go_main_src.file_path = os.path.join(module.module_name, 'main.go')
 
   def convert_module_name(self):
     module_details = self.module_symbol_table.find_symbol('module')
@@ -258,17 +266,18 @@ class Converter:
         elif self.target_language == 'py':
           is_print_function = True
           src.add_code('print')
+        elif self.target_language == 'go':
+          if '"fmt"' not in self.required_imports:
+            self.required_imports.append('"fmt"')
+          src.add_code('fmt.Print')
     function_args = function_call_node.members[1]
-    if self.target_language == 'c' or self.target_language == 'py':
-      src.add_code('(')
+    src.add_code('(')
     for arg in function_args.members:
       if arg.node_type == 'STRING_LITERAL':
-        if self.target_language == 'c' or self.target_language == 'py':
-          src.add_code(arg.members[0])
+        src.add_code(arg.members[0])
     if is_print_function and self.target_language == 'py':
       src.add_code(', end=""')
-    if self.target_language == 'c' or self.target_language == 'py':
-      src.add_code(')')
+    src.add_code(')')
 
   def emit_statement(self, src, statement_node, indent_level):
     self.indent(src, indent_level)
@@ -276,14 +285,14 @@ class Converter:
       self.emit_function_call(src, statement_node, indent_level)
       if self.target_language == 'c':
         src.add_code(';\n')
-      if self.target_language == 'py':
+      if self.target_language == 'py' or self.target_language == 'go':
         src.add_code('\n')
     else:
       print('Unexpected statement node:')
       statement_node.print()
 
   def emit_code_block(self, src, code_block, indent_level):
-    if self.target_language == 'c':
+    if self.target_language == 'c' or self.target_language == 'go':
       self.indent(src, indent_level)
       src.add_code('{\n')
     elif self.target_language == 'py':
@@ -291,7 +300,7 @@ class Converter:
       src.add_code(':\n')
     for statement_node in code_block.members:
       self.emit_statement(src, statement_node, indent_level + 1)
-    if self.target_language == 'c':
+    if self.target_language == 'c' or self.target_language == 'go':
       self.indent(src, indent_level)
       src.add_code('}\n')
     elif self.target_language == 'py':
@@ -304,6 +313,8 @@ class Converter:
       self.c_src.add_code('int main(void) ')
     elif self.target_language == 'py':
       self.py_src.add_code('def main()')
+    elif self.target_language == 'go':
+      self.go_main_src.add_code('func main() ')
     # Find the main method's code block in the parse tree.
     main_node = self.find_main_function_node()
     if not main_node:
@@ -313,12 +324,33 @@ class Converter:
       self.emit_code_block(self.c_src, main_code_block, 0)
     elif self.target_language == 'py':
       self.emit_code_block(self.py_src, main_code_block, 0)
+    elif self.target_language == 'go':
+      self.emit_code_block(self.go_main_src, main_code_block, 0)
     if self.target_language == 'c':
       # In C, a return statement must be injected for the main function.
       self.c_src.parts.insert(-1, '  return 0;\n')
     elif self.target_language == 'py':
       self.py_src.add_code('if __name__ == "__main__":\n')
       self.py_src.add_code('  main()\n')
+    elif self.target_language == 'go':
+      # We need to prepend the imports for the go module, so that we can add
+      # required imports after we see which methods are used.
+      self.prepend_required_imports(self.go_main_src)
+      # The package declaration for go needs to be at the top of the file,
+      # so prepend it last.
+      self.prepend_package(self.go_main_src, 'main')
+
+  def prepend_required_imports(self, src):
+    if self.target_language == 'go':
+      if self.required_imports:
+        src.parts.insert(0, '\n')
+      for required_import in self.required_imports:
+        src.parts.insert(0, 'import ' + required_import + '\n')
+
+  def prepend_package(self, src, package_name):
+    if self.target_language == 'go':
+      src.parts.insert(0, '\n\n')
+      src.parts.insert(0, 'package ' + package_name)
 
   def debug_node(self, debug_note, node=None):
     if self.debug_print:
