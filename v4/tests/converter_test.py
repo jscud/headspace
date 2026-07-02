@@ -11,6 +11,9 @@ function main type.void () {
 }
 """
 
+FOREIGN_CODE_EXAMPLE = """
+"""
+
 class TestConverter(unittest.TestCase):
   """Exercises the converter for all languages."""
 

@@ -1,6 +1,14 @@
 import unittest
 import parser
 
+FOREIGN_CODE_EXAMPLE = """
+function foreign type.void () {
+  BEGIN_FOREIGN_CODE:c
+  printf("Hello\\n");
+  END_FOREIGN_CODE
+}
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -64,6 +72,25 @@ class TestParserParse(unittest.TestCase):
             ARGUMENTS_LIST:
               STRING_LITERAL:
                 "hello\\n" """, tree)
+
+  def test_parses_foreign_code(self):
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    self.assertTreeContains("""
+      FOREIGN_CODE:
+        TARGET_LANGUAGE:
+          c
+        TOKENS:""", tree)
+    self.assertTreeContains("""
+          FOREIGN_TOKEN:
+            printf
+          FOREIGN_TOKEN:
+            (
+          FOREIGN_TOKEN:
+            "Hello\\n"
+          FOREIGN_TOKEN:
+            )
+          FOREIGN_TOKEN:
+            ;""", tree)
 
 
 if __name__ == '__main__':

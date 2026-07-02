@@ -45,10 +45,10 @@ class Parser:
     self.debug_print = False
     self.debug_indent = 0
 
-  def current_token(self):
-    # Skips spaces.
-    while self.index < self._tokens_len and self._tokens[self.index].token_type == 'SPACE':
-      self.index += 1
+  def current_token(self, skip_whitespace=True):
+    if skip_whitespace:
+      while self.index < self._tokens_len and self._tokens[self.index].token_type == 'SPACE':
+        self.index += 1
     if self.index >= self._tokens_len:
       return None
     return self._tokens[self.index]
@@ -77,17 +77,13 @@ class Parser:
     token = self.next_token()
     return token is not None and token.matches(token_type, exact_value)
 
-  def consume_current_token(self, debug_note):
+  def consume_current_token(self, debug_note, skip_whitespace=True):
     if self.debug_print:
-      current_token = self.current_token()
-      if current_token and current_token.token_type != 'SPACE':
-        print(' ' * self.debug_indent, end='')
-        print('consumed@', debug_note)
-        print(' ' * (self.debug_indent + 2), end='')
-        current_token.print()
-      elif current_token.token_type == 'SPACE':
-        # We never expect the current token to be a space because they are skipped.
-        sys.exit('Found an unskipped space')
+      current_token = self.current_token(skip_whitespace)
+      print(' ' * self.debug_indent, end='')
+      print('consumed@', debug_note)
+      print(' ' * (self.debug_indent + 2), end='')
+      current_token.print()
     self.index += 1
 
   def enter_method(self, debug_note):
@@ -223,6 +219,32 @@ class Parser:
     self.leave_method('process_function_call')
     return function_call
 
+  def process_foreign_code(self):
+    self.enter_method('process_foreign_code')
+    if not self.current_token().matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
+      sys.exit('Expected foreign code to start with marker BEGIN_FOREIGN_CODE')
+    foreign_code = build_node('FOREIGN_CODE')
+    self.consume_current_token('marker to begin foreign code')
+    if not self.current_token_matches('SYMBOL', ':'):
+      sys.exit('Expected foreign code to be followed by : before language')
+    self.consume_current_token('foreign code language seperator')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected foreign code language to follow : seperator')
+    foreign_code.members.append(build_leaf('TARGET_LANGUAGE', self.current_token().content))
+    self.consume_current_token('foreign code target language')
+    foreign_code_tokens = build_node('TOKENS')
+    # Append all of the tokens as foreign code until we see the stop identifier.
+    # Note that in foreign code, we do not skip spaces but pass them through.
+    while self.current_token(skip_whitespace=False) and not self.current_token(skip_whitespace=False).matches('IDENTIFIER', 'END_FOREIGN_CODE'):
+      foreign_code_tokens.members.append(build_leaf('FOREIGN_TOKEN', self.current_token(skip_whitespace=False).content))
+      self.consume_current_token('foreign token', skip_whitespace=False)
+    if not self.current_token().matches('IDENTIFIER', 'END_FOREIGN_CODE'):
+      sys.exit('Expected foreign code to end with marker END_FOREIGN_CODE')
+    self.consume_current_token('marker to end foreign code')
+    foreign_code.members.append(foreign_code_tokens)
+    self.leave_method('process_foreign_code')
+    return foreign_code
+
   def process_code_block(self):
     self.enter_method('process_code_block')
     code_block = build_node('CODE_BLOCK')
@@ -231,10 +253,13 @@ class Parser:
     self.consume_current_token('opening { in code block')
 
     while self.current_token_is('IDENTIFIER'):
-      chain = self.process_access_chain()
-      if self.current_token_matches('SYMBOL', '('):
-        # This is a function call.
-        code_block.members.append(self.process_function_call(chain))
+      if self.current_token().matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
+        code_block.members.append(self.process_foreign_code())
+      else:
+        chain = self.process_access_chain()
+        if self.current_token_matches('SYMBOL', '('):
+          # This is a function call.
+          code_block.members.append(self.process_function_call(chain))
 
     if not self.current_token_matches('SYMBOL', '}'):
       sys.exit('Expected code block to end with a closing }')
