@@ -51,6 +51,17 @@ class TestBuilder(unittest.TestCase):
     result = subprocess.run(['node', executable_source_path], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
 
+  def test_build_and_execute_hello_world_in_java(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'java')
+    compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'java')
+    os.chdir(compilation_directory)
+    source_path = os.path.join('com', 'jeffscudder', 'headspace', 'tests', 'Hello.java')
+    compiled_classname = 'com.jeffscudder.headspace.tests.Hello'
+    subprocess.run(['javac', '-d', '.', source_path], check=True)
+    result = subprocess.run(['java', compiled_classname], check=True, capture_output=True)
+    os.chdir(os.path.join('..', '..', '..', '..'))
+    self.assertEqual(b'hello\n', result.stdout)
+
 
 if __name__ == '__main__':
   unittest.main()

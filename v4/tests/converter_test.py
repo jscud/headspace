@@ -1,6 +1,7 @@
 import unittest
 import parser
 import converter
+import os
 
 HELLO_WORLD_EXAMPLE = """
 module "jeffscudder.com/headspace/tests/hello"
@@ -68,6 +69,18 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('function main() {' in js_content)
     self.assertTrue('  process.stdout.write("hello\\n");' in js_content)
     self.assertTrue('main();' in js_content)
+
+  def test_convert_hello_world_to_java(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    java_converter = converter.Converter(tree, 'java')
+    files = java_converter.emit_code()
+    self.assertEqual(1, len(files))
+    java_content = files[0].content()
+    self.assertEqual(os.path.join('com', 'jeffscudder', 'headspace', 'tests', 'Hello.java'), files[0].file_path)
+    self.assertTrue('package com.jeffscudder.headspace.tests;' in java_content)
+    self.assertTrue('public class Hello' in java_content)
+    self.assertTrue('  public static void main(String[] args) {' in java_content)
+    self.assertTrue('    System.out.print("hello\\n");' in java_content)
 
 
 if __name__ == '__main__':

@@ -4,8 +4,8 @@ import os
 
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
-# - creating main function               c  py  go  js
-# - print statement                      c  py  go  js
+# - creating main function               c  py  go  js  java
+# - print statement                      c  py  go  js  java
 
 
 class SourceFile:
@@ -149,6 +149,8 @@ class Converter:
     self.go_main_src = None
     self.js_src = None
     self.js_package = None
+    self.java_main_src = None
+    self.java_class_srcs = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
@@ -170,6 +172,10 @@ class Converter:
         return [self.go_main_src]
     elif self.target_language == 'js':
       return [self.js_src, self.js_package]
+    elif self.target_language == 'java':
+      srcs = [self.java_main_src]
+      srcs.extend(self.java_class_srcs)
+      return srcs
     else:
       return []
 
@@ -234,6 +240,7 @@ class Converter:
       self.py_src.file_path = module.to_file_path(self.target_language) + '.py'
     elif self.target_language == 'go':
       self.go_main_src = SourceFile()
+      # TODO: only populate main.go if there's a main function in the module.
       self.go_main_src.file_path = os.path.join(module.module_name, 'main.go')
     elif self.target_language == 'js':
       self.js_src = SourceFile()
@@ -241,6 +248,10 @@ class Converter:
       self.js_package = SourceFile()
       self.js_package.file_path = 'package.json'
       self.js_package.add_code('{\n  "type": "module"\n}\n')
+    elif self.target_language == 'java':
+      self.java_main_src = SourceFile()
+      self.java_main_src.file_path = os.path.join(module.to_file_path(self.target_language), module.module_name.capitalize() + '.java')
+      self.java_class_srcs = []
 
   def convert_module_name(self):
     module_details = self.module_symbol_table.find_symbol('module')
@@ -282,6 +293,10 @@ class Converter:
           src.add_code('fmt.Print')
         elif self.target_language == 'js':
           src.add_code('process.stdout.write')
+        elif self.target_language == 'java':
+          src.add_code('System.out.print')
+        elif self.target_language == 'dotnet':
+          src.add_code('Console.Write')
     function_args = function_call_node.members[1]
     src.add_code('(')
     for arg in function_args.members:
@@ -295,7 +310,7 @@ class Converter:
     self.indent(src, indent_level)
     if statement_node.node_type == 'FUNCTION_CALL':
       self.emit_function_call(src, statement_node, indent_level)
-      if self.target_language == 'c' or self.target_language == 'js':
+      if self.target_language == 'c' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet':
         src.add_code(';\n')
       if self.target_language == 'py' or self.target_language == 'go':
         src.add_code('\n')
@@ -304,16 +319,22 @@ class Converter:
       statement_node.print()
 
   def emit_code_block(self, src, code_block, indent_level):
-    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js':
+    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet':
       self.indent(src, indent_level)
       src.add_code('{\n')
     elif self.target_language == 'py':
       self.indent(src, indent_level)
       src.add_code(':\n')
     for statement_node in code_block.members:
-      self.emit_statement(src, statement_node, indent_level + 1)
-    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js':
-      self.indent(src, indent_level)
+      member_indent = 1
+      if self.target_language == 'java':
+        member_indent = 2
+      self.emit_statement(src, statement_node, indent_level + member_indent)
+    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet':
+      if self.target_language == 'java':
+        self.indent(src, indent_level + 1)
+      else:
+        self.indent(src, indent_level)
       src.add_code('}\n')
     elif self.target_language == 'py':
       src.add_code('\n')
@@ -329,6 +350,11 @@ class Converter:
       self.go_main_src.add_code('func main() ')
     elif self.target_language == 'js':
       self.js_src.add_code('function main() ')
+    elif self.target_language == 'java':
+      module = self.module_symbol_table.symbols['module']
+      self.java_main_src.add_code('package ' + module.to_namespace(self.target_language) + ';\n\n')
+      self.java_main_src.add_code('public class ' + module.module_name.capitalize() + '\n{\n')
+      self.java_main_src.add_code('  public static void main(String[] args) ')
     # Find the main method's code block in the parse tree.
     main_node = self.find_main_function_node()
     if not main_node:
@@ -342,6 +368,8 @@ class Converter:
       self.emit_code_block(self.go_main_src, main_code_block, 0)
     elif self.target_language == 'js':
       self.emit_code_block(self.js_src, main_code_block, 0)
+    elif self.target_language == 'java':
+      self.emit_code_block(self.java_main_src, main_code_block, 0)
     if self.target_language == 'c':
       # In C, a return statement must be injected for the main function.
       self.c_src.parts.insert(-1, '  return 0;\n')
@@ -357,6 +385,8 @@ class Converter:
       self.prepend_package(self.go_main_src, 'main')
     elif self.target_language == 'js':
       self.js_src.add_code('\nmain();\n')
+    elif self.target_language == 'java':
+      self.java_main_src.add_code('}\n')
 
   def prepend_required_imports(self, src):
     if self.target_language == 'go':
