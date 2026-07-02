@@ -221,7 +221,7 @@ class Parser:
 
   def process_foreign_code(self):
     self.enter_method('process_foreign_code')
-    if not self.current_token().matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
+    if not self.current_token_matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
       sys.exit('Expected foreign code to start with marker BEGIN_FOREIGN_CODE')
     foreign_code = build_node('FOREIGN_CODE')
     self.consume_current_token('marker to begin foreign code')
@@ -238,7 +238,7 @@ class Parser:
     while self.current_token(skip_whitespace=False) and not self.current_token(skip_whitespace=False).matches('IDENTIFIER', 'END_FOREIGN_CODE'):
       foreign_code_tokens.members.append(build_leaf('FOREIGN_TOKEN', self.current_token(skip_whitespace=False).content))
       self.consume_current_token('foreign token', skip_whitespace=False)
-    if not self.current_token().matches('IDENTIFIER', 'END_FOREIGN_CODE'):
+    if not self.current_token_matches('IDENTIFIER', 'END_FOREIGN_CODE'):
       sys.exit('Expected foreign code to end with marker END_FOREIGN_CODE')
     self.consume_current_token('marker to end foreign code')
     foreign_code.members.append(foreign_code_tokens)
@@ -253,7 +253,7 @@ class Parser:
     self.consume_current_token('opening { in code block')
 
     while self.current_token_is('IDENTIFIER'):
-      if self.current_token().matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
+      if self.current_token_matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
         code_block.members.append(self.process_foreign_code())
       else:
         chain = self.process_access_chain()
@@ -291,6 +291,8 @@ class Parser:
       return self.process_module_declaration()
     elif self.current_token_matches('IDENTIFIER', 'function'):
       return self.process_function_declaration()
+    elif self.current_token_matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
+      return self.process_foreign_code()
     self.leave_method('process_module_node')
     return None
 

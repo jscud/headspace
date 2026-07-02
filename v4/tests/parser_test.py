@@ -2,6 +2,10 @@ import unittest
 import parser
 
 FOREIGN_CODE_EXAMPLE = """
+BEGIN_FOREIGN_CODE:c
+#include"somelib.h"
+END_FOREIGN_CODE
+
 function foreign type.void () {
   BEGIN_FOREIGN_CODE:c
   printf("Hello\\n");
@@ -80,6 +84,14 @@ class TestParserParse(unittest.TestCase):
         TARGET_LANGUAGE:
           c
         TOKENS:""", tree)
+    self.assertTreeContains("""
+      FOREIGN_TOKEN:
+        #
+      FOREIGN_TOKEN:
+        include
+      FOREIGN_TOKEN:
+        "somelib.h"
+      FOREIGN_TOKEN:""", tree)
     self.assertTreeContains("""
           FOREIGN_TOKEN:
             printf
