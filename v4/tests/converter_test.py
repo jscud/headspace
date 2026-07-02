@@ -82,6 +82,18 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  public static void main(String[] args) {' in java_content)
     self.assertTrue('    System.out.print("hello\\n");' in java_content)
 
+  def test_convert_hello_world_to_dotnet(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    dotnet_converter = converter.Converter(tree, 'dotnet')
+    files = dotnet_converter.emit_code()
+    self.assertEqual(2, len(files))
+    dotnet_content = files[0].content()
+    self.assertTrue('using System;' in dotnet_content)
+    self.assertTrue('namespace Headspace.Tests {' in dotnet_content)
+    self.assertTrue('  class Hello {' in dotnet_content)
+    self.assertTrue('    static void Main(string[] args) {' in dotnet_content)
+    self.assertTrue('      Console.Write("hello\\n");' in dotnet_content)
+
 
 if __name__ == '__main__':
   unittest.main()

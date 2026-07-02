@@ -62,6 +62,15 @@ class TestBuilder(unittest.TestCase):
     os.chdir(os.path.join('..', '..', '..', '..'))
     self.assertEqual(b'hello\n', result.stdout)
 
+  def test_build_and_execute_hello_world_in_dotnet(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'dotnet')
+    compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'dotnet', 'Headspace.Tests')
+    os.chdir(compilation_directory)
+    result = subprocess.run(['dotnet', 'run'], check=True, capture_output=True)
+    subprocess.run(['rm', '-r', 'bin', 'obj'], check=True)
+    os.chdir(os.path.join('..', '..', '..', '..', '..'))
+    self.assertEqual(b'hello\n', result.stdout)
+
 
 if __name__ == '__main__':
   unittest.main()

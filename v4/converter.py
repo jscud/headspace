@@ -4,8 +4,8 @@ import os
 
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
-# - creating main function               c  py  go  js  java
-# - print statement                      c  py  go  js  java
+# - creating main function               c  py  go  js  java  c#
+# - print statement                      c  py  go  js  java  c#
 
 
 class SourceFile:
@@ -41,6 +41,10 @@ class SymbolTable:
 
   def set_symbol(self, name, symbol_type):
     self.symbols[name] = symbol_type
+
+
+def capitalize_first_letter(input_str):
+  return input_str[0].capitalize() + input_str[1:]
 
 
 class ModuleInfo:
@@ -132,6 +136,17 @@ class FunctionDef:
     self.symbol_table = SymbolTable()
 
 
+DOTNET_CSPROJ_CONFIG = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>
+"""
+
+
 class Converter:
 
   def __init__(self, parse_tree, target_language, debug_print=False):
@@ -151,6 +166,9 @@ class Converter:
     self.js_package = None
     self.java_main_src = None
     self.java_class_srcs = None
+    self.dotnet_main_src = None
+    self.csproj_src = None
+    self.dotnet_class_srcs = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
@@ -175,6 +193,10 @@ class Converter:
     elif self.target_language == 'java':
       srcs = [self.java_main_src]
       srcs.extend(self.java_class_srcs)
+      return srcs
+    elif self.target_language == 'dotnet':
+      srcs = [self.dotnet_main_src, self.csproj_src]
+      srcs.extend(self.dotnet_class_srcs)
       return srcs
     else:
       return []
@@ -250,8 +272,15 @@ class Converter:
       self.js_package.add_code('{\n  "type": "module"\n}\n')
     elif self.target_language == 'java':
       self.java_main_src = SourceFile()
-      self.java_main_src.file_path = os.path.join(module.to_file_path(self.target_language), module.module_name.capitalize() + '.java')
+      self.java_main_src.file_path = os.path.join(module.to_file_path(self.target_language), capitalize_first_letter(module.module_name) + '.java')
       self.java_class_srcs = []
+    elif self.target_language == 'dotnet':
+      self.csproj_src = SourceFile()
+      self.csproj_src.file_path = os.path.join(module.to_file_path(self.target_language), 'headspace.csproj')
+      self.csproj_src.add_code(DOTNET_CSPROJ_CONFIG)
+      self.dotnet_main_src = SourceFile()
+      self.dotnet_main_src.file_path = os.path.join(module.to_file_path(self.target_language), capitalize_first_letter(module.module_name) + '.cs')
+      self.dotnet_class_srcs = []
 
   def convert_module_name(self):
     module_details = self.module_symbol_table.find_symbol('module')
@@ -329,10 +358,14 @@ class Converter:
       member_indent = 1
       if self.target_language == 'java':
         member_indent = 2
+      elif self.target_language == 'dotnet':
+        member_indent = 3
       self.emit_statement(src, statement_node, indent_level + member_indent)
     if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet':
       if self.target_language == 'java':
         self.indent(src, indent_level + 1)
+      elif self.target_language == 'dotnet':
+        self.indent(src, indent_level + 2)
       else:
         self.indent(src, indent_level)
       src.add_code('}\n')
@@ -353,8 +386,14 @@ class Converter:
     elif self.target_language == 'java':
       module = self.module_symbol_table.symbols['module']
       self.java_main_src.add_code('package ' + module.to_namespace(self.target_language) + ';\n\n')
-      self.java_main_src.add_code('public class ' + module.module_name.capitalize() + '\n{\n')
+      self.java_main_src.add_code('public class ' + capitalize_first_letter(module.module_name) + '\n{\n')
       self.java_main_src.add_code('  public static void main(String[] args) ')
+    elif self.target_language == 'dotnet':
+      module = self.module_symbol_table.symbols['module']
+      self.dotnet_main_src.add_code('using System;\n\n')
+      self.dotnet_main_src.add_code('namespace ' + module.to_namespace(self.target_language) + ' {\n')
+      self.dotnet_main_src.add_code('  class ' + capitalize_first_letter(module.module_name) + ' {\n')
+      self.dotnet_main_src.add_code('    static void Main(string[] args) ')
     # Find the main method's code block in the parse tree.
     main_node = self.find_main_function_node()
     if not main_node:
@@ -370,6 +409,8 @@ class Converter:
       self.emit_code_block(self.js_src, main_code_block, 0)
     elif self.target_language == 'java':
       self.emit_code_block(self.java_main_src, main_code_block, 0)
+    elif self.target_language == 'dotnet':
+      self.emit_code_block(self.dotnet_main_src, main_code_block, 0)
     if self.target_language == 'c':
       # In C, a return statement must be injected for the main function.
       self.c_src.parts.insert(-1, '  return 0;\n')
@@ -387,6 +428,8 @@ class Converter:
       self.js_src.add_code('\nmain();\n')
     elif self.target_language == 'java':
       self.java_main_src.add_code('}\n')
+    elif self.target_language == 'dotnet':
+      self.dotnet_main_src.add_code('  }\n}\n')
 
   def prepend_required_imports(self, src):
     if self.target_language == 'go':
