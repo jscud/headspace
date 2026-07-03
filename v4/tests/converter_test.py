@@ -12,6 +12,16 @@ function main type.void () {
 """
 
 FOREIGN_CODE_EXAMPLE = """
+module "jeffscudder.com/headspace/tests/foreign"
+
+function main type.void () {
+  BEGIN_FOREIGN_CODE:c
+  printf("Hello from C\\n");
+  END_FOREIGN_CODE
+  BEGIN_FOREIGN_CODE:py
+  print("Hello from Python")
+  END_FOREIGN_CODE
+}
 """
 
 class TestConverter(unittest.TestCase):
@@ -96,6 +106,22 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  class Hello {' in dotnet_content)
     self.assertTrue('    static void Main(string[] args) {' in dotnet_content)
     self.assertTrue('      Console.Write("hello\\n");' in dotnet_content)
+
+  def test_convert_foreign_code_to_c(self):
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    c_converter = converter.Converter(tree, 'c')
+    files = c_converter.emit_code()
+    c_content = files[0].content()
+    self.assertTrue('  printf("Hello from C\\n");' in c_content)
+    self.assertFalse('  print("Hello from Python")' in c_content)
+
+  def test_convert_foreign_code_to_python(self):
+    tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
+    py_converter = converter.Converter(tree, 'py')
+    files = py_converter.emit_code()
+    py_content = files[0].content()
+    self.assertTrue('  print("Hello from Python")' in py_content)
+    self.assertFalse('  printf("Hello from C\\n");' in py_content)
 
 
 if __name__ == '__main__':

@@ -335,6 +335,12 @@ class Converter:
       src.add_code(', end=""')
     src.add_code(')')
 
+  def emit_foreign_code(self, src, foreign_code_node, indent_level):
+    foreign_language = foreign_code_node.members[0].members[0]
+    if foreign_language == self.target_language:
+      for foreign_token in foreign_code_node.members[1].members:
+        src.add_code(foreign_token.members[0])
+
   def emit_statement(self, src, statement_node, indent_level):
     self.indent(src, indent_level)
     if statement_node.node_type == 'FUNCTION_CALL':
@@ -343,6 +349,8 @@ class Converter:
         src.add_code(';\n')
       if self.target_language == 'py' or self.target_language == 'go':
         src.add_code('\n')
+    elif statement_node.node_type == 'FOREIGN_CODE':
+      self.emit_foreign_code(src, statement_node, indent_level)
     else:
       print('Unexpected statement node:')
       statement_node.print()
