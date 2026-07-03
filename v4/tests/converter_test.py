@@ -119,6 +119,16 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  print("hello\\n");' in php_content)
     self.assertTrue('main();' in php_content)
 
+  def test_convert_hello_world_to_rust(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    rust_converter = converter.Converter(tree, 'rust')
+    files = rust_converter.emit_code()
+    self.assertEqual(1, len(files))
+    rs_content = files[0].content()
+    self.assertEqual('hello.rs', files[0].file_path)
+    self.assertTrue('fn main() {' in rs_content)
+    self.assertTrue('  print!("hello\\n");' in rs_content)
+
   def test_convert_foreign_code_to_c(self):
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     c_converter = converter.Converter(tree, 'c')

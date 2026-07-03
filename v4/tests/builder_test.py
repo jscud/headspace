@@ -78,6 +78,18 @@ class TestBuilder(unittest.TestCase):
     result = subprocess.run(['php', executable_source_path], check=True, capture_output=True)
     self.assertEqual(b'hello\n', result.stdout)
 
+  def test_build_and_execute_hello_world_in_rust(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'rust')
+    compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'rust')
+    # Compile the main function.
+    binary_source_path = os.path.join(compilation_directory, 'hello.rs')
+    executable_path = os.path.join(compilation_directory, 'hello')
+    result = subprocess.run(['rustc', binary_source_path, '-o', executable_path], check=True, capture_output=True)
+    # Run the compiled program.
+    result = subprocess.run([executable_path], check=True, capture_output=True)
+    subprocess.run(['rm', executable_path], check=True)
+    self.assertEqual(b'hello\n', result.stdout)
+
 
 if __name__ == '__main__':
   unittest.main()

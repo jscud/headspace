@@ -4,9 +4,9 @@ import os
 
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
-# - creating main function               c  py  go  js  java  dotnet  php
-# - print statement                      c  py  go  js  java  dotnet  php
-# - foreign code in code blocks          c  py  go  js  java  dotnet  php
+# - creating main function               c  py  go  js  java  dotnet  php  rust
+# - print statement                      c  py  go  js  java  dotnet  php  rust
+# - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust
 
 
 class SourceFile:
@@ -171,6 +171,7 @@ class Converter:
     self.csproj_src = None
     self.dotnet_class_srcs = None
     self.php_src = None
+    self.rs_src = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
@@ -202,6 +203,8 @@ class Converter:
       return srcs
     elif self.target_language == 'php':
       return [self.php_src]
+    elif self.target_language == 'rust':
+      return [self.rs_src]
     else:
       return []
 
@@ -289,6 +292,9 @@ class Converter:
       self.php_src = SourceFile()
       self.php_src.file_path = module.module_name + '.php'
       self.php_src.add_code('<?php\n')
+    elif self.target_language == 'rust':
+      self.rs_src = SourceFile()
+      self.rs_src.file_path = module.module_name + '.rs'
 
   def convert_module_name(self):
     module_details = self.module_symbol_table.find_symbol('module')
@@ -336,6 +342,8 @@ class Converter:
           src.add_code('Console.Write')
         elif self.target_language == 'php':
           src.add_code('print')
+        elif self.target_language == 'rust':
+          src.add_code('print!')
     function_args = function_call_node.members[1]
     src.add_code('(')
     for arg in function_args.members:
@@ -355,9 +363,9 @@ class Converter:
     self.indent(src, indent_level)
     if statement_node.node_type == 'FUNCTION_CALL':
       self.emit_function_call(src, statement_node, indent_level)
-      if self.target_language == 'c' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet' or self.target_language == 'php':
+      if self.target_language in ['c', 'js', 'java', 'dotnet', 'php', 'rust']:
         src.add_code(';\n')
-      if self.target_language == 'py' or self.target_language == 'go':
+      if self.target_language in ['py', 'go']:
         src.add_code('\n')
     elif statement_node.node_type == 'FOREIGN_CODE':
       self.emit_foreign_code(src, statement_node, indent_level)
@@ -366,7 +374,7 @@ class Converter:
       statement_node.print()
 
   def emit_code_block(self, src, code_block, indent_level):
-    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet' or self.target_language == 'php':
+    if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'rust']:
       self.indent(src, indent_level)
       src.add_code('{\n')
     elif self.target_language == 'py':
@@ -379,7 +387,7 @@ class Converter:
       elif self.target_language == 'dotnet':
         member_indent = 3
       self.emit_statement(src, statement_node, indent_level + member_indent)
-    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet' or self.target_language == 'php':
+    if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'rust']:
       if self.target_language == 'java':
         self.indent(src, indent_level + 1)
       elif self.target_language == 'dotnet':
@@ -416,6 +424,8 @@ class Converter:
       self.dotnet_main_src.add_code('    static void Main(string[] args) ')
     elif self.target_language == 'php':
       self.php_src.add_code('function main() ')
+    elif self.target_language == 'rust':
+      self.rs_src.add_code('fn main() ')
     # Find the main method's code block in the parse tree.
     main_node = self.find_main_function_node()
     if not main_node:
@@ -435,6 +445,8 @@ class Converter:
       self.emit_code_block(self.dotnet_main_src, main_code_block, 0)
     elif self.target_language == 'php':
       self.emit_code_block(self.php_src, main_code_block, 0)
+    elif self.target_language == 'rust':
+      self.emit_code_block(self.rs_src, main_code_block, 0)
     if self.target_language == 'c':
       # In C, a return statement must be injected for the main function.
       self.c_src.parts.insert(-1, '  return 0;\n')

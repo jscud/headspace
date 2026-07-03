@@ -14,7 +14,7 @@ import parser
 import converter
 
 
-SUPPORTED_LANGUAGES = ['c', 'python', 'go', 'javascript', 'java', 'dotnet', 'php']
+SUPPORTED_LANGUAGES = ['c', 'python', 'go', 'javascript', 'java', 'dotnet', 'php', 'rust']
 
 
 def convert_project(project_directory, target_language, print_log_messages=False):
