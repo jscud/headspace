@@ -4,9 +4,9 @@ import os
 
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
-# - creating main function               c  py  go  js  java  c#
-# - print statement                      c  py  go  js  java  c#
-# - foreign code in code blocks          c  py  go  js  java  c#
+# - creating main function               c  py  go  js  java  dotnet  php
+# - print statement                      c  py  go  js  java  dotnet  php
+# - foreign code in code blocks          c  py  go  js  java  dotnet  php
 
 
 class SourceFile:
@@ -170,6 +170,7 @@ class Converter:
     self.dotnet_main_src = None
     self.csproj_src = None
     self.dotnet_class_srcs = None
+    self.php_src = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
@@ -199,6 +200,8 @@ class Converter:
       srcs = [self.dotnet_main_src, self.csproj_src]
       srcs.extend(self.dotnet_class_srcs)
       return srcs
+    elif self.target_language == 'php':
+      return [self.php_src]
     else:
       return []
 
@@ -282,6 +285,10 @@ class Converter:
       self.dotnet_main_src = SourceFile()
       self.dotnet_main_src.file_path = os.path.join(module.to_file_path(self.target_language), capitalize_first_letter(module.module_name) + '.cs')
       self.dotnet_class_srcs = []
+    elif self.target_language == 'php':
+      self.php_src = SourceFile()
+      self.php_src.file_path = module.module_name + '.php'
+      self.php_src.add_code('<?php\n')
 
   def convert_module_name(self):
     module_details = self.module_symbol_table.find_symbol('module')
@@ -327,6 +334,8 @@ class Converter:
           src.add_code('System.out.print')
         elif self.target_language == 'dotnet':
           src.add_code('Console.Write')
+        elif self.target_language == 'php':
+          src.add_code('print')
     function_args = function_call_node.members[1]
     src.add_code('(')
     for arg in function_args.members:
@@ -346,7 +355,7 @@ class Converter:
     self.indent(src, indent_level)
     if statement_node.node_type == 'FUNCTION_CALL':
       self.emit_function_call(src, statement_node, indent_level)
-      if self.target_language == 'c' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet':
+      if self.target_language == 'c' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet' or self.target_language == 'php':
         src.add_code(';\n')
       if self.target_language == 'py' or self.target_language == 'go':
         src.add_code('\n')
@@ -357,7 +366,7 @@ class Converter:
       statement_node.print()
 
   def emit_code_block(self, src, code_block, indent_level):
-    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet':
+    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet' or self.target_language == 'php':
       self.indent(src, indent_level)
       src.add_code('{\n')
     elif self.target_language == 'py':
@@ -370,7 +379,7 @@ class Converter:
       elif self.target_language == 'dotnet':
         member_indent = 3
       self.emit_statement(src, statement_node, indent_level + member_indent)
-    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet':
+    if self.target_language == 'c' or self.target_language == 'go' or self.target_language == 'js' or self.target_language == 'java' or self.target_language == 'dotnet' or self.target_language == 'php':
       if self.target_language == 'java':
         self.indent(src, indent_level + 1)
       elif self.target_language == 'dotnet':
@@ -380,6 +389,8 @@ class Converter:
       src.add_code('}\n')
     elif self.target_language == 'py':
       src.add_code('\n')
+
+  # TODO: for php!
 
   def emit_main(self):
     # The function signature for main can be found in the symbol table.
@@ -403,6 +414,8 @@ class Converter:
       self.dotnet_main_src.add_code('namespace ' + module.to_namespace(self.target_language) + ' {\n')
       self.dotnet_main_src.add_code('  class ' + capitalize_first_letter(module.module_name) + ' {\n')
       self.dotnet_main_src.add_code('    static void Main(string[] args) ')
+    elif self.target_language == 'php':
+      self.php_src.add_code('function main() ')
     # Find the main method's code block in the parse tree.
     main_node = self.find_main_function_node()
     if not main_node:
@@ -420,6 +433,8 @@ class Converter:
       self.emit_code_block(self.java_main_src, main_code_block, 0)
     elif self.target_language == 'dotnet':
       self.emit_code_block(self.dotnet_main_src, main_code_block, 0)
+    elif self.target_language == 'php':
+      self.emit_code_block(self.php_src, main_code_block, 0)
     if self.target_language == 'c':
       # In C, a return statement must be injected for the main function.
       self.c_src.parts.insert(-1, '  return 0;\n')
@@ -439,6 +454,8 @@ class Converter:
       self.java_main_src.add_code('}\n')
     elif self.target_language == 'dotnet':
       self.dotnet_main_src.add_code('  }\n}\n')
+    elif self.target_language == 'php':
+      self.php_src.add_code('\nmain();\n')
 
   def prepend_required_imports(self, src):
     if self.target_language == 'go':

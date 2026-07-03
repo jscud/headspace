@@ -107,6 +107,18 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('    static void Main(string[] args) {' in dotnet_content)
     self.assertTrue('      Console.Write("hello\\n");' in dotnet_content)
 
+  def test_convert_hello_world_to_php(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    php_converter = converter.Converter(tree, 'php')
+    files = php_converter.emit_code()
+    self.assertEqual(1, len(files))
+    php_content = files[0].content()
+    self.assertEqual('hello.php', files[0].file_path)
+    self.assertTrue('<?php' in php_content)
+    self.assertTrue('function main() {' in php_content)
+    self.assertTrue('  print("hello\\n");' in php_content)
+    self.assertTrue('main();' in php_content)
+
   def test_convert_foreign_code_to_c(self):
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     c_converter = converter.Converter(tree, 'c')
