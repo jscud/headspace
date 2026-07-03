@@ -6,6 +6,7 @@ import os
 #   FEATURE NAME                         SUPPORTED LANGUAGES
 # - creating main function               c  py  go  js  java  c#
 # - print statement                      c  py  go  js  java  c#
+# - foreign code in code blocks          c  py  go  js  java  c#
 
 
 class SourceFile:
