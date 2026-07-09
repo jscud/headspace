@@ -13,6 +13,16 @@ function foreign type.void () {
 }
 """
 
+FUNCTION_EXAMPLE = """
+function sayHello type.void () {
+  print("Hello!")
+}
+
+function main type.void() {
+  sayHello()
+}
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -103,6 +113,10 @@ class TestParserParse(unittest.TestCase):
             )
           FOREIGN_TOKEN:
             ;""", tree)
+
+  def test_parses_foreign_code(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    tree.print()
 
 
 if __name__ == '__main__':
