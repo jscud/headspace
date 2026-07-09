@@ -90,6 +90,13 @@ class TestBuilder(unittest.TestCase):
     subprocess.run(['rm', executable_path], check=True)
     self.assertEqual(b'hello\n', result.stdout)
 
+  def test_build_and_execute_hello_world_in_swift(self):
+    builder.convert_project(os.path.join('tests', 'test_projects', 'hello_world'), 'swift')
+    compilation_directory = os.path.join('tests', 'test_projects', 'hello_world', 'swift')
+    executable_source_path = os.path.join(compilation_directory, 'hello.swift')
+    result = subprocess.run(['swift', executable_source_path], check=True, capture_output=True)
+    self.assertEqual(b'hello\n', result.stdout)
+
 
 if __name__ == '__main__':
   unittest.main()

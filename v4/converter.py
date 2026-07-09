@@ -4,9 +4,11 @@ import os
 
 # Checklist for converting headspace parse trees to target languages:
 #   FEATURE NAME                         SUPPORTED LANGUAGES
-# - creating main function               c  py  go  js  java  dotnet  php  rust
-# - print statement                      c  py  go  js  java  dotnet  php  rust
-# - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust
+# - creating main function               c  py  go  js  java  dotnet  php  rust  swift
+# - print statement                      c  py  go  js  java  dotnet  php  rust  swift
+# - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
+# - function declaration                 TODO
+# - function calling                     TODO
 
 
 class SourceFile:
@@ -172,6 +174,7 @@ class Converter:
     self.dotnet_class_srcs = None
     self.php_src = None
     self.rs_src = None
+    self.swift_src = None
 
   def emit_code(self):
     # Start by populating symbols in the module.
@@ -205,6 +208,8 @@ class Converter:
       return [self.php_src]
     elif self.target_language == 'rust':
       return [self.rs_src]
+    elif self.target_language == 'swift':
+      return [self.swift_src]
     else:
       return []
 
@@ -295,6 +300,9 @@ class Converter:
     elif self.target_language == 'rust':
       self.rs_src = SourceFile()
       self.rs_src.file_path = module.module_name + '.rs'
+    elif self.target_language == 'swift':
+      self.swift_src = SourceFile()
+      self.swift_src.file_path = module.module_name + '.swift'
 
   def convert_module_name(self):
     module_details = self.module_symbol_table.find_symbol('module')
@@ -344,13 +352,19 @@ class Converter:
           src.add_code('print')
         elif self.target_language == 'rust':
           src.add_code('print!')
+        elif self.target_language == 'swift':
+          is_print_function = True
+          src.add_code('print')
     function_args = function_call_node.members[1]
     src.add_code('(')
     for arg in function_args.members:
       if arg.node_type == 'STRING_LITERAL':
         src.add_code(arg.members[0])
-    if is_print_function and self.target_language == 'py':
-      src.add_code(', end=""')
+    if is_print_function:
+      if self.target_language == 'py':
+        src.add_code(', end=""')
+      elif self.target_language == 'swift':
+        src.add_code(', terminator: ""')
     src.add_code(')')
 
   def emit_foreign_code(self, src, foreign_code_node, indent_level):
@@ -365,7 +379,7 @@ class Converter:
       self.emit_function_call(src, statement_node, indent_level)
       if self.target_language in ['c', 'js', 'java', 'dotnet', 'php', 'rust']:
         src.add_code(';\n')
-      if self.target_language in ['py', 'go']:
+      if self.target_language in ['py', 'go', 'swift']:
         src.add_code('\n')
     elif statement_node.node_type == 'FOREIGN_CODE':
       self.emit_foreign_code(src, statement_node, indent_level)
@@ -374,7 +388,7 @@ class Converter:
       statement_node.print()
 
   def emit_code_block(self, src, code_block, indent_level):
-    if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'rust']:
+    if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'rust', 'swift']:
       self.indent(src, indent_level)
       src.add_code('{\n')
     elif self.target_language == 'py':
@@ -387,7 +401,7 @@ class Converter:
       elif self.target_language == 'dotnet':
         member_indent = 3
       self.emit_statement(src, statement_node, indent_level + member_indent)
-    if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'rust']:
+    if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'rust', 'swift']:
       if self.target_language == 'java':
         self.indent(src, indent_level + 1)
       elif self.target_language == 'dotnet':
@@ -426,6 +440,8 @@ class Converter:
       self.php_src.add_code('function main() ')
     elif self.target_language == 'rust':
       self.rs_src.add_code('fn main() ')
+    elif self.target_language == 'swift':
+      self.swift_src.add_code('func main() ')
     # Find the main method's code block in the parse tree.
     main_node = self.find_main_function_node()
     if not main_node:
@@ -447,6 +463,8 @@ class Converter:
       self.emit_code_block(self.php_src, main_code_block, 0)
     elif self.target_language == 'rust':
       self.emit_code_block(self.rs_src, main_code_block, 0)
+    elif self.target_language == 'swift':
+      self.emit_code_block(self.swift_src, main_code_block, 0)
     if self.target_language == 'c':
       # In C, a return statement must be injected for the main function.
       self.c_src.parts.insert(-1, '  return 0;\n')
@@ -468,6 +486,8 @@ class Converter:
       self.dotnet_main_src.add_code('  }\n}\n')
     elif self.target_language == 'php':
       self.php_src.add_code('\nmain();\n')
+    elif self.target_language == 'swift':
+      self.swift_src.add_code('\nmain()\n')
 
   def prepend_required_imports(self, src):
     if self.target_language == 'go':

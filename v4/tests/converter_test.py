@@ -129,6 +129,18 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('fn main() {' in rs_content)
     self.assertTrue('  print!("hello\\n");' in rs_content)
 
+  def test_convert_hello_world_to_swift(self):
+    tree = parser.parse_source(HELLO_WORLD_EXAMPLE)
+    swift_converter = converter.Converter(tree, 'swift')
+    files = swift_converter.emit_code()
+    self.assertEqual(1, len(files))
+    swift_content = files[0].content()
+    self.assertEqual('hello.swift', files[0].file_path)
+    print(swift_content)
+    self.assertTrue('func main() {' in swift_content)
+    self.assertTrue('  print("hello\n", terminator: "")' in swift_content)
+    self.assertTrue('main()' in swift_content)
+
   def test_convert_foreign_code_to_c(self):
     tree = parser.parse_source(FOREIGN_CODE_EXAMPLE)
     c_converter = converter.Converter(tree, 'c')
