@@ -116,7 +116,35 @@ class TestParserParse(unittest.TestCase):
 
   def test_parses_foreign_code(self):
     tree = parser.parse_source(FUNCTION_EXAMPLE)
-    tree.print()
+    self.assertTreeContains("""
+      FUNCTION_DECLARATION:
+        FUNCTION_NAME:
+          sayHello
+        TYPE_CHAIN:
+          INITIAL_TYPE:
+            void
+        PARAMETER_DECLARATIONS:
+        CODE_BLOCK:
+          FUNCTION_CALL:
+            ACCESS_CHAIN:
+              INITIAL_IDENTIFIER:
+                print
+            ARGUMENTS_LIST:
+              STRING_LITERAL:
+                "Hello!"
+      FUNCTION_DECLARATION:
+        FUNCTION_NAME:
+          main
+        TYPE_CHAIN:
+          INITIAL_TYPE:
+            void
+        PARAMETER_DECLARATIONS:
+        CODE_BLOCK:
+          FUNCTION_CALL:
+            ACCESS_CHAIN:
+              INITIAL_IDENTIFIER:
+                sayHello
+            ARGUMENTS_LIST:""", tree)
 
 
 if __name__ == '__main__':
