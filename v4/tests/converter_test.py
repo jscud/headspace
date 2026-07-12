@@ -24,6 +24,18 @@ function main type.void () {
 }
 """
 
+FUNCTION_EXAMPLE = """
+module "jeffscudder.com/headspace/tests/hello_function"
+
+function sayHello type.void () {
+  os.print("Hello!\\n")
+}
+
+function main type.void() {
+  sayHello()
+}
+"""
+
 class TestConverter(unittest.TestCase):
   """Exercises the converter for all languages."""
 
@@ -155,6 +167,23 @@ class TestConverter(unittest.TestCase):
     py_content = files[0].content()
     self.assertTrue('  print("Hello from Python")' in py_content)
     self.assertFalse('  printf("Hello from C\\n");' in py_content)
+
+  def test_convert_function_definition_to_c(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    c_converter = converter.Converter(tree, 'c')
+    files = c_converter.emit_code()
+    self.assertEqual(2, len(files))
+    self.assertEqual('headspace/tests/hello_function.c', files[0].file_path)
+    self.assertEqual('headspace/tests/hello_function.h', files[1].file_path)
+    c_content = files[0].content()
+    h_content = files[1].content()
+    self.assertTrue('void sayHello() {' in c_content)
+    self.assertTrue('  printf("Hello!\\n");' in c_content)
+    self.assertTrue('  sayHello();' in c_content)
+    self.assertTrue('#ifndef _h_headspace_tests_hello_function_' in h_content)
+    self.assertTrue('#define _h_headspace_tests_hello_function_' in h_content)
+    self.assertTrue('void sayHello();' in h_content)
+    self.assertTrue('#endif' in h_content)
 
 
 if __name__ == '__main__':

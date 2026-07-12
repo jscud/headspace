@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 TODO
-# - function calling                     TODO
+# - function declaration                 c
+# - function calling                     c
 
 
 class SourceFile:
@@ -180,38 +180,51 @@ class Converter:
     # Start by populating symbols in the module.
     self.populate_symbols()
     self.populate_source_files()
+
+    srcs = []
+    if self.target_language == 'c':
+      srcs = [self.c_src, self.h_src]
+    elif self.target_language == 'py':
+      srcs = [self.py_src]
+    elif self.target_language == 'go':
+      if self.has_main_function():
+        srcs = [self.go_main_src]
+    elif self.target_language == 'js':
+      srcs = [self.js_src, self.js_package]
+    elif self.target_language == 'java':
+      srcs = [self.java_main_src]
+      srcs.extend(self.java_class_srcs)
+    elif self.target_language == 'dotnet':
+      srcs = [self.dotnet_main_src, self.csproj_src]
+      srcs.extend(self.dotnet_class_srcs)
+    elif self.target_language == 'php':
+      srcs = [self.php_src]
+    elif self.target_language == 'rust':
+      srcs = [self.rs_src]
+    elif self.target_language == 'swift':
+      srcs =[self.swift_src]
+
+    # Add required headers.
+    if self.target_language == 'c':
+      header_namespace = '_h_' + self.convert_module_name() + '_'
+      self.h_src.add_code('#ifndef ' + header_namespace + '\n')
+      self.h_src.add_code('#define ' + header_namespace + '\n\n')
+
     self.emit_imports()
     for top_node in self.tree.members:
-      pass
+      if top_node.node_type == 'FUNCTION_DECLARATION':
+        if top_node.members[0].node_type == 'FUNCTION_NAME' and top_node.members[0].members[0] != 'main':
+          self.emit_function_definition(srcs, top_node, 0)
     # We place main at the end or in a seperate module if required by the
     # language.
     if self.has_main_function():
       self.emit_main()
+
+    # Add footers to files.
     if self.target_language == 'c':
-      return [self.c_src, self.h_src]
-    elif self.target_language == 'py':
-      return [self.py_src]
-    elif self.target_language == 'go':
-      if self.has_main_function():
-        return [self.go_main_src]
-    elif self.target_language == 'js':
-      return [self.js_src, self.js_package]
-    elif self.target_language == 'java':
-      srcs = [self.java_main_src]
-      srcs.extend(self.java_class_srcs)
-      return srcs
-    elif self.target_language == 'dotnet':
-      srcs = [self.dotnet_main_src, self.csproj_src]
-      srcs.extend(self.dotnet_class_srcs)
-      return srcs
-    elif self.target_language == 'php':
-      return [self.php_src]
-    elif self.target_language == 'rust':
-      return [self.rs_src]
-    elif self.target_language == 'swift':
-      return [self.swift_src]
-    else:
-      return []
+      self.h_src.add_code('\n#endif\n')
+
+    return srcs
 
   def extract_type(self, type_chain_node):
     type_parts = []
@@ -309,6 +322,7 @@ class Converter:
     if not module_details:
       sys.exit('Unable to find a module ID.')
     # Different languages produce different filenames for a module.
+    return module_details.to_namespace(self.target_language)
 
   def emit_imports(self):
     if self.target_language == 'c':
@@ -317,7 +331,7 @@ class Converter:
       self.c_src.add_code('#include<stdio.h>\n')
       self.c_src.add_code('\n')
       self.h_src.add_code('#include<stdlib.h>\n')
-      self.c_src.add_code('#include<stdint.h>\n')
+      self.h_src.add_code('#include<stdint.h>\n')
       self.h_src.add_code('\n')
 
   def indent(self, src, indent_level):
@@ -325,6 +339,39 @@ class Converter:
       src.add_code('\t' * indent_level)
     else:
       src.add_code('  ' * indent_level)
+
+  def convert_type(self, headspace_type):
+    return headspace_type
+
+  def emit_type(self, src, type_chain_node, indent_level):
+    chain_len = len(type_chain_node.members)
+    # TODO: handle imported types.
+    if chain_len == 1:
+      src.add_code(self.convert_type(type_chain_node.members[0].members[0]))
+
+  def emit_parameter_list(self, src, param_list_node, indent_level):
+    src.add_code('(')
+    # TODO: process parameters in the list.
+    src.add_code(')')
+
+  def emit_function_signature(self, src, function_def_node, indent_level):
+    if self.target_language == 'c':
+      if function_def_node.members[1].node_type == 'TYPE_CHAIN':
+        self.emit_type(src, function_def_node.members[1], indent_level)
+      src.add_code(' ')
+      # Emit the function name.
+      src.add_code(function_def_node.members[0].members[0])
+    self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+
+  def emit_function_definition(self, srcs, function_def_node, indent_level):
+    if self.target_language == 'c':
+      # Function signature is added to the .h file.
+      self.emit_function_signature(srcs[0], function_def_node, indent_level)
+      self.emit_function_signature(srcs[1], function_def_node, indent_level)
+      srcs[1].add_code(';\n')
+      srcs[0].add_code(' ')
+      self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
+      srcs[0].add_code('\n')
 
   def emit_function_call(self, src, function_call_node, indent_level):
     function_identifier = function_call_node.members[0]
@@ -355,6 +402,14 @@ class Converter:
         elif self.target_language == 'swift':
           is_print_function = True
           src.add_code('print')
+    else:
+      # TODO: convert the entire access chain.
+      num_items = len(function_identifier.members)
+      if num_items == 1:
+        function_name = function_identifier.members[0].members[0]
+        # TODO: lookup the function name in the symbol table.
+        if self.target_language in ['c']:
+          src.add_code(function_name)
     function_args = function_call_node.members[1]
     src.add_code('(')
     for arg in function_args.members:
