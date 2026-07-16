@@ -194,6 +194,14 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('def sayHello() -> None:' in py_content)
     self.assertTrue('  sayHello()' in py_content)
 
+  def test_convert_function_definition_to_go(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    go_converter = converter.Converter(tree, 'go')
+    files = go_converter.emit_code()
+    go_main_content = files[0].content()
+    self.assertTrue('func sayHello() {' in go_main_content)
+    self.assertTrue('\tsayHello()' in go_main_content)
+
 
 if __name__ == '__main__':
   unittest.main()

@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 c  py
-# - function calling                     c  py
+# - function declaration                 c  py  go
+# - function calling                     c  py  go
 
 
 class SourceFile:
@@ -372,6 +372,16 @@ class Converter:
       self.emit_parameter_list(src, function_def_node.members[2], indent_level)
       src.add_code(' -> ')
       self.emit_type(src, function_def_node.members[1], indent_level)
+    elif self.target_language == 'go':
+      src.add_code('func ')
+      # Emit the function name.
+      src.add_code(function_def_node.members[0].members[0])
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      src.add_code(' ')
+      # In go, a function with no return value omits the type (void).
+      if function_def_node.members[1].members[0].members[0] != 'void':
+        self.emit_type(src, function_def_node.members[1], indent_level)
+        src.add_code(' ')
 
   def emit_function_definition(self, srcs, function_def_node, indent_level):
     if self.target_language == 'c':
@@ -382,9 +392,10 @@ class Converter:
       srcs[0].add_code(' ')
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
-    elif self.target_language == 'py':
+    elif self.target_language in ['py', 'go']:
       self.emit_function_signature(srcs[0], function_def_node, indent_level)
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
+      srcs[0].add_code('\n')
 
   def emit_function_call(self, src, function_call_node, indent_level):
     function_identifier = function_call_node.members[0]
@@ -421,7 +432,7 @@ class Converter:
       if num_items == 1:
         function_name = function_identifier.members[0].members[0]
         # TODO: lookup the function name in the symbol table.
-        if self.target_language in ['c', 'py']:
+        if self.target_language in ['c', 'py', 'go']:
           src.add_code(function_name)
     function_args = function_call_node.members[1]
     src.add_code('(')
