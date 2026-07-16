@@ -185,6 +185,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('void sayHello();' in h_content)
     self.assertTrue('#endif' in h_content)
 
+  def test_convert_function_definition_to_python(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    py_converter = converter.Converter(tree, 'py')
+    files = py_converter.emit_code()
+    self.assertEqual(1, len(files))
+    py_content = files[0].content()
+    self.assertTrue('def sayHello() -> None:' in py_content)
+    self.assertTrue('  sayHello()' in py_content)
+
 
 if __name__ == '__main__':
   unittest.main()

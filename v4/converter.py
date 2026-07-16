@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 c
-# - function calling                     c
+# - function declaration                 c  py
+# - function calling                     c  py
 
 
 class SourceFile:
@@ -341,6 +341,9 @@ class Converter:
       src.add_code('  ' * indent_level)
 
   def convert_type(self, headspace_type):
+    if self.target_language == 'py':
+      if headspace_type == 'void':
+        return 'None'
     return headspace_type
 
   def emit_type(self, src, type_chain_node, indent_level):
@@ -361,7 +364,14 @@ class Converter:
       src.add_code(' ')
       # Emit the function name.
       src.add_code(function_def_node.members[0].members[0])
-    self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+    elif self.target_language == 'py':
+      src.add_code('def ')
+      # Emit the function name.
+      src.add_code(function_def_node.members[0].members[0])
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      src.add_code(' -> ')
+      self.emit_type(src, function_def_node.members[1], indent_level)
 
   def emit_function_definition(self, srcs, function_def_node, indent_level):
     if self.target_language == 'c':
@@ -372,6 +382,9 @@ class Converter:
       srcs[0].add_code(' ')
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
+    elif self.target_language == 'py':
+      self.emit_function_signature(srcs[0], function_def_node, indent_level)
+      self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
 
   def emit_function_call(self, src, function_call_node, indent_level):
     function_identifier = function_call_node.members[0]
@@ -408,7 +421,7 @@ class Converter:
       if num_items == 1:
         function_name = function_identifier.members[0].members[0]
         # TODO: lookup the function name in the symbol table.
-        if self.target_language in ['c']:
+        if self.target_language in ['c', 'py']:
           src.add_code(function_name)
     function_args = function_call_node.members[1]
     src.add_code('(')
