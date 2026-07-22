@@ -212,6 +212,16 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('export function sayHello() {' in js_content)
     self.assertTrue('  sayHello();' in js_content)
 
+  def test_convert_hello_world_to_java(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    java_converter = converter.Converter(tree, 'java')
+    files = java_converter.emit_code()
+    self.assertEqual(1, len(files))
+    java_content = files[0].content()
+    self.assertTrue('public class HelloFunction' in java_content)
+    self.assertTrue('  public static void sayHello() {' in java_content)
+    self.assertTrue('    sayHello();' in java_content)
+
 
 if __name__ == '__main__':
   unittest.main()
