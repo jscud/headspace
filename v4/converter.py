@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 c  py  go  js  java  dotnet  php  rust
-# - function calling                     c  py  go  js  java  dotnet  php  rust
+# - function declaration                 c  py  go  js  java  dotnet  php  rust  swift
+# - function calling                     c  py  go  js  java  dotnet  php  rust  swift
 
 
 class SourceFile:
@@ -379,6 +379,9 @@ class Converter:
     elif self.target_language == 'rust':
       if headspace_type == 'void':
         return '()'
+    elif self.target_language == 'swift':
+      if headspace_type == 'void':
+        return 'Void'
     return headspace_type
 
   def emit_type(self, src, type_chain_node, indent_level):
@@ -467,8 +470,13 @@ class Converter:
       src.add_code(' -> ')
       self.emit_type(src, function_def_node.members[1], indent_level)
       src.add_code(' ')
-
-
+    elif self.target_language == 'swift':
+      src.add_code('func ')
+      src.add_code(function_def_node.members[0].members[0])
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      src.add_code(' -> ')
+      self.emit_type(src, function_def_node.members[1], indent_level)
+      src.add_code(' ')
 
   def emit_function_definition(self, srcs, function_def_node, indent_level):
     if self.target_language == 'c':
@@ -479,7 +487,7 @@ class Converter:
       srcs[0].add_code(' ')
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
-    elif self.target_language in ['py', 'go' ,'js', 'java', 'dotnet', 'php', 'rust']:
+    elif self.target_language in ['py', 'go' ,'js', 'java', 'dotnet', 'php', 'rust', 'swift']:
       self.emit_function_signature(srcs[0], function_def_node, indent_level)
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
@@ -519,7 +527,7 @@ class Converter:
       if num_items == 1:
         function_name = function_identifier.members[0].members[0]
         # TODO: lookup the function name in the symbol table.
-        if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php']:
+        if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'swift']:
           src.add_code(function_name)
         elif self.target_language in ['py', 'rust']:
           src.add_code(convert_to_snake_case(function_name))

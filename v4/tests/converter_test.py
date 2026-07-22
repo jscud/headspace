@@ -250,6 +250,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('fn say_hello() -> () {' in rs_content)
     self.assertTrue('  say_hello();' in rs_content)
 
+  def test_convert_function_definition_to_swift(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    swift_converter = converter.Converter(tree, 'swift')
+    files = swift_converter.emit_code()
+    self.assertEqual(1, len(files))
+    swift_content = files[0].content()
+    self.assertTrue('func sayHello() -> Void {' in swift_content)
+    self.assertTrue('  sayHello()' in swift_content)
+
 
 if __name__ == '__main__':
   unittest.main()
