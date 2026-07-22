@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 c  py  go  js  java  dotnet  php
-# - function calling                     c  py  go  js  java  dotnet  php
+# - function declaration                 c  py  go  js  java  dotnet  php  rust
+# - function calling                     c  py  go  js  java  dotnet  php  rust
 
 
 class SourceFile:
@@ -56,6 +56,17 @@ def convert_to_camel_case(input_str):
   for name_segment in name_segments:
     capitalized_segments.append(name_segment[0].capitalize() + name_segment[1:])
   return ''.join(capitalized_segments)
+
+
+def convert_to_snake_case(input_str):
+  name_characters = []
+  for character in input_str:
+    if character.isupper():
+      name_characters.append('_')
+      name_characters.append(character.lower())
+    else:
+      name_characters.append(character)
+  return ''.join(name_characters)
 
 
 class ModuleInfo:
@@ -365,6 +376,9 @@ class Converter:
     elif self.target_language == 'js':
       if headspace_type == 'void':
         return 'undefined'
+    elif self.target_language == 'rust':
+      if headspace_type == 'void':
+        return '()'
     return headspace_type
 
   def emit_type(self, src, type_chain_node, indent_level):
@@ -389,7 +403,7 @@ class Converter:
     elif self.target_language == 'py':
       src.add_code('def ')
       # Emit the function name.
-      src.add_code(function_def_node.members[0].members[0])
+      src.add_code(convert_to_snake_case(function_def_node.members[0].members[0]))
       self.emit_parameter_list(src, function_def_node.members[2], indent_level)
       src.add_code(' -> ')
       self.emit_type(src, function_def_node.members[1], indent_level)
@@ -446,6 +460,14 @@ class Converter:
       src.add_code(': ')
       self.emit_type(src, function_def_node.members[1], indent_level)
       src.add_code(' ')
+    elif self.target_language == 'rust':
+      src.add_code('fn ')
+      src.add_code(convert_to_snake_case(function_def_node.members[0].members[0]))
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      src.add_code(' -> ')
+      self.emit_type(src, function_def_node.members[1], indent_level)
+      src.add_code(' ')
+
 
 
   def emit_function_definition(self, srcs, function_def_node, indent_level):
@@ -457,7 +479,7 @@ class Converter:
       srcs[0].add_code(' ')
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
-    elif self.target_language in ['py', 'go' ,'js', 'java', 'dotnet', 'php']:
+    elif self.target_language in ['py', 'go' ,'js', 'java', 'dotnet', 'php', 'rust']:
       self.emit_function_signature(srcs[0], function_def_node, indent_level)
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
@@ -497,8 +519,10 @@ class Converter:
       if num_items == 1:
         function_name = function_identifier.members[0].members[0]
         # TODO: lookup the function name in the symbol table.
-        if self.target_language in ['c', 'py', 'go', 'js', 'java', 'dotnet', 'php']:
+        if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php']:
           src.add_code(function_name)
+        elif self.target_language in ['py', 'rust']:
+          src.add_code(convert_to_snake_case(function_name))
     function_args = function_call_node.members[1]
     src.add_code('(')
     for arg in function_args.members:

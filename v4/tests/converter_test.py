@@ -191,8 +191,8 @@ class TestConverter(unittest.TestCase):
     files = py_converter.emit_code()
     self.assertEqual(1, len(files))
     py_content = files[0].content()
-    self.assertTrue('def sayHello() -> None:' in py_content)
-    self.assertTrue('  sayHello()' in py_content)
+    self.assertTrue('def say_hello() -> None:' in py_content)
+    self.assertTrue('  say_hello()' in py_content)
 
   def test_convert_function_definition_to_go(self):
     tree = parser.parse_source(FUNCTION_EXAMPLE)
@@ -240,6 +240,15 @@ class TestConverter(unittest.TestCase):
     php_content = files[0].content()
     self.assertTrue('function sayHello(): void {' in php_content)
     self.assertTrue('  sayHello();' in php_content)
+
+  def test_convert_function_definition_to_rust(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    rust_converter = converter.Converter(tree, 'rust')
+    files = rust_converter.emit_code()
+    self.assertEqual(1, len(files))
+    rs_content = files[0].content()
+    self.assertTrue('fn say_hello() -> () {' in rs_content)
+    self.assertTrue('  say_hello();' in rs_content)
 
 
 if __name__ == '__main__':
