@@ -202,7 +202,7 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('func sayHello() {' in go_main_content)
     self.assertTrue('\tsayHello()' in go_main_content)
 
-  def test_convert_hello_world_to_javascript(self):
+  def test_convert_function_definition_to_javascript(self):
     tree = parser.parse_source(FUNCTION_EXAMPLE)
     js_converter = converter.Converter(tree, 'js')
     files = js_converter.emit_code()
@@ -212,7 +212,7 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('export function sayHello() {' in js_content)
     self.assertTrue('  sayHello();' in js_content)
 
-  def test_convert_hello_world_to_java(self):
+  def test_convert_function_definition_to_java(self):
     tree = parser.parse_source(FUNCTION_EXAMPLE)
     java_converter = converter.Converter(tree, 'java')
     files = java_converter.emit_code()
@@ -221,6 +221,16 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('public class HelloFunction' in java_content)
     self.assertTrue('  public static void sayHello() {' in java_content)
     self.assertTrue('    sayHello();' in java_content)
+
+  def test_convert_function_definition_to_dotnet(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    dotnet_converter = converter.Converter(tree, 'dotnet')
+    files = dotnet_converter.emit_code()
+    self.assertEqual(2, len(files))
+    dotnet_content = files[0].content()
+    self.assertTrue('  class HelloFunction {' in dotnet_content)
+    self.assertTrue('    static void sayHello() {' in dotnet_content)
+    self.assertTrue('      sayHello();' in dotnet_content)
 
 
 if __name__ == '__main__':

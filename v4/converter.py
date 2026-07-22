@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 c  py  go  js  java
-# - function calling                     c  py  go  js  java
+# - function declaration                 c  py  go  js  java  dotnet
+# - function calling                     c  py  go  js  java  dotnet
 
 
 class SourceFile:
@@ -220,10 +220,14 @@ class Converter:
 
     self.emit_imports()
 
+    module = self.module_symbol_table.symbols['module']
     if self.target_language == 'java':
-      module = self.module_symbol_table.symbols['module']
       self.java_main_src.add_code('package ' + module.to_namespace(self.target_language) + ';\n\n')
       self.java_main_src.add_code('public class ' + convert_to_camel_case(module.module_name) + '\n{\n')
+    elif self.target_language == 'dotnet':
+      self.dotnet_main_src.add_code('using System;\n\n')
+      self.dotnet_main_src.add_code('namespace ' + module.to_namespace(self.target_language) + ' {\n')
+      self.dotnet_main_src.add_code('  class ' + convert_to_camel_case(module.module_name) + ' {\n')
 
     for top_node in self.tree.members:
       if top_node.node_type == 'FUNCTION_DECLARATION':
@@ -427,6 +431,14 @@ class Converter:
       src.add_code(function_def_node.members[0].members[0])
       self.emit_parameter_list(src, function_def_node.members[2], indent_level)
       src.add_code(' ')
+    elif self.target_language == 'dotnet':
+      self.indent(src, indent_level)
+      src.add_code('    static ')
+      self.emit_type(src, function_def_node.members[1], indent_level)
+      src.add_code(' ')
+      src.add_code(function_def_node.members[0].members[0])
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      src.add_code(' ')
 
   def emit_function_definition(self, srcs, function_def_node, indent_level):
     if self.target_language == 'c':
@@ -437,7 +449,7 @@ class Converter:
       srcs[0].add_code(' ')
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
-    elif self.target_language in ['py', 'go' ,'js', 'java']:
+    elif self.target_language in ['py', 'go' ,'js', 'java', 'dotnet']:
       self.emit_function_signature(srcs[0], function_def_node, indent_level)
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
@@ -477,7 +489,7 @@ class Converter:
       if num_items == 1:
         function_name = function_identifier.members[0].members[0]
         # TODO: lookup the function name in the symbol table.
-        if self.target_language in ['c', 'py', 'go', 'js', 'java']:
+        if self.target_language in ['c', 'py', 'go', 'js', 'java', 'dotnet']:
           src.add_code(function_name)
     function_args = function_call_node.members[1]
     src.add_code('(')
@@ -553,10 +565,6 @@ class Converter:
       module = self.module_symbol_table.symbols['module']
       self.java_main_src.add_code('  public static void main(String[] args) ')
     elif self.target_language == 'dotnet':
-      module = self.module_symbol_table.symbols['module']
-      self.dotnet_main_src.add_code('using System;\n\n')
-      self.dotnet_main_src.add_code('namespace ' + module.to_namespace(self.target_language) + ' {\n')
-      self.dotnet_main_src.add_code('  class ' + convert_to_camel_case(module.module_name) + ' {\n')
       self.dotnet_main_src.add_code('    static void Main(string[] args) ')
     elif self.target_language == 'php':
       self.php_src.add_code('function main() ')
