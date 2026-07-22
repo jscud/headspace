@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 c  py  go
-# - function calling                     c  py  go
+# - function declaration                 c  py  go  js
+# - function calling                     c  py  go  js
 
 
 class SourceFile:
@@ -344,6 +344,9 @@ class Converter:
     if self.target_language == 'py':
       if headspace_type == 'void':
         return 'None'
+    elif self.target_language == 'js':
+      if headspace_type == 'void':
+        return 'undefined'
     return headspace_type
 
   def emit_type(self, src, type_chain_node, indent_level):
@@ -382,6 +385,26 @@ class Converter:
       if function_def_node.members[1].members[0].members[0] != 'void':
         self.emit_type(src, function_def_node.members[1], indent_level)
         src.add_code(' ')
+    elif self.target_language == 'js':
+      self.indent(src, indent_level)
+      src.add_code('/**\n')
+      # TODO: include type annotations for parameters.
+      #param_index = 0
+      #while param_index < len(function_params):
+        #js_code.append(' ' * indent_level)
+        #js_code.append(' * @param {' + self.convert_data_type(function_params[param_index][1]) + '} ' + function_params[param_index][0] + '\n')
+        #param_index += 1
+      self.indent(src, indent_level)
+      src.add_code(' * @returns {')
+      self.emit_type(src, function_def_node.members[1], 0)
+      src.add_code('}\n')
+      self.indent(src, indent_level)
+      src.add_code(' */\n')
+      self.indent(src, indent_level)
+      src.add_code('export function ')
+      src.add_code(function_def_node.members[0].members[0])
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      src.add_code(' ')
 
   def emit_function_definition(self, srcs, function_def_node, indent_level):
     if self.target_language == 'c':
@@ -392,7 +415,7 @@ class Converter:
       srcs[0].add_code(' ')
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
-    elif self.target_language in ['py', 'go']:
+    elif self.target_language in ['py', 'go' ,'js']:
       self.emit_function_signature(srcs[0], function_def_node, indent_level)
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
@@ -432,7 +455,7 @@ class Converter:
       if num_items == 1:
         function_name = function_identifier.members[0].members[0]
         # TODO: lookup the function name in the symbol table.
-        if self.target_language in ['c', 'py', 'go']:
+        if self.target_language in ['c', 'py', 'go', 'js']:
           src.add_code(function_name)
     function_args = function_call_node.members[1]
     src.add_code('(')

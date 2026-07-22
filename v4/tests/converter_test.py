@@ -202,6 +202,16 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('func sayHello() {' in go_main_content)
     self.assertTrue('\tsayHello()' in go_main_content)
 
+  def test_convert_hello_world_to_javascript(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    js_converter = converter.Converter(tree, 'js')
+    files = js_converter.emit_code()
+    self.assertEqual(2, len(files))
+    js_content = files[0].content()
+    self.assertTrue('* @returns {undefined}' in js_content)
+    self.assertTrue('export function sayHello() {' in js_content)
+    self.assertTrue('  sayHello();' in js_content)
+
 
 if __name__ == '__main__':
   unittest.main()
