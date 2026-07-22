@@ -127,7 +127,7 @@ class TestConverter(unittest.TestCase):
     php_content = files[0].content()
     self.assertEqual('hello.php', files[0].file_path)
     self.assertTrue('<?php' in php_content)
-    self.assertTrue('function main() {' in php_content)
+    self.assertTrue('function main(): void {' in php_content)
     self.assertTrue('  print("hello\\n");' in php_content)
     self.assertTrue('main();' in php_content)
 
@@ -231,6 +231,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  class HelloFunction {' in dotnet_content)
     self.assertTrue('    static void sayHello() {' in dotnet_content)
     self.assertTrue('      sayHello();' in dotnet_content)
+
+  def test_convert_function_definition_to_php(self):
+    tree = parser.parse_source(FUNCTION_EXAMPLE)
+    php_converter = converter.Converter(tree, 'php')
+    files = php_converter.emit_code()
+    self.assertEqual(1, len(files))
+    php_content = files[0].content()
+    self.assertTrue('function sayHello(): void {' in php_content)
+    self.assertTrue('  sayHello();' in php_content)
 
 
 if __name__ == '__main__':

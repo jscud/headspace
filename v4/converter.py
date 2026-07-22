@@ -7,8 +7,8 @@ import os
 # - creating main function               c  py  go  js  java  dotnet  php  rust  swift
 # - print statement                      c  py  go  js  java  dotnet  php  rust  swift
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
-# - function declaration                 c  py  go  js  java  dotnet
-# - function calling                     c  py  go  js  java  dotnet
+# - function declaration                 c  py  go  js  java  dotnet  php
+# - function calling                     c  py  go  js  java  dotnet  php
 
 
 class SourceFile:
@@ -439,6 +439,14 @@ class Converter:
       src.add_code(function_def_node.members[0].members[0])
       self.emit_parameter_list(src, function_def_node.members[2], indent_level)
       src.add_code(' ')
+    elif self.target_language == 'php':
+      src.add_code('function ')
+      src.add_code(function_def_node.members[0].members[0])
+      self.emit_parameter_list(src, function_def_node.members[2], indent_level)
+      src.add_code(': ')
+      self.emit_type(src, function_def_node.members[1], indent_level)
+      src.add_code(' ')
+
 
   def emit_function_definition(self, srcs, function_def_node, indent_level):
     if self.target_language == 'c':
@@ -449,7 +457,7 @@ class Converter:
       srcs[0].add_code(' ')
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
-    elif self.target_language in ['py', 'go' ,'js', 'java', 'dotnet']:
+    elif self.target_language in ['py', 'go' ,'js', 'java', 'dotnet', 'php']:
       self.emit_function_signature(srcs[0], function_def_node, indent_level)
       self.emit_code_block(srcs[0], function_def_node.members[3], indent_level)
       srcs[0].add_code('\n')
@@ -489,7 +497,7 @@ class Converter:
       if num_items == 1:
         function_name = function_identifier.members[0].members[0]
         # TODO: lookup the function name in the symbol table.
-        if self.target_language in ['c', 'py', 'go', 'js', 'java', 'dotnet']:
+        if self.target_language in ['c', 'py', 'go', 'js', 'java', 'dotnet', 'php']:
           src.add_code(function_name)
     function_args = function_call_node.members[1]
     src.add_code('(')
@@ -567,7 +575,7 @@ class Converter:
     elif self.target_language == 'dotnet':
       self.dotnet_main_src.add_code('    static void Main(string[] args) ')
     elif self.target_language == 'php':
-      self.php_src.add_code('function main() ')
+      self.php_src.add_code('function main(): void ')
     elif self.target_language == 'rust':
       self.rs_src.add_code('fn main() ')
     elif self.target_language == 'swift':
