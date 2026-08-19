@@ -23,6 +23,16 @@ function main type.void() {
 }
 """
 
+PARAMS_EXAMPLE = """
+function addNumbers type.int32 (param a type.int32, param b type.int32) {
+  return math.addInts(a, b)
+}
+
+function main type.void () {
+  os.printInt(addNumbers(10, 9))
+}
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -145,6 +155,61 @@ class TestParserParse(unittest.TestCase):
               INITIAL_IDENTIFIER:
                 sayHello
             ARGUMENTS_LIST:""", tree)
+
+  def test_parses_function_params(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    self.assertTreeContains("""
+      FUNCTION_DECLARATION:
+        FUNCTION_NAME:
+          addNumbers
+        TYPE_CHAIN:
+          INITIAL_TYPE:
+            int32
+        PARAMETER_DECLARATIONS:
+          PARAMETER:
+            PARAMETER_NAME:
+              a
+            TYPE_CHAIN:
+              INITIAL_TYPE:
+                int32
+          PARAMETER:
+            PARAMETER_NAME:
+              b
+            TYPE_CHAIN:
+              INITIAL_TYPE:
+                int32
+        CODE_BLOCK:
+          RETURN_STATEMENT:
+            FUNCTION_CALL:
+              ACCESS_CHAIN:
+                INITIAL_IDENTIFIER:
+                  math
+                CHAINED_IDENTIFIER:
+                  addInts
+              ARGUMENTS_LIST:
+                ACCESS_CHAIN:
+                  INITIAL_IDENTIFIER:
+                    a
+                ACCESS_CHAIN:
+                  INITIAL_IDENTIFIER:
+                    b""", tree)
+    self.assertTreeContains("""
+      FUNCTION_CALL:
+        ACCESS_CHAIN:
+          INITIAL_IDENTIFIER:
+            os
+          CHAINED_IDENTIFIER:
+            printInt
+        ARGUMENTS_LIST:
+          FUNCTION_CALL:
+            ACCESS_CHAIN:
+              INITIAL_IDENTIFIER:
+                addNumbers
+            ARGUMENTS_LIST:
+              NUMBER_LITERAL:
+                10
+              NUMBER_LITERAL:
+                9""", tree)
 
 
 if __name__ == '__main__':

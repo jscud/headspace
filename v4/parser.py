@@ -96,10 +96,9 @@ class Parser:
     if self.debug_print:
       self.debug_indent -= 4
       if self.debug_indent < 0:
-        print('error, enter and leave mismatch')
-        sys.exit(1)
+        sys.exit('error, enter and leave mismatch')
       print(' ' * self.debug_indent, end='')
-      print('\\ parser  leaving ', debug_note)
+      print('\\ parser  leaving ', debug_note, 'with debug level', self.debug_indent)
 
   # Tricky question, I need to process identifier chain, it includes things like list access []
   def process_access_chain(self):
@@ -169,7 +168,20 @@ class Parser:
     return module_id
 
   def process_parameter_declaration(self):
-    return None
+    self.enter_method('process_parameter_declaration')
+    parameter_declaration = build_node('PARAMETER')
+    if not self.current_token_matches('IDENTIFIER', 'param'):
+      sys.exit('Expected parameter declaration to start with keyword param')
+    self.consume_current_token('param keyword in parameter declaration')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected parameter declaration to have an identifier following the param keyword')
+    parameter_declaration.members.append(build_leaf('PARAMETER_NAME', self.current_token().content))
+    self.consume_current_token('parameter name')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected paraemter type to be present after the parameter name')
+    parameter_declaration.members.append(self.process_type_chain())
+    self.leave_method('process_parameter_declaration')
+    return parameter_declaration
 
   def process_parameter_declarations(self):
     self.enter_method('process_parameter_declarations')
@@ -195,6 +207,21 @@ class Parser:
     if self.current_token_is('STRING'):
       expression_node = build_leaf('STRING_LITERAL', self.current_token().content)
       self.consume_current_token('string literal in lvalue expression')
+    elif self.current_token_is('NUMBER'):
+      expression_node = build_leaf('NUMBER_LITERAL', self.current_token().content)
+      self.consume_current_token('number literal in lvalue expression')
+    elif self.current_token_is('IDENTIFIER'):
+      chain = self.process_access_chain()
+      if self.current_token_matches('SYMBOL', '('):
+        # This is a function call.
+        expression_node = self.process_function_call(chain)
+      else:
+        # It is simply the identifier, so return it.
+        expression_node = chain
+      # TODO: more types?
+    else:
+      self.current_token().print()
+      sys.exit('unexpected token')
     self.leave_method('process_lvalue_expression')
     return expression_node
 
@@ -245,6 +272,16 @@ class Parser:
     self.leave_method('process_foreign_code')
     return foreign_code
 
+  def process_return_statement(self):
+    self.enter_method('process_return_statment')
+    return_statement = build_node('RETURN_STATEMENT')
+    if not self.current_token_matches('IDENTIFIER', 'return'):
+      sys.exit('Expected return statement to start with keyword return')
+    self.consume_current_token('return keyword')
+    return_statement.members.append(self.process_lvalue_expression())
+    self.leave_method('process_return_statment')
+    return return_statement
+
   def process_code_block(self):
     self.enter_method('process_code_block')
     code_block = build_node('CODE_BLOCK')
@@ -255,6 +292,8 @@ class Parser:
     while self.current_token_is('IDENTIFIER'):
       if self.current_token_matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
         code_block.members.append(self.process_foreign_code())
+      elif self.current_token_matches('IDENTIFIER', 'return'):
+        code_block.members.append(self.process_return_statement())
       else:
         chain = self.process_access_chain()
         if self.current_token_matches('SYMBOL', '('):
@@ -287,14 +326,15 @@ class Parser:
 
   def process_module_node(self):
     self.enter_method('process_module_node')
+    module_node = None
     if self.current_token_matches('IDENTIFIER', 'module'):
-      return self.process_module_declaration()
+      module_node = self.process_module_declaration()
     elif self.current_token_matches('IDENTIFIER', 'function'):
-      return self.process_function_declaration()
+      module_node = self.process_function_declaration()
     elif self.current_token_matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
-      return self.process_foreign_code()
+      module_node = self.process_foreign_code()
     self.leave_method('process_module_node')
-    return None
+    return module_node
 
   def build_module(self):
     module_node = build_node('MODULE')

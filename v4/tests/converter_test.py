@@ -36,6 +36,19 @@ function main type.void() {
 }
 """
 
+PARAMS_EXAMPLE = """
+module "jeffscudder.com/headspace/tests/params"
+
+function addNumbers type.int32 (param a type.int32, param b type.int32) {
+  return math.addInts(a, b)
+}
+
+function main type.void () {
+  os.printInt(addNumbers(10, 9))
+}
+"""
+
+
 class TestConverter(unittest.TestCase):
   """Exercises the converter for all languages."""
 
@@ -258,6 +271,15 @@ class TestConverter(unittest.TestCase):
     swift_content = files[0].content()
     self.assertTrue('func sayHello() -> Void {' in swift_content)
     self.assertTrue('  sayHello()' in swift_content)
+
+  def test_convert_params_to_c(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    c_converter = converter.Converter(tree, 'c')
+    files = c_converter.emit_code()
+    c_content = files[0].content()
+    self.assertTrue('int32_t addNumbers(int32_t a, int32_t b) {' in c_content)
+    self.assertTrue('return a + b;' in c_content)
+    self.assertTrue('printf("%d", addNumbers(10, 9));' in c_content)
 
 
 if __name__ == '__main__':

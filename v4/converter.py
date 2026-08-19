@@ -9,6 +9,7 @@ import os
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
 # - function declaration                 c  py  go  js  java  dotnet  php  rust  swift
 # - function calling                     c  py  go  js  java  dotnet  php  rust  swift
+# - return statements                    c
 
 
 class SourceFile:
@@ -370,7 +371,10 @@ class Converter:
       src.add_code('  ' * indent_level)
 
   def convert_type(self, headspace_type):
-    if self.target_language == 'py':
+    if self.target_language == 'c':
+      if headspace_type == 'int32':
+        return 'int32_t'
+    elif self.target_language == 'py':
       if headspace_type == 'void':
         return 'None'
     elif self.target_language == 'js':
@@ -392,7 +396,15 @@ class Converter:
 
   def emit_parameter_list(self, src, param_list_node, indent_level):
     src.add_code('(')
-    # TODO: process parameters in the list.
+    is_first_node = True
+    for param_node in param_list_node.members:
+      if self.target_language == 'c':
+        if not is_first_node:
+          src.add_code(', ')
+        self.emit_type(src, param_node.members[1], indent_level)
+        src.add_code(' ')
+        src.add_code(param_node.members[0].members[0])
+        is_first_node = False
     src.add_code(')')
 
   def emit_function_signature(self, src, function_def_node, indent_level):
@@ -521,6 +533,39 @@ class Converter:
         elif self.target_language == 'swift':
           is_print_function = True
           src.add_code('print')
+        function_args = function_call_node.members[1]
+        src.add_code('(')
+        for arg in function_args.members:
+          # TODO: switch to emit rvalue
+          if arg.node_type == 'STRING_LITERAL':
+            src.add_code(arg.members[0])
+        if is_print_function:
+          if self.target_language == 'py':
+            src.add_code(', end=""')
+          elif self.target_language == 'swift':
+            src.add_code(', terminator: ""')
+        src.add_code(')')
+      elif function_identifier.members[1].members[0] == 'printInt':
+        src.add_code('printf("%d", ')
+        function_args = function_call_node.members[1]
+        for arg in function_args.members:
+          self.emit_rvalue(src, arg, 0)
+        if is_print_function:
+          if self.target_language == 'py':
+            src.add_code(', end=""')
+          elif self.target_language == 'swift':
+            src.add_code(', terminator: ""')
+        src.add_code(')')
+    elif function_identifier.members[0].members[0] == 'math':
+      if function_identifier.members[1].members[0] == 'addInts':
+        first_parameter = True
+        function_args = function_call_node.members[1]
+        for arg in function_args.members:
+          if not first_parameter:
+            if self.target_language in ['c', 'go', 'js', 'java', 'dotnet', 'php', 'swift']:
+              src.add_code(' + ')
+          self.emit_rvalue(src, arg, 0)
+          first_parameter = False
     else:
       # TODO: convert the entire access chain.
       num_items = len(function_identifier.members)
@@ -531,23 +576,48 @@ class Converter:
           src.add_code(function_name)
         elif self.target_language in ['py', 'rust']:
           src.add_code(convert_to_snake_case(function_name))
-    function_args = function_call_node.members[1]
-    src.add_code('(')
-    for arg in function_args.members:
-      if arg.node_type == 'STRING_LITERAL':
-        src.add_code(arg.members[0])
-    if is_print_function:
-      if self.target_language == 'py':
-        src.add_code(', end=""')
-      elif self.target_language == 'swift':
-        src.add_code(', terminator: ""')
-    src.add_code(')')
+      function_args = function_call_node.members[1]
+      src.add_code('(')
+      first_parameter = True
+      for arg in function_args.members:
+        if not first_parameter:
+          src.add_code(', ')
+        self.emit_rvalue(src, arg, 0)
+        first_parameter = False
+      if is_print_function:
+        if self.target_language == 'py':
+          src.add_code(', end=""')
+        elif self.target_language == 'swift':
+          src.add_code(', terminator: ""')
+      src.add_code(')')
 
   def emit_foreign_code(self, src, foreign_code_node, indent_level):
     foreign_language = foreign_code_node.members[0].members[0]
     if foreign_language == self.target_language:
       for foreign_token in foreign_code_node.members[1].members:
         src.add_code(foreign_token.members[0])
+
+  def emit_number_literal(self, src, number_node, indent_level):
+    src.add_code(number_node.members[0])
+
+  def emit_rvalue(self, src, rvalue_node, indent_level):
+    self.indent(src, indent_level)
+    if rvalue_node.node_type == 'FUNCTION_CALL':
+      self.emit_function_call(src, rvalue_node, 0)
+    elif rvalue_node.node_type == 'NUMBER_LITERAL':
+      self.emit_number_literal(src, rvalue_node, 0)
+    elif rvalue_node.node_type == 'ACCESS_CHAIN':
+      for identifier_member in rvalue_node.members:
+        if identifier_member.node_type == 'INITIAL_IDENTIFIER':
+          src.add_code(identifier_member.members[0])
+
+  def emit_return_statement(self, src, return_statement_node, indent_level):
+    self.indent(src, indent_level)
+    if self.target_language in ['c']:
+      src.add_code('return ')
+    self.emit_rvalue(src, return_statement_node.members[0], 0)
+    if self.target_language in ['c']:
+      src.add_code(';\n')
 
   def emit_statement(self, src, statement_node, indent_level):
     self.indent(src, indent_level)
@@ -559,6 +629,8 @@ class Converter:
         src.add_code('\n')
     elif statement_node.node_type == 'FOREIGN_CODE':
       self.emit_foreign_code(src, statement_node, indent_level)
+    elif statement_node.node_type == 'RETURN_STATEMENT':
+      self.emit_return_statement(src, statement_node, indent_level)
     else:
       print('Unexpected statement node:')
       statement_node.print()
