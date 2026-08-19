@@ -278,8 +278,17 @@ class TestConverter(unittest.TestCase):
     files = c_converter.emit_code()
     c_content = files[0].content()
     self.assertTrue('int32_t addNumbers(int32_t a, int32_t b) {' in c_content)
-    self.assertTrue('return a + b;' in c_content)
+    self.assertTrue('  return a + b;' in c_content)
     self.assertTrue('printf("%d", addNumbers(10, 9));' in c_content)
+
+  def test_convert_params_to_python(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    python_converter = converter.Converter(tree, 'py')
+    files = python_converter.emit_code()
+    python_content = files[0].content()
+    self.assertTrue('def add_numbers(a: int, b: int) -> int:' in python_content)
+    self.assertTrue('  return a + b' in python_content)
+    self.assertTrue('print(add_numbers(10, 9), end="")' in python_content)
 
 
 if __name__ == '__main__':
