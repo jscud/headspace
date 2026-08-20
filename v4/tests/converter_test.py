@@ -290,6 +290,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  return a + b' in python_content)
     self.assertTrue('print(add_numbers(10, 9), end="")' in python_content)
 
+  def test_convert_params_to_go(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    go_converter = converter.Converter(tree, 'go')
+    files = go_converter.emit_code()
+    go_content = files[0].content()
+    self.assertTrue('func addNumbers(a int32, b int32) int32 {' in go_content)
+    self.assertTrue('\treturn a + b' in go_content)
+    self.assertTrue('\tfmt.Print(addNumbers(10, 9))' in go_content)
+
 
 if __name__ == '__main__':
   unittest.main()

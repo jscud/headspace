@@ -9,7 +9,7 @@ import os
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
 # - function declaration                 c  py  go  js  java  dotnet  php  rust  swift
 # - function calling                     c  py  go  js  java  dotnet  php  rust  swift
-# - return statements                    c  py
+# - return statements                    c  py  go
 
 
 class SourceFile:
@@ -410,6 +410,10 @@ class Converter:
         src.add_code(param_node.members[0].members[0])
         src.add_code(': ')
         self.emit_type(src, param_node.members[1], 0)
+      elif self.target_language == 'go':
+        src.add_code(param_node.members[0].members[0])
+        src.add_code(' ')
+        self.emit_type(src, param_node.members[1], 0)
       is_first_node = False
     src.add_code(')')
 
@@ -557,6 +561,10 @@ class Converter:
         elif self.target_language == 'py':
           is_print_function = True
           src.add_code('print(')
+        elif self.target_language == 'go':
+          if '"fmt"' not in self.required_imports:
+            self.required_imports.append('"fmt"')
+          src.add_code('fmt.Print(')
         function_args = function_call_node.members[1]
         for arg in function_args.members:
           self.emit_rvalue(src, arg, 0)
@@ -622,12 +630,12 @@ class Converter:
           src.add_code(identifier_member.members[0])
 
   def emit_return_statement(self, src, return_statement_node, indent_level):
-    self.indent(src, indent_level)
-    if self.target_language in ['c', 'py']:
-      src.add_code('return ')
+    src.add_code('return ')
     self.emit_rvalue(src, return_statement_node.members[0], 0)
     if self.target_language in ['c']:
       src.add_code(';\n')
+    else:
+      src.add_code('\n')
 
   def emit_statement(self, src, statement_node, indent_level):
     self.indent(src, indent_level)
