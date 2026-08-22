@@ -320,6 +320,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('    return a + b;' in java_content)
     self.assertTrue('    System.out.print(addNumbers(10, 9));' in java_content)
 
+  def test_convert_params_to_dotnet(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    dotnet_converter = converter.Converter(tree, 'dotnet')
+    files = dotnet_converter.emit_code()
+    dotnet_content = files[0].content()
+    self.assertTrue('    static int addNumbers(int a, int b) {' in dotnet_content)
+    self.assertTrue('      return a + b;' in dotnet_content)
+    self.assertTrue('      Console.Write(addNumbers(10, 9));' in dotnet_content)
+
 
 if __name__ == '__main__':
   unittest.main()
