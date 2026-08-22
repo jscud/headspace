@@ -299,6 +299,18 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('\treturn a + b' in go_content)
     self.assertTrue('\tfmt.Print(addNumbers(10, 9))' in go_content)
 
+  def test_convert_params_to_javascript(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    js_converter = converter.Converter(tree, 'js')
+    files = js_converter.emit_code()
+    js_content = files[0].content()
+    self.assertTrue(' * @param {number} a' in js_content)
+    self.assertTrue(' * @param {number} b' in js_content)
+    self.assertTrue(' * @returns {number}' in js_content)
+    self.assertTrue('export function addNumbers(a, b) {' in js_content)
+    self.assertTrue('  return a + b;' in js_content)
+    self.assertTrue('  process.stdout.write("" + addNumbers(10, 9));' in js_content)
+
 
 if __name__ == '__main__':
   unittest.main()

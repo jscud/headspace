@@ -9,7 +9,7 @@ import os
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
 # - function declaration                 c  py  go  js  java  dotnet  php  rust  swift
 # - function calling                     c  py  go  js  java  dotnet  php  rust  swift
-# - return statements                    c  py  go
+# - return statements                    c  py  go  js
 
 
 class SourceFile:
@@ -382,6 +382,8 @@ class Converter:
     elif self.target_language == 'js':
       if headspace_type == 'void':
         return 'undefined'
+      elif headspace_type == 'int32':
+        return 'number'
     elif self.target_language == 'rust':
       if headspace_type == 'void':
         return '()'
@@ -414,6 +416,8 @@ class Converter:
         src.add_code(param_node.members[0].members[0])
         src.add_code(' ')
         self.emit_type(src, param_node.members[1], 0)
+      elif self.target_language == 'js':
+        src.add_code(param_node.members[0].members[0])
       is_first_node = False
     src.add_code(')')
 
@@ -445,12 +449,14 @@ class Converter:
     elif self.target_language == 'js':
       self.indent(src, indent_level)
       src.add_code('/**\n')
-      # TODO: include type annotations for parameters.
-      #param_index = 0
-      #while param_index < len(function_params):
-        #js_code.append(' ' * indent_level)
-        #js_code.append(' * @param {' + self.convert_data_type(function_params[param_index][1]) + '} ' + function_params[param_index][0] + '\n')
-        #param_index += 1
+      param_index = 0
+      function_params = function_def_node.members[2]
+      while param_index < len(function_params.members):
+        self.indent(src, indent_level)
+        src.add_code(' * @param {')
+        self.emit_type(src, function_params.members[param_index].members[1], 0)
+        src.add_code('} ' + function_params.members[param_index].members[0].members[0] + '\n')
+        param_index += 1
       self.indent(src, indent_level)
       src.add_code(' * @returns {')
       self.emit_type(src, function_def_node.members[1], 0)
@@ -565,6 +571,8 @@ class Converter:
           if '"fmt"' not in self.required_imports:
             self.required_imports.append('"fmt"')
           src.add_code('fmt.Print(')
+        elif self.target_language == 'js':
+          src.add_code('process.stdout.write("" + ')
         function_args = function_call_node.members[1]
         for arg in function_args.members:
           self.emit_rvalue(src, arg, 0)
@@ -632,7 +640,7 @@ class Converter:
   def emit_return_statement(self, src, return_statement_node, indent_level):
     src.add_code('return ')
     self.emit_rvalue(src, return_statement_node.members[0], 0)
-    if self.target_language in ['c']:
+    if self.target_language in ['c', 'js']:
       src.add_code(';\n')
     else:
       src.add_code('\n')
