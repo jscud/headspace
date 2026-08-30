@@ -347,6 +347,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  return a + b;' in rust_content)
     self.assertTrue('print!("{}", add_numbers(10, 9));' in rust_content)
 
+  def test_convert_params_to_swift(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    swift_converter = converter.Converter(tree, 'swift')
+    files = swift_converter.emit_code()
+    swift_content = files[0].content()
+    self.assertTrue('func addNumbers(_ a: Int32, _ b: Int32) -> Int32 {' in swift_content)
+    self.assertTrue('  return a + b' in swift_content)
+    self.assertTrue('  print(addNumbers(10, 9), terminator: "")' in swift_content)
+
 
 if __name__ == '__main__':
   unittest.main()

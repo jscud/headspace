@@ -9,7 +9,7 @@ import os
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
 # - function declaration                 c  py  go  js  java  dotnet  php  rust  swift
 # - function calling                     c  py  go  js  java  dotnet  php  rust  swift
-# - return statements                    c  py  go  js  java  dotnet  php  rust
+# - return statements                    c  py  go  js  java  dotnet  php  rust  swift
 
 
 class SourceFile:
@@ -401,6 +401,8 @@ class Converter:
     elif self.target_language == 'swift':
       if headspace_type == 'void':
         return 'Void'
+      elif headspace_type == 'int32':
+        return 'Int32'
     return headspace_type
 
   def emit_type(self, src, type_chain_node, indent_level):
@@ -434,6 +436,12 @@ class Converter:
         src.add_code(' $')
         src.add_code(param_node.members[0].members[0])
       elif self.target_language == 'rust':
+        src.add_code(param_node.members[0].members[0])
+        src.add_code(': ')
+        self.emit_type(src, param_node.members[1], 0)
+      elif self.target_language == 'swift':
+        # Include the _ prefix for the name so callers do not need to provide the paramter name.
+        src.add_code('_ ')
         src.add_code(param_node.members[0].members[0])
         src.add_code(': ')
         self.emit_type(src, param_node.members[1], 0)
@@ -600,6 +608,9 @@ class Converter:
           src.add_code('print("" . ')
         elif self.target_language == 'rust':
           src.add_code('print!("{}", ')
+        elif self.target_language == 'swift':
+          is_print_function = True
+          src.add_code('print(')
         function_args = function_call_node.members[1]
         for arg in function_args.members:
           self.emit_rvalue(src, arg, 0)
