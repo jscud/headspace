@@ -329,6 +329,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('      return a + b;' in dotnet_content)
     self.assertTrue('      Console.Write(addNumbers(10, 9));' in dotnet_content)
 
+  def test_convert_params_to_php(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    php_converter = converter.Converter(tree, 'php')
+    files = php_converter.emit_code()
+    php_content = files[0].content()
+    self.assertTrue('function addNumbers(int $a, int $b): int {' in php_content)
+    self.assertTrue('  return $a + $b;' in php_content)
+    self.assertTrue('  print("" . addNumbers(10, 9));' in php_content)
+
 
 if __name__ == '__main__':
   unittest.main()
