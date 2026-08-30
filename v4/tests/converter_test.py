@@ -338,6 +338,15 @@ class TestConverter(unittest.TestCase):
     self.assertTrue('  return $a + $b;' in php_content)
     self.assertTrue('  print("" . addNumbers(10, 9));' in php_content)
 
+  def test_convert_params_to_rust(self):
+    tree = parser.parse_source(PARAMS_EXAMPLE)
+    rust_converter = converter.Converter(tree, 'rust')
+    files = rust_converter.emit_code()
+    rust_content = files[0].content()
+    self.assertTrue('fn add_numbers(a: i32, b: i32) -> i32 {' in rust_content)
+    self.assertTrue('  return a + b;' in rust_content)
+    self.assertTrue('print!("{}", add_numbers(10, 9));' in rust_content)
+
 
 if __name__ == '__main__':
   unittest.main()

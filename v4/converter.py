@@ -9,7 +9,7 @@ import os
 # - foreign code in code blocks          c  py  go  js  java  dotnet  php  rust  swift
 # - function declaration                 c  py  go  js  java  dotnet  php  rust  swift
 # - function calling                     c  py  go  js  java  dotnet  php  rust  swift
-# - return statements                    c  py  go  js  java  dotnet  php
+# - return statements                    c  py  go  js  java  dotnet  php  rust
 
 
 class SourceFile:
@@ -396,6 +396,8 @@ class Converter:
     elif self.target_language == 'rust':
       if headspace_type == 'void':
         return '()'
+      elif headspace_type == 'int32':
+        return 'i32'
     elif self.target_language == 'swift':
       if headspace_type == 'void':
         return 'Void'
@@ -431,6 +433,10 @@ class Converter:
         self.emit_type(src, param_node.members[1], indent_level)
         src.add_code(' $')
         src.add_code(param_node.members[0].members[0])
+      elif self.target_language == 'rust':
+        src.add_code(param_node.members[0].members[0])
+        src.add_code(': ')
+        self.emit_type(src, param_node.members[1], 0)
       is_first_node = False
     src.add_code(')')
 
@@ -592,6 +598,8 @@ class Converter:
           src.add_code('Console.Write(')
         elif self.target_language == 'php':
           src.add_code('print("" . ')
+        elif self.target_language == 'rust':
+          src.add_code('print!("{}", ')
         function_args = function_call_node.members[1]
         for arg in function_args.members:
           self.emit_rvalue(src, arg, 0)
@@ -607,7 +615,7 @@ class Converter:
         function_args = function_call_node.members[1]
         for arg in function_args.members:
           if not first_parameter:
-            if self.target_language in ['c', 'py', 'go', 'js', 'java', 'dotnet', 'php', 'swift']:
+            if self.target_language in ['c', 'py', 'go', 'js', 'java', 'dotnet', 'php', 'rust', 'swift']:
               src.add_code(' + ')
           self.emit_rvalue(src, arg, 0)
           first_parameter = False
@@ -661,7 +669,7 @@ class Converter:
   def emit_return_statement(self, src, return_statement_node, indent_level):
     src.add_code('return ')
     self.emit_rvalue(src, return_statement_node.members[0], 0)
-    if self.target_language in ['c', 'js', 'java', 'dotnet', 'php']:
+    if self.target_language in ['c', 'js', 'java', 'dotnet', 'php', 'rust']:
       src.add_code(';')
     src.add_code('\n')
 
