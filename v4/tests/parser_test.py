@@ -33,6 +33,26 @@ function main type.void () {
 }
 """
 
+CLASS_EXAMPLE = """
+class ExampleClass {
+  member name type.str
+  member age type.int32
+
+  constructor (param name type.str, param age type.int32) {
+    set this.name = name
+    set this.age = age
+  }
+
+  method sayIntro type.void () {
+    os.print("Name: ")
+    os.print(this.name)
+    os.print("\\nAge: ")
+    os.printInt(this.age)
+    os.print("\\n")
+  }
+}
+"""
+
 
 class TestParserParse(unittest.TestCase):
   """Exercises the parser."""
@@ -210,6 +230,77 @@ class TestParserParse(unittest.TestCase):
                 10
               NUMBER_LITERAL:
                 9""", tree)
+
+  def test_parses_class_definition(self):
+    tree = parser.parse_source(CLASS_EXAMPLE)
+    self.assertTreeContains("""
+      CLASS_DECLARATION:
+        CLASS_NAME:
+          ExampleClass
+        CODE_BLOCK:
+          MEMBER_DECLARATION:
+            MEMBER_NAME:
+              name
+            TYPE_CHAIN:
+              INITIAL_TYPE:
+                str
+          MEMBER_DECLARATION:
+            MEMBER_NAME:
+              age
+            TYPE_CHAIN:
+              INITIAL_TYPE:
+                int32
+          CONSTRUCTOR_DEFINITION:
+            PARAMETER_DECLARATIONS:
+              PARAMETER:
+                PARAMETER_NAME:
+                  name
+                TYPE_CHAIN:
+                  INITIAL_TYPE:
+                    str
+              PARAMETER:
+                PARAMETER_NAME:
+                  age
+                TYPE_CHAIN:
+                  INITIAL_TYPE:
+                    int32
+            CODE_BLOCK:
+              ASSIGNMENT_STATEMENT:
+                ASSIGNMENT_TARGET:
+                  ACCESS_CHAIN:
+                    INITIAL_IDENTIFIER:
+                      this
+                    CHAINED_IDENTIFIER:
+                      name
+                ASSIGNMENT_TARGET:
+                  ACCESS_CHAIN:
+                    INITIAL_IDENTIFIER:
+                      name
+              ASSIGNMENT_STATEMENT:
+                ASSIGNMENT_TARGET:
+                  ACCESS_CHAIN:
+                    INITIAL_IDENTIFIER:
+                      this
+                    CHAINED_IDENTIFIER:
+                      age
+                ASSIGNMENT_TARGET:
+                  ACCESS_CHAIN:
+                    INITIAL_IDENTIFIER:
+                      age
+          METHOD_DECLARATION:
+            METHOD_NAME:
+              sayIntro
+            TYPE_CHAIN:
+              INITIAL_TYPE:
+                void
+            PARAMETER_DECLARATIONS:
+            CODE_BLOCK:
+              FUNCTION_CALL:
+                ACCESS_CHAIN:
+                  INITIAL_IDENTIFIER:
+                    os
+                  CHAINED_IDENTIFIER:
+                    print""", tree)
 
 
 if __name__ == '__main__':

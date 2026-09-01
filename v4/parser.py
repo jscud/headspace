@@ -282,6 +282,54 @@ class Parser:
     self.leave_method('process_return_statment')
     return return_statement
 
+  def process_member_declaration(self):
+    self.enter_method('process_member_declaration')
+    member_declaration = build_node('MEMBER_DECLARATION')
+    if not self.current_token_matches('IDENTIFIER', 'member'):
+      sys.exit('Expected member declaration to start with keyword member')
+    self.consume_current_token('member keyword in class declaration')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected member declaration to have an identifier following the member keyword')
+    member_declaration.members.append(build_leaf('MEMBER_NAME', self.current_token().content))
+    self.consume_current_token('member name')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected paraemter type to be present after the parameter name')
+    member_declaration.members.append(self.process_type_chain())
+    self.leave_method('process_member_declaration')
+    return member_declaration
+
+  def process_constructor_declaration(self):
+    self.enter_method('process_constructor_declaration')
+    constructor_declaration = build_node('CONSTRUCTOR_DEFINITION')
+    if not self.current_token_matches('IDENTIFIER', 'constructor'):
+      sys.exit('Expected constuctor declaration to start with keyword constructor')
+    self.consume_current_token('constructor keyword in class declaration')
+    constructor_declaration.members.append(self.process_parameter_declarations())
+    constructor_declaration.members.append(self.process_code_block())
+    self.leave_method('process_constructor_declaration')
+    return constructor_declaration
+
+  def process_assignment_statement(self):
+    self.enter_method('process_assignment_statement')
+    assignment_statement = build_node('ASSIGNMENT_STATEMENT')
+    if not self.current_token_matches('IDENTIFIER', 'set'):
+      sys.exit('Expected assignment statement to start with keyword set')
+    self.consume_current_token('set keyword in assignment statement')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected assignment statement to begin with target identifier')
+    chain = self.process_access_chain()
+    assignment_target = build_node('ASSIGNMENT_TARGET')
+    assignment_target.members.append(chain)
+    assignment_statement.members.append(assignment_target)
+    if not self.current_token_matches('SYMBOL', '='):
+      sys.exit('Expected assignment statement to include = symbol')
+    self.consume_current_token('= symbol in assignment statement')
+    assignment_target = build_node('ASSIGNMENT_TARGET')
+    assignment_target.members.append(self.process_lvalue_expression())
+    assignment_statement.members.append(assignment_target)
+    self.leave_method('process_assignment_statement')
+    return assignment_statement
+
   def process_code_block(self):
     self.enter_method('process_code_block')
     code_block = build_node('CODE_BLOCK')
@@ -294,6 +342,14 @@ class Parser:
         code_block.members.append(self.process_foreign_code())
       elif self.current_token_matches('IDENTIFIER', 'return'):
         code_block.members.append(self.process_return_statement())
+      elif self.current_token_matches('IDENTIFIER', 'member'):
+        code_block.members.append(self.process_member_declaration())
+      elif self.current_token_matches('IDENTIFIER', 'constructor'):
+        code_block.members.append(self.process_constructor_declaration())
+      elif self.current_token_matches('IDENTIFIER', 'set'):
+        code_block.members.append(self.process_assignment_statement())
+      elif self.current_token_matches('IDENTIFIER', 'method'):
+        code_block.members.append(self.process_method_declaration())
       else:
         chain = self.process_access_chain()
         if self.current_token_matches('SYMBOL', '('):
@@ -313,7 +369,7 @@ class Parser:
       sys.exit('Expected function declaration to start with function keyword')
     self.consume_current_token('function keyword')
     if not self.current_token_is('IDENTIFIER'):
-      sys.exit('Expected module declaration to have a string literal following the module keyword')
+      sys.exit('Expected function declaration to have a string literal following the function keyword')
     function_declaration.members.append(build_leaf('FUNCTION_NAME', self.current_token().content))
     self.consume_current_token('function name')
     if not self.current_token_is('IDENTIFIER'):
@@ -324,6 +380,38 @@ class Parser:
     self.leave_method('process_function_declaration')
     return function_declaration
 
+  def process_method_declaration(self):
+    self.enter_method('process_method_declaration')
+    method_declaration = build_node('METHOD_DECLARATION')
+    if not self.current_token_matches('IDENTIFIER', 'method'):
+      sys.exit('Expected method declaration to start with method keyword')
+    self.consume_current_token('method keyword')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected method declaration to have a string literal following the method keyword')
+    method_declaration.members.append(build_leaf('METHOD_NAME', self.current_token().content))
+    self.consume_current_token('method name')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected method return type to be present after the method name')
+    method_declaration.members.append(self.process_type_chain())
+    method_declaration.members.append(self.process_parameter_declarations())
+    method_declaration.members.append(self.process_code_block())
+    self.leave_method('process_method_declaration')
+    return method_declaration
+
+  def process_class_declaration(self):
+    self.enter_method('process_class_declaration')
+    class_declaration = build_node('CLASS_DECLARATION')
+    if not self.current_token_matches('IDENTIFIER', 'class'):
+      sys.exit('Expected class declaration to start with class keyword')
+    self.consume_current_token('class keyword')
+    if not self.current_token_is('IDENTIFIER'):
+      sys.exit('Expected class declaration to have a string literal following the class keyword')
+    class_declaration.members.append(build_leaf('CLASS_NAME', self.current_token().content))
+    self.consume_current_token('class name')
+    class_declaration.members.append(self.process_code_block())
+    self.leave_method('process_class_declaration')
+    return class_declaration
+
   def process_module_node(self):
     self.enter_method('process_module_node')
     module_node = None
@@ -333,6 +421,8 @@ class Parser:
       module_node = self.process_function_declaration()
     elif self.current_token_matches('IDENTIFIER', 'BEGIN_FOREIGN_CODE'):
       module_node = self.process_foreign_code()
+    elif self.current_token_matches('IDENTIFIER', 'class'):
+      module_node = self.process_class_declaration()
     self.leave_method('process_module_node')
     return module_node
 
